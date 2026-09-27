@@ -111,10 +111,11 @@ export function usePdv() {
     if (!venda) return
     setLoading(true)
     try {
-      await api.post(`/pdv/vendas/fechar`, { vendaId: venda.id, pagamentos })
+      const { data: vendaFechada } = await api.post<Venda>(`/pdv/vendas/fechar`, { vendaId: venda.id, pagamentos })
       toast.success('Venda finalizada!')
       setVenda(null)
       carregarComandas()
+      return vendaFechada
     } finally {
       setLoading(false)
     }
