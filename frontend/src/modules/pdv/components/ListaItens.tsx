@@ -1,16 +1,16 @@
 import { Trash2 } from 'lucide-react'
 import type { ItemVenda } from '@/types/venda'
+import { formatBRL, formatWeightDisplay } from '@/shared/utils/mask'
 
 interface Props {
   itens: ItemVenda[]
   onRemover: (id: number) => void
 }
 
-const brl = (v: number) =>
-  v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-
-const kg3 = (v: number) =>
-  v.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })
+// Tema escuro proposital — console de operação do caixa (PDV), separado do
+// tema claro usado no back-office. Ver nota em PDVPage.tsx.
+const brl = formatBRL
+const kg3 = formatWeightDisplay
 
 export default function ListaItens({ itens, onRemover }: Props) {
   if (itens.length === 0) {

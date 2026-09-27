@@ -7,9 +7,19 @@ import { usePdv } from './hooks/usePdv'
 import ListaItens from './components/ListaItens'
 import ModalPagamento from './components/ModalPagamento'
 import NovaComandaModal from './components/NovaComandaModal'
+import { formatBRL } from '@/shared/utils/mask'
+import { CurrencyInput } from '@/shared/components/ui'
 
-const brl = (v: number) =>
-  v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+// NOTA DE DESIGN: o PDV usa de propósito um tema escuro em tela cheia
+// ("console de caixa"), diferente do tema claro do back-office (financeiro,
+// estoque, etc.). Isso é um padrão comum em sistemas de ponto-de-venda —
+// alto contraste para operação rápida em balcão, teclas de atalho (F10),
+// texto grande no total. As cores dentro do PDV seguem seu próprio código
+// interno consistente: esmeralda = ação positiva/confirmar, vermelho =
+// cancelar/perigo, azul = informativo, âmbar = atenção — e os campos de
+// valor usam a MESMA lógica de máscara do resto do sistema
+// (CurrencyInput com a variante `dark`), só que com uma pele escura.
+const brl = formatBRL
 
 interface FechamentoResumo {
   valorAbertura: number
@@ -31,12 +41,12 @@ export default function PDVPage() {
   const [showPagto, setShowPagto] = useState(false)
   const [showNovaComanda, setShowNovaComanda] = useState(false)
   const [hora, setHora]           = useState(new Date())
-  const [valorAbertura, setValorAbertura] = useState('')
+  const [valorAbertura, setValorAbertura] = useState(0)
   const [abrindo, setAbrindo]     = useState(false)
 
   const [showFechar, setShowFechar]       = useState(false)
   const [resumoFechar, setResumoFechar]   = useState<FechamentoResumo | null>(null)
-  const [valorContado, setValorContado]   = useState('')
+  const [valorContado, setValorContado]   = useState(0)
   const [fechando, setFechando]           = useState(false)
 
   const nomeOperador = getNomeUsuario()
@@ -66,8 +76,8 @@ export default function PDVPage() {
   const handleAbrirCaixa = async () => {
     setAbrindo(true)
     try {
-      await abrirCaixa(parseFloat(valorAbertura.replace(',', '.')))
-      setValorAbertura('')
+      await abrirCaixa(valorAbertura)
+      setValorAbertura(0)
     } finally {
       setAbrindo(false)
     }
@@ -83,10 +93,10 @@ export default function PDVPage() {
   const handleConfirmarFechamento = async () => {
     setFechando(true)
     try {
-      await fecharCaixa(parseFloat(valorContado.replace(',', '.')))
+      await fecharCaixa(valorContado)
       setShowFechar(false)
       setResumoFechar(null)
-      setValorContado('')
+      setValorContado(0)
     } finally {
       setFechando(false)
     }
@@ -98,7 +108,6 @@ export default function PDVPage() {
       {/* ── Topbar ── */}
       <header className="flex items-center justify-between px-6 py-3 bg-gray-900 border-b border-gray-800">
         <div className="flex items-center gap-3">
-          <ShoppingBag size={20} className="text-red-400" />
           <span className="font-bold text-lg">PDV</span>
           {nomeOperador && (
             <span className="flex items-center gap-1.5 text-xs bg-gray-800 text-gray-300 px-2.5 py-1 rounded-full">
@@ -146,13 +155,12 @@ export default function PDVPage() {
                 {nomeOperador ? `${nomeOperador}, abra` : 'Abra'} um caixa informando o valor inicial (fundo de troco).
               </p>
             </div>
-            <input
-              type="text"
+            <CurrencyInput
               value={valorAbertura}
-              onChange={e => setValorAbertura(e.target.value)}
-              placeholder="0,00"
+              onChange={setValorAbertura}
+              dark
               autoFocus
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-center text-lg tabular-nums"
+              className="[&_input]:text-lg [&_input]:text-center"
             />
             <button
               onClick={handleAbrirCaixa}
@@ -171,7 +179,7 @@ export default function PDVPage() {
         <button
           onClick={() => setShowNovaComanda(true)}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium
-                     bg-red-600 hover:bg-red-500 transition-colors shrink-0"
+                     bg-talho-600 hover:bg-talho-400 transition-colors shrink-0"
         >
           <Plus size={14} /> Nova Comanda
         </button>
@@ -311,18 +319,11 @@ export default function PDVPage() {
             </div>
 
             <div>
-              <label className="text-xs text-gray-400 font-medium block mb-1">Valor contado na gaveta (R$)</label>
-              <input
-                type="text"
-                value={valorContado}
-                onChange={e => setValorContado(e.target.value)}
-                placeholder="0,00"
-                autoFocus
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm tabular-nums"
-              />
-              {valorContado && (
+              <label className="text-xs text-gray-400 font-medium block mb-1">Valor contado na gaveta</label>
+              <CurrencyInput value={valorContado} onChange={setValorContado} dark autoFocus />
+              {valorContado > 0 && (
                 (() => {
-                  const diff = parseFloat(valorContado.replace(',', '.')) - resumoFechar.saldoEsperado
+                  const diff = valorContado - resumoFechar.saldoEsperado
                   if (Math.abs(diff) < 0.01) return <p className="text-xs text-emerald-400 mt-1">Confere com o esperado.</p>
                   return (
                     <p className={`text-xs mt-1 ${diff > 0 ? 'text-blue-400' : 'text-red-400'}`}>
@@ -335,7 +336,7 @@ export default function PDVPage() {
 
             <div className="flex gap-3">
               <button
-                onClick={() => { setShowFechar(false); setResumoFechar(null); setValorContado('') }}
+                onClick={() => { setShowFechar(false); setResumoFechar(null); setValorContado(0) }}
                 className="flex-1 py-2.5 border border-gray-700 rounded-lg text-sm hover:bg-gray-800"
               >
                 Cancelar
@@ -343,7 +344,7 @@ export default function PDVPage() {
               <button
                 onClick={handleConfirmarFechamento}
                 disabled={!valorContado || fechando}
-                className="flex-1 py-2.5 bg-red-600 hover:bg-red-500 rounded-lg text-sm font-medium disabled:opacity-50"
+                className="flex-1 py-2.5 bg-talho-600 hover:bg-talho-400 rounded-lg text-sm font-medium disabled:opacity-50"
               >
                 {fechando ? 'Fechando...' : 'Confirmar Fechamento'}
               </button>

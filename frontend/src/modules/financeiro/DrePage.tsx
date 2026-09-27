@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { BarChart2, TrendingUp, TrendingDown } from 'lucide-react'
+import { TrendingUp, TrendingDown } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { api } from '@/shared/api/axios'
+import { formatBRL, formatPercent } from '@/shared/utils/mask'
+import { PageHeader, Card, Button, CurrencyInput, Field, baseInputClass } from '@/shared/components/ui'
 
 interface DreDTO {
   periodo: string
@@ -24,14 +26,17 @@ interface DreDTO {
   }[]
 }
 
-const brl  = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-const pct  = (v: number) => `${v.toFixed(1)}%`
+const brl = formatBRL
+const pct = (v: number) => formatPercent(v)
 
+// Cores dos indicadores do DRE seguem os tokens semânticos: receita é uma
+// informação neutra (info), CMV/custos são saídas (danger/warning), lucro é
+// o resultado positivo (success) — o Lucro Líquido inverte para danger se negativo.
 export default function DrePage() {
   const agora = new Date()
   const [ano, setAno]   = useState(agora.getFullYear())
   const [mes, setMes]   = useState(agora.getMonth() + 1)
-  const [opex, setOpex] = useState('0')
+  const [opex, setOpex] = useState(0)
 
   const { data: dre, isLoading, refetch } = useQuery<DreDTO>({
     queryKey: ['dre', ano, mes, opex],
@@ -41,52 +46,39 @@ export default function DrePage() {
   })
 
   const cards = dre ? [
-    { label: 'Receita Bruta',        value: dre.receitaBruta,        cor: 'text-blue-600',    bg: 'bg-blue-50' },
-    { label: 'CMV',                   value: dre.cmv,                 cor: 'text-red-600',     bg: 'bg-red-50',  neg: true },
-    { label: 'Lucro Bruto',           value: dre.lucroBruto,          cor: 'text-emerald-600', bg: 'bg-emerald-50', pct: dre.percentualLucroBruto },
-    { label: 'Custos Operacionais',   value: dre.custosOperacionais,  cor: 'text-orange-600',  bg: 'bg-orange-50', neg: true },
-    { label: 'Lucro Líquido',         value: dre.lucroLiquido,        cor: dre.lucroLiquido >= 0 ? 'text-emerald-700' : 'text-red-700', bg: dre.lucroLiquido >= 0 ? 'bg-emerald-100' : 'bg-red-100', pct: dre.percentualLucroLiquido },
+    { label: 'Receita Bruta',        value: dre.receitaBruta,        cor: 'text-info-600',    bg: 'bg-info-50' },
+    { label: 'CMV',                   value: dre.cmv,                 cor: 'text-danger-600',  bg: 'bg-danger-50',  neg: true },
+    { label: 'Lucro Bruto',           value: dre.lucroBruto,          cor: 'text-success-600', bg: 'bg-success-50', pct: dre.percentualLucroBruto },
+    { label: 'Custos Operacionais',   value: dre.custosOperacionais,  cor: 'text-warning-600', bg: 'bg-warning-50', neg: true },
+    { label: 'Lucro Líquido',         value: dre.lucroLiquido,        cor: dre.lucroLiquido >= 0 ? 'text-success-700' : 'text-danger-700', bg: dre.lucroLiquido >= 0 ? 'bg-success-100' : 'bg-danger-100', pct: dre.percentualLucroLiquido },
   ] : []
 
   return (
     <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <BarChart2 size={24} className="text-red-600" /> DRE Simplificado
-        </h1>
-        <p className="text-gray-500 text-sm">Demonstrativo de Resultado do Exercício</p>
-      </div>
+      <PageHeader title="DRE Simplificado" subtitle="Demonstrativo de Resultado do Exercício" />
 
       {/* Filtros */}
-      <div className="flex items-center gap-4 mb-6 bg-white rounded-xl shadow p-4">
-        <div>
-          <label className="text-xs font-medium text-gray-600 block mb-1">Mês</label>
-          <select value={mes} onChange={e => setMes(Number(e.target.value))}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none">
+      <Card className="flex items-end gap-4 mb-6">
+        <Field label="Mês">
+          <select value={mes} onChange={e => setMes(Number(e.target.value))} className={`${baseInputClass} w-40`}>
             {Array.from({ length: 12 }, (_, i) => (
               <option key={i+1} value={i+1}>
                 {new Date(2000, i).toLocaleString('pt-BR', { month: 'long' })}
               </option>
             ))}
           </select>
-        </div>
-        <div>
-          <label className="text-xs font-medium text-gray-600 block mb-1">Ano</label>
+        </Field>
+        <Field label="Ano">
           <input type="number" value={ano} onChange={e => setAno(Number(e.target.value))}
-            className="w-24 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none" />
-        </div>
-        <div>
-          <label className="text-xs font-medium text-gray-600 block mb-1">Custos Op. (R$)</label>
-          <input type="number" step="0.01" value={opex} onChange={e => setOpex(e.target.value)}
-            className="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none" />
-        </div>
-        <button onClick={() => refetch()}
-          className="mt-4 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium">
-          Calcular
-        </button>
-      </div>
+            className={`${baseInputClass} w-24`} />
+        </Field>
+        <Field label="Custos Op.">
+          <CurrencyInput value={opex} onChange={setOpex} className="w-36" />
+        </Field>
+        <Button variant="primary" onClick={() => refetch()}>Calcular</Button>
+      </Card>
 
-      {isLoading && <div className="text-center py-12 text-gray-500">Calculando...</div>}
+      {isLoading && <div className="text-center py-12 text-gray-500 text-sm">Calculando...</div>}
 
       {dre && (
         <>
@@ -109,7 +101,7 @@ export default function DrePage() {
           </div>
 
           {/* Gráfico de margem por produto */}
-          <div className="bg-white rounded-xl shadow p-5">
+          <Card>
             <h2 className="font-semibold text-gray-900 mb-4">Margem de Lucro por Corte</h2>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={dre.margensPorProduto} layout="vertical"
@@ -123,9 +115,9 @@ export default function DrePage() {
                     <Cell
                       key={i}
                       fill={
-                        entry.percentualMargem >= 30 ? '#10b981'
-                        : entry.percentualMargem >= 15 ? '#f59e0b'
-                        : '#ef4444'
+                        entry.percentualMargem >= 30 ? '#2F6B4F'   // success-600
+                        : entry.percentualMargem >= 15 ? '#B9780F' // warning-600
+                        : '#C23A2C'                                 // danger-600
                       }
                     />
                   ))}
@@ -135,7 +127,7 @@ export default function DrePage() {
             <p className="text-xs text-gray-400 mt-2">
               Verde ≥ 30% • Amarelo ≥ 15% • Vermelho &lt; 15%
             </p>
-          </div>
+          </Card>
         </>
       )}
     </div>

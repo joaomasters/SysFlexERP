@@ -1,7 +1,10 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../shared/api/axios'
-import { ClipboardList, CheckCircle2, XCircle, ChevronRight, Filter } from 'lucide-react'
+import { CheckCircle2, XCircle, Filter } from 'lucide-react'
+import { formatWeightDisplay } from '@/shared/utils/mask'
+import { PageHeader, Card, Button, StatusBadge, WeightInput, baseInputClass } from '@/shared/components/ui'
+import type { BadgeTone } from '@/shared/components/ui'
 
 interface Inventario {
   id: number; status: string; observacao: string
@@ -15,12 +18,21 @@ interface InventarioItem {
 
 const hoje = new Date().toISOString().slice(0, 10)
 const trintaDiasAtras = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+const kg3 = formatWeightDisplay
+
+// ABERTO = contagem em andamento (processo, não problema); FINALIZADO = concluído;
+// CANCELADO = neutro.
+const statusTom: Record<string, BadgeTone> = {
+  ABERTO: 'info',
+  FINALIZADO: 'success',
+  CANCELADO: 'neutral',
+}
 
 export default function InventarioPage() {
   const qc = useQueryClient()
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [observacao, setObservacao] = useState('')
-  const [contagens, setContagens] = useState<Record<number, string>>({})
+  const [contagens, setContagens] = useState<Record<number, number>>({})
 
   // Filtro de período da lista de inventários — padrão de 30 dias, com
   // opção de limpar pra ver o histórico completo.
@@ -49,9 +61,9 @@ export default function InventarioPage() {
   })
 
   const contar = useMutation({
-    mutationFn: ({ produtoId, val }: { produtoId: number; val: string }) =>
+    mutationFn: ({ produtoId, val }: { produtoId: number; val: number }) =>
       api.patch(`/estoque/inventario/${selectedId}/itens/${produtoId}`, {
-        saldoContado: parseFloat(val.replace(',', '.')),
+        saldoContado: val,
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['inventario-itens', selectedId] }),
   })
@@ -74,64 +86,49 @@ export default function InventarioPage() {
 
   return (
     <div className="p-6 space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-            <ClipboardList size={24} className="text-blue-600" />
-            Inventário Físico
-          </h1>
-          <p className="text-sm text-gray-500">Contagem física vs saldo do sistema com ajuste automático</p>
-        </div>
-      </div>
+      <PageHeader title="Inventário Físico" subtitle="Contagem física vs saldo do sistema" />
 
       <div className="grid grid-cols-3 gap-5">
         {/* Painel esquerdo — lista */}
         <div className="col-span-1 space-y-3">
-          <div className="bg-white rounded-xl border p-4 space-y-3">
+          <Card padding="sm" className="space-y-3">
             <p className="text-sm font-semibold text-gray-700">Novo Inventário</p>
             <input type="text" value={observacao} onChange={e => setObservacao(e.target.value)}
               placeholder="Observação (opcional)"
-              className="w-full border rounded-lg px-3 py-2 text-sm" />
-            <button onClick={() => abrir.mutate()}
-              disabled={abrir.isPending}
-              className="w-full py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+              className={baseInputClass} />
+            <Button variant="primary" fullWidth loading={abrir.isPending} onClick={() => abrir.mutate()}>
               Abrir Inventário
-            </button>
-          </div>
+            </Button>
+          </Card>
 
-          <div className="bg-white rounded-xl border p-3 space-y-2">
+          <Card padding="sm" className="space-y-2">
             <p className="text-xs font-semibold text-gray-500 flex items-center gap-1.5">
               <Filter size={12} /> Filtrar por período
             </p>
             <div className="flex gap-2">
               <input type="date" value={filtroInicio} onChange={e => setFiltroInicio(e.target.value)}
-                className="w-full border rounded-lg px-2 py-1.5 text-xs" />
+                className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs" />
               <input type="date" value={filtroFim} onChange={e => setFiltroFim(e.target.value)}
-                className="w-full border rounded-lg px-2 py-1.5 text-xs" />
+                className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs" />
             </div>
             {(filtroInicio || filtroFim) && (
               <button
                 onClick={() => { setFiltroInicio(''); setFiltroFim('') }}
-                className="text-[11px] text-blue-600 hover:text-blue-700 font-medium"
+                className="text-[11px] text-info-600 hover:text-info-700 font-medium"
               >
                 Ver histórico completo
               </button>
             )}
-          </div>
+          </Card>
 
           <div className="space-y-2">
             {lista.data?.map(inv => (
               <button key={inv.id} onClick={() => setSelectedId(inv.id)}
-                className={`w-full text-left p-3 rounded-xl border text-sm transition
-                  ${selectedId === inv.id ? 'border-blue-500 bg-blue-50' : 'bg-white hover:bg-gray-50'}`}>
+                className={`w-full text-left p-3 rounded-xl border text-sm transition-colors
+                  ${selectedId === inv.id ? 'border-primary-500 bg-primary-50' : 'bg-white hover:bg-gray-50 border-gray-200'}`}>
                 <div className="flex items-center justify-between">
                   <span className="font-medium">#{inv.id}</span>
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium
-                    ${inv.status === 'ABERTO' ? 'bg-green-100 text-green-700'
-                      : inv.status === 'FINALIZADO' ? 'bg-blue-100 text-blue-700'
-                      : 'bg-gray-100 text-gray-500'}`}>
-                    {inv.status}
-                  </span>
+                  <StatusBadge tone={statusTom[inv.status] ?? 'neutral'}>{inv.status}</StatusBadge>
                 </div>
                 <p className="text-xs text-gray-400 mt-1">
                   {new Date(inv.createdAt).toLocaleDateString('pt-BR')}
@@ -152,19 +149,17 @@ export default function InventarioPage() {
             </div>
           )}
           {selectedId && (
-            <div className="bg-white rounded-xl border overflow-hidden">
+            <div className="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">
               <div className="px-5 py-3 border-b bg-gray-50 flex items-center justify-between">
                 <span className="text-sm font-semibold text-gray-700">Itens — Inventário #{selectedId}</span>
                 {isAberto && (
                   <div className="flex gap-2">
-                    <button onClick={() => cancelar.mutate()}
-                      className="flex items-center gap-1 px-3 py-1.5 text-xs border text-gray-600 rounded-lg hover:bg-gray-100">
+                    <Button variant="secondary" size="sm" onClick={() => cancelar.mutate()}>
                       <XCircle size={14} /> Cancelar
-                    </button>
-                    <button onClick={() => finalizar.mutate()}
-                      className="flex items-center gap-1 px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    </Button>
+                    <Button variant="success" size="sm" onClick={() => finalizar.mutate()}>
                       <CheckCircle2 size={14} /> Finalizar e Ajustar
-                    </button>
+                    </Button>
                   </div>
                 )}
               </div>
@@ -182,29 +177,30 @@ export default function InventarioPage() {
                     {itens.data?.map(item => (
                       <tr key={item.id} className="border-b last:border-0 hover:bg-gray-50">
                         <td className="px-4 py-2.5 font-medium">{item.produto.nome}</td>
-                        <td className="px-4 py-2.5 text-right text-gray-500">
-                          {item.saldoSistema?.toFixed(3)} {item.produto.unidadeMedida}
+                        <td className="px-4 py-2.5 text-right text-gray-500 tabular-nums">
+                          {kg3(item.saldoSistema)} {item.produto.unidadeMedida}
                         </td>
                         <td className="px-4 py-2.5 text-right">
                           {isAberto ? (
-                            <input
-                              type="text"
-                              value={contagens[item.produto.id] ?? item.saldoContado?.toFixed(3) ?? ''}
-                              onChange={e => setContagens(p => ({ ...p, [item.produto.id]: e.target.value }))}
+                            <WeightInput
+                              value={contagens[item.produto.id] ?? item.saldoContado ?? 0}
+                              onChange={v => setContagens(p => ({ ...p, [item.produto.id]: v }))}
                               onBlur={() => {
                                 const v = contagens[item.produto.id]
                                 if (v !== undefined) contar.mutate({ produtoId: item.produto.id, val: v })
                               }}
-                              className="w-24 border rounded px-2 py-1 text-right text-sm"
+                              unit={item.produto.unidadeMedida.toLowerCase()}
+                              size="sm"
+                              className="w-32 ml-auto"
                             />
                           ) : (
-                            <span>{item.saldoContado?.toFixed(3) ?? '—'}</span>
+                            <span className="tabular-nums">{item.saldoContado != null ? kg3(item.saldoContado) : '—'}</span>
                           )}
                         </td>
-                        <td className="px-4 py-2.5 text-right font-medium">
+                        <td className="px-4 py-2.5 text-right font-medium tabular-nums">
                           {item.divergencia != null ? (
-                            <span className={item.divergencia >= 0 ? 'text-green-600' : 'text-red-600'}>
-                              {item.divergencia >= 0 ? '+' : ''}{item.divergencia.toFixed(3)}
+                            <span className={item.divergencia >= 0 ? 'text-success-600' : 'text-danger-600'}>
+                              {item.divergencia >= 0 ? '+' : ''}{kg3(item.divergencia)}
                             </span>
                           ) : '—'}
                         </td>

@@ -7,14 +7,14 @@
     box-sizing: border-box;
   }
   body {
-    @apply font-sans text-gray-900 antialiased;
+    @apply font-sans text-aco-900 bg-papel-50 antialiased;
   }
 }
 
 @layer utilities {
   .tabular-nums {
     font-variant-numeric: tabular-nums;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: "IBM Plex Mono", monospace;
   }
   .scrollbar-thin {
     scrollbar-width: thin;

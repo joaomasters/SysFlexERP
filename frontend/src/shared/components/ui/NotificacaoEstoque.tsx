@@ -54,7 +54,7 @@ export default function NotificacaoEstoque() {
       >
         <Bell size={20} className={qtd > 0 ? 'text-amber-600' : 'text-gray-400'} />
         {qtd > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 bg-red-600 text-white text-[10px] font-bold
+          <span className="absolute -top-0.5 -right-0.5 bg-talho-600 text-white text-[10px] font-bold
                            rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
             {qtd > 99 ? '99+' : qtd}
           </span>
