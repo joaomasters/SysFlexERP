@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Scissors, Plus, X, ChevronDown, ChevronUp,
@@ -7,6 +7,7 @@ import {
 import { api } from '@/shared/api/axios'
 import toast from 'react-hot-toast'
 import type { Produto, FichaDesossa } from '@/types/produto'
+import { PageHeader, Card, Button, Modal, Field, baseInputClass } from '@/shared/components/ui'
 
 // ─── tipos locais ────────────────────────────────────────────────────────────
 interface ItemForm {
@@ -17,14 +18,22 @@ interface ItemForm {
 
 const PERC_TOTAL_MAX = 100
 
+// Paleta categórica p/ distinguir cortes na mesma ficha visualmente — não é
+// cor de status, então não usa os tokens semânticos.
+const CORES_CORTE = [
+  'bg-primary-500', 'bg-orange-500', 'bg-mostarda-500', 'bg-yellow-500',
+  'bg-lime-500', 'bg-success-500', 'bg-teal-500', 'bg-cyan-500',
+  'bg-info-500', 'bg-violet-500', 'bg-purple-500', 'bg-pink-500',
+]
+
 // ─── helpers ─────────────────────────────────────────────────────────────────
 const perc  = (v: number)  => `${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`
 const parseP = (s: string) => parseFloat(s.replace(',', '.')) || 0
 
 function corPerda(perda: number) {
-  if (perda < 0)  return 'text-red-400'
-  if (perda === 0) return 'text-emerald-400'
-  return 'text-yellow-400'
+  if (perda < 0)  return 'text-danger-600'
+  if (perda === 0) return 'text-success-600'
+  return 'text-warning-600'
 }
 
 // ─── componente de barra de percentual ───────────────────────────────────────
@@ -36,26 +45,26 @@ function BarraPercentual({ itens }: { itens: ItemForm[] }) {
   return (
     <div className="space-y-1.5">
       <div className="flex justify-between text-xs">
-        <span className="text-gray-400">Rendimento total</span>
-        <span className={excesso ? 'text-red-400 font-bold' : 'text-white font-medium'}>
+        <span className="text-gray-500">Rendimento total</span>
+        <span className={excesso ? 'text-danger-600 font-bold' : 'text-gray-700 font-medium'}>
           {perc(Math.min(total, 100))}
         </span>
       </div>
-      <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+      <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
         <div
-          className={`h-full rounded-full transition-all ${excesso ? 'bg-red-500' : total >= 100 ? 'bg-emerald-500' : 'bg-blue-500'}`}
+          className={`h-full rounded-full transition-all ${excesso ? 'bg-danger-500' : total >= 100 ? 'bg-success-500' : 'bg-info-500'}`}
           style={{ width: `${Math.min(total, 100)}%` }}
         />
       </div>
       <div className="flex justify-between text-xs">
         {excesso ? (
-          <span className="text-red-400 flex items-center gap-1">
+          <span className="text-danger-600 flex items-center gap-1">
             <AlertTriangle size={11} /> Excede 100% — reduza os percentuais
           </span>
         ) : perda > 0 ? (
-          <span className="text-yellow-400">Perda/sebo/osso: {perc(perda)}</span>
+          <span className="text-warning-600">Perda/sebo/osso: {perc(perda)}</span>
         ) : (
-          <span className="text-emerald-400 flex items-center gap-1">
+          <span className="text-success-600 flex items-center gap-1">
             <CheckCircle2 size={11} /> Rendimento completo (sem perda)
           </span>
         )}
@@ -147,158 +156,109 @@ function FormModal({ ficha, produtos, onClose, onSaved }: FormModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-start justify-center z-50 p-4 overflow-y-auto">
-      <div className="bg-gray-900 rounded-2xl w-full max-w-2xl my-4 text-white flex flex-col">
+    <Modal
+      title={editando ? 'Editar Ficha de Desossa' : 'Nova Ficha de Desossa'}
+      onClose={onClose}
+      maxWidth="lg"
+      footer={
+        <>
+          <Button variant="secondary" fullWidth onClick={onClose}>Cancelar</Button>
+          <Button variant="primary" fullWidth disabled={invalido} loading={salvar.isPending} onClick={() => salvar.mutate()}>
+            {editando ? 'Salvar alterações' : 'Criar ficha'}
+          </Button>
+        </>
+      }
+    >
+      <Field label="Nome da ficha *">
+        <input
+          value={nome}
+          onChange={e => setNome(e.target.value)}
+          placeholder="Ex: Desossa Boi Nelore"
+          className={baseInputClass}
+        />
+      </Field>
+      <Field label="Descrição">
+        <input
+          value={descricao}
+          onChange={e => setDescricao(e.target.value)}
+          placeholder="Observações opcionais"
+          className={baseInputClass}
+        />
+      </Field>
 
-        {/* header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
-          <h2 className="font-bold text-lg">
-            {editando ? 'Editar Ficha de Desossa' : 'Nova Ficha de Desossa'}
-          </h2>
-          <button onClick={onClose}><X size={20} className="text-gray-400 hover:text-white" /></button>
+      {/* produto pai */}
+      <Field label="Produto de Entrada (Pai) *" hint={paiSel ? `Estoque atual: ${paiSel.estoqueAtual} ${paiSel.unidadeMedida}` : undefined}>
+        <select value={prodPaiId} onChange={e => setProdPaiId(e.target.value)} className={baseInputClass}>
+          <option value="">Selecione o produto que entra...</option>
+          {produtosPai.map(p => (
+            <option key={p.id} value={p.id}>{p.nome} ({p.unidadeMedida})</option>
+          ))}
+        </select>
+      </Field>
+
+      {/* itens / cortes */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+            Cortes (saídas) *
+          </label>
+          <div className="flex gap-3">
+            <button onClick={distribuirIgual} className="text-xs text-info-600 hover:text-info-700 font-medium">
+              Distribuir igualmente
+            </button>
+            <button onClick={addItem} className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 font-medium">
+              <Plus size={12} /> Adicionar corte
+            </button>
+          </div>
         </div>
 
-        <div className="px-6 py-5 space-y-5">
-
-          {/* nome + descricao */}
-          <div className="grid grid-cols-1 gap-3">
-            <div>
-              <label className="text-xs font-medium text-gray-400 block mb-1">Nome da ficha *</label>
-              <input
-                value={nome}
-                onChange={e => setNome(e.target.value)}
-                placeholder="Ex: Desossa Boi Nelore"
-                className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-sm
-                           focus:outline-none focus:border-red-500"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-400 block mb-1">Descrição</label>
-              <input
-                value={descricao}
-                onChange={e => setDescricao(e.target.value)}
-                placeholder="Observações opcionais"
-                className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-sm
-                           focus:outline-none focus:border-red-500"
-              />
-            </div>
-          </div>
-
-          {/* produto pai */}
-          <div>
-            <label className="text-xs font-medium text-gray-400 block mb-1">Produto de Entrada (Pai) *</label>
-            <select
-              value={prodPaiId}
-              onChange={e => setProdPaiId(e.target.value)}
-              className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-sm
-                         focus:outline-none focus:border-red-500"
-            >
-              <option value="">Selecione o produto que entra...</option>
-              {produtosPai.map(p => (
-                <option key={p.id} value={p.id}>{p.nome} ({p.unidadeMedida})</option>
-              ))}
-            </select>
-            {paiSel && (
-              <p className="text-xs text-gray-500 mt-1">
-                Estoque atual: {paiSel.estoqueAtual} {paiSel.unidadeMedida}
-              </p>
-            )}
-          </div>
-
-          {/* itens / cortes */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
-                Cortes (saídas) *
-              </label>
-              <div className="flex gap-2">
-                <button
-                  onClick={distribuirIgual}
-                  className="text-xs text-blue-400 hover:text-blue-300"
+        <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+          {itens.map((item, idx) => (
+            <div key={idx} className="grid grid-cols-12 gap-2 items-center bg-gray-50 border border-gray-100 rounded-lg p-2.5">
+              <div className="col-span-1 text-center text-xs text-gray-400 font-mono">{idx + 1}</div>
+              <div className="col-span-7">
+                <select
+                  value={item.produtoFilhoId}
+                  onChange={e => updateItem(idx, 'produtoFilhoId', e.target.value)}
+                  className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white
+                             focus:outline-none focus:ring-2 focus:ring-primary-500"
                 >
-                  Distribuir igualmente
-                </button>
+                  <option value="">Produto filho...</option>
+                  {produtosFilhos.map(p => (
+                    <option key={p.id} value={p.id}>{p.nome}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="col-span-3 relative">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={item.percentualRendimento}
+                  onChange={e => updateItem(idx, 'percentualRendimento', e.target.value)}
+                  placeholder="0,00"
+                  className="w-full border border-gray-300 rounded px-2 py-1.5 pr-6 bg-white
+                             text-sm text-right focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs">%</span>
+              </div>
+              <div className="col-span-1 flex justify-center">
                 <button
-                  onClick={addItem}
-                  className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300"
+                  onClick={() => removeItem(idx)}
+                  disabled={itens.length === 1}
+                  className="text-gray-400 hover:text-danger-500 disabled:opacity-30"
                 >
-                  <Plus size={12} /> Adicionar corte
+                  <X size={14} />
                 </button>
               </div>
             </div>
-
-            <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-              {itens.map((item, idx) => (
-                <div key={idx} className="grid grid-cols-12 gap-2 items-center bg-gray-800 rounded-lg p-2.5">
-                  {/* sequência */}
-                  <div className="col-span-1 text-center text-xs text-gray-500 font-mono">{idx + 1}</div>
-                  {/* produto filho */}
-                  <div className="col-span-7">
-                    <select
-                      value={item.produtoFilhoId}
-                      onChange={e => updateItem(idx, 'produtoFilhoId', e.target.value)}
-                      className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-sm
-                                 focus:outline-none focus:border-red-500"
-                    >
-                      <option value="">Produto filho...</option>
-                      {produtosFilhos.map(p => (
-                        <option key={p.id} value={p.id}>{p.nome}</option>
-                      ))}
-                    </select>
-                  </div>
-                  {/* percentual */}
-                  <div className="col-span-3 relative">
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={item.percentualRendimento}
-                      onChange={e => updateItem(idx, 'percentualRendimento', e.target.value)}
-                      placeholder="0,00"
-                      className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 pr-6
-                                 text-sm text-right focus:outline-none focus:border-red-500"
-                    />
-                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs">%</span>
-                  </div>
-                  {/* remover */}
-                  <div className="col-span-1 flex justify-center">
-                    <button
-                      onClick={() => removeItem(idx)}
-                      disabled={itens.length === 1}
-                      className="text-gray-600 hover:text-red-400 disabled:opacity-30"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* barra percentual */}
-            <div className="mt-3">
-              <BarraPercentual itens={itens} />
-            </div>
-          </div>
+          ))}
         </div>
 
-        {/* footer */}
-        <div className="px-6 py-4 border-t border-gray-700 flex gap-3">
-          <button
-            onClick={onClose}
-            className="flex-1 py-2.5 bg-gray-700 hover:bg-gray-600 rounded-xl text-sm transition-colors"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={() => salvar.mutate()}
-            disabled={invalido || salvar.isPending}
-            className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 rounded-xl text-sm font-bold
-                       disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {salvar.isPending ? 'Salvando...' : editando ? 'Salvar alterações' : 'Criar ficha'}
-          </button>
+        <div className="mt-3">
+          <BarraPercentual itens={itens} />
         </div>
       </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -333,7 +293,6 @@ export default function FichasDesossaPage() {
     onSuccess: () => { toast.success('Ficha reativada'); qc.invalidateQueries({ queryKey: ['fichas-desossa'] }) },
   })
 
-  // estatísticas
   const stats = useMemo(() => ({
     total:   fichas.length,
     ativas:  fichas.filter(f => f.ativo).length,
@@ -352,40 +311,31 @@ export default function FichasDesossaPage() {
 
   return (
     <div className="p-6">
+      <PageHeader
+        title="Fichas de Desossa"
+        subtitle="Configure os cortes e percentuais de rendimento de cada peça"
+        actions={
+          <Button variant="primary" onClick={() => { setEditFicha(null); setShowForm(true) }}>
+            <Plus size={16} /> Nova Ficha
+          </Button>
+        }
+      />
 
-      {/* ── Header ─────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Scissors size={24} className="text-red-600" /> Fichas de Desossa
-          </h1>
-          <p className="text-gray-500 text-sm mt-0.5">
-            Configure os cortes e percentuais de rendimento de cada peça
-          </p>
-        </div>
-        <button
-          onClick={() => { setEditFicha(null); setShowForm(true) }}
-          className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700"
-        >
-          <Plus size={16} /> Nova Ficha
-        </button>
-      </div>
-
-      {/* ── Stats ──────────────────────────────────────────────────────── */}
+      {/* Stats */}
       <div className="grid grid-cols-3 gap-3 mb-5">
         {[
           { label: 'Fichas ativas',    value: stats.ativas },
           { label: 'Total de fichas',  value: stats.total },
           { label: 'Total de cortes',  value: stats.totalCortes },
         ].map(s => (
-          <div key={s.label} className="bg-white rounded-xl border p-4 text-center">
+          <Card key={s.label} padding="sm" className="text-center">
             <p className="text-2xl font-black text-gray-800">{s.value}</p>
             <p className="text-xs text-gray-400 mt-0.5">{s.label}</p>
-          </div>
+          </Card>
         ))}
       </div>
 
-      {/* ── Filtro ─────────────────────────────────────────────────────── */}
+      {/* Filtro */}
       <div className="flex items-center gap-2 mb-4">
         <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
           <input
@@ -398,7 +348,7 @@ export default function FichasDesossaPage() {
         </label>
       </div>
 
-      {/* ── Lista ──────────────────────────────────────────────────────── */}
+      {/* Lista */}
       <div className="space-y-3">
         {isLoading && <p className="text-gray-400 text-sm">Carregando...</p>}
 
@@ -410,10 +360,9 @@ export default function FichasDesossaPage() {
           return (
             <div
               key={ficha.id}
-              className={`bg-white rounded-xl border overflow-hidden transition-opacity
+              className={`bg-white rounded-xl shadow border border-gray-100 overflow-hidden transition-opacity
                 ${!ficha.ativo ? 'opacity-60' : ''}`}
             >
-              {/* linha principal */}
               <div
                 className="flex items-center gap-4 px-5 py-4 cursor-pointer hover:bg-gray-50"
                 onClick={() => setExpandId(expanded ? null : ficha.id)}
@@ -442,30 +391,21 @@ export default function FichasDesossaPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    onClick={e => { e.stopPropagation(); abrirEditar(ficha) }}
-                    className="p-1.5 rounded hover:bg-blue-50 text-gray-400 hover:text-blue-600"
-                    title="Editar"
-                  >
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button variant="ghost" size="sm" onClick={e => { e.stopPropagation(); abrirEditar(ficha) }} title="Editar">
                     <Pencil size={15} />
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="ghost" size="sm"
+                    className={ficha.ativo ? 'hover:!text-danger-600' : 'hover:!text-success-600'}
                     onClick={e => {
                       e.stopPropagation()
-                      ficha.ativo
-                        ? inativar.mutate(ficha.id)
-                        : reativar.mutate(ficha.id)
+                      ficha.ativo ? inativar.mutate(ficha.id) : reativar.mutate(ficha.id)
                     }}
-                    className={`p-1.5 rounded transition-colors ${
-                      ficha.ativo
-                        ? 'hover:bg-red-50 text-gray-400 hover:text-red-500'
-                        : 'hover:bg-emerald-50 text-gray-400 hover:text-emerald-600'
-                    }`}
                     title={ficha.ativo ? 'Inativar' : 'Reativar'}
                   >
                     <Power size={15} />
-                  </button>
+                  </Button>
                   {expanded
                     ? <ChevronUp size={16} className="text-gray-400" />
                     : <ChevronDown size={16} className="text-gray-400" />}
@@ -482,21 +422,14 @@ export default function FichasDesossaPage() {
                   {/* barra visual de rendimento */}
                   <div className="mb-4">
                     <div className="flex gap-0.5 h-5 rounded-lg overflow-hidden">
-                      {ficha.itens.map((item, i) => {
-                        const colors = [
-                          'bg-red-500','bg-orange-500','bg-amber-500','bg-yellow-500',
-                          'bg-lime-500','bg-emerald-500','bg-teal-500','bg-cyan-500',
-                          'bg-blue-500','bg-violet-500','bg-purple-500','bg-pink-500',
-                        ]
-                        return (
-                          <div
-                            key={item.id}
-                            className={`${colors[i % colors.length]} flex items-center justify-center`}
-                            style={{ width: `${item.percentualRendimento}%` }}
-                            title={`${item.produtoFilho.nome}: ${perc(item.percentualRendimento)}`}
-                          />
-                        )
-                      })}
+                      {ficha.itens.map((item, i) => (
+                        <div
+                          key={item.id}
+                          className={`${CORES_CORTE[i % CORES_CORTE.length]} flex items-center justify-center`}
+                          style={{ width: `${item.percentualRendimento}%` }}
+                          title={`${item.produtoFilho.nome}: ${perc(item.percentualRendimento)}`}
+                        />
+                      ))}
                       {perda > 0 && (
                         <div
                           className="bg-gray-300 flex items-center justify-center"
@@ -506,19 +439,12 @@ export default function FichasDesossaPage() {
                       )}
                     </div>
                     <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-                      {ficha.itens.map((item, i) => {
-                        const colors = [
-                          'bg-red-500','bg-orange-500','bg-amber-500','bg-yellow-500',
-                          'bg-lime-500','bg-emerald-500','bg-teal-500','bg-cyan-500',
-                          'bg-blue-500','bg-violet-500','bg-purple-500','bg-pink-500',
-                        ]
-                        return (
-                          <span key={item.id} className="flex items-center gap-1 text-xs text-gray-500">
-                            <span className={`inline-block w-2 h-2 rounded-full ${colors[i % colors.length]}`} />
-                            {item.produtoFilho.nome}
-                          </span>
-                        )
-                      })}
+                      {ficha.itens.map((item, i) => (
+                        <span key={item.id} className="flex items-center gap-1 text-xs text-gray-500">
+                          <span className={`inline-block w-2 h-2 rounded-full ${CORES_CORTE[i % CORES_CORTE.length]}`} />
+                          {item.produtoFilho.nome}
+                        </span>
+                      ))}
                       {perda > 0 && (
                         <span className="flex items-center gap-1 text-xs text-gray-400">
                           <span className="inline-block w-2 h-2 rounded-full bg-gray-300" />
@@ -559,7 +485,7 @@ export default function FichasDesossaPage() {
                       {perda > 0 && (
                         <tr>
                           <td colSpan={2} className="text-xs text-gray-400">Perda / osso / sebo</td>
-                          <td className="text-right text-xs text-yellow-600 tabular-nums">{perc(perda)}</td>
+                          <td className="text-right text-xs text-warning-600 tabular-nums">{perc(perda)}</td>
                           <td />
                         </tr>
                       )}
@@ -580,7 +506,6 @@ export default function FichasDesossaPage() {
         )}
       </div>
 
-      {/* ── Modal ──────────────────────────────────────────────────────── */}
       {showForm && (
         <FormModal
           ficha={editFicha}

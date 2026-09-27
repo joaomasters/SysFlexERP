@@ -19,6 +19,8 @@ public interface ContasAReceberRepository extends JpaRepository<ContasAReceber, 
 
     List<ContasAReceber> findByClienteId(Long clienteId);
 
+    List<ContasAReceber> findByStatusOrderByDataVencimentoAsc(String status);
+
     Optional<ContasAReceber> findByFaturamentoId(Long faturamentoId);
 
     List<ContasAReceber> findByDataVencimentoBeforeAndStatusIn(LocalDate data, List<String> statuses);

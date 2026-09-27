@@ -51,6 +51,13 @@ public class FinanceiroController {
     }
 
     @ExigirPermissao(modulo = Modulo.CONTAS_RECEBER, acao = Acao.VER)
+    @GetMapping("/contas-receber")
+    public ResponseEntity<List<ContasAReceber>> listarContasReceber(
+            @RequestParam(required = false) String status) {
+        return ResponseEntity.ok(faturamentoService.listarPorStatus(status != null ? status : "ABERTO"));
+    }
+
+    @ExigirPermissao(modulo = Modulo.CONTAS_RECEBER, acao = Acao.VER)
     @GetMapping("/contas-receber/cliente/{clienteId}")
     public ResponseEntity<List<ContasAReceber>> contasCliente(@PathVariable Long clienteId) {
         return ResponseEntity.ok(faturamentoService.listarContasCliente(clienteId));

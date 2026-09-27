@@ -1,17 +1,22 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ShieldAlert, Filter, Plus, Pencil, Trash2 } from 'lucide-react'
+import { Filter, Plus, Pencil, Trash2 } from 'lucide-react'
 import { api } from '@/shared/api/axios'
 import type { LogAuditoria, ModuloInfo, Usuario } from '@/types/acesso'
+import { PageHeader, Card, StatusBadge, Field, EmptyState, LoadingState } from '@/shared/components/ui'
+import type { BadgeTone } from '@/shared/components/ui'
 
 const hoje = new Date().toISOString().slice(0, 10)
 const seteDiasAtras = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
-const acaoConfig: Record<string, { label: string; cor: string; icone: typeof Plus }> = {
-  CRIAR:   { label: 'Criou',    cor: 'bg-emerald-100 text-emerald-700', icone: Plus },
-  EDITAR:  { label: 'Editou',   cor: 'bg-blue-100 text-blue-700',       icone: Pencil },
-  EXCLUIR: { label: 'Excluiu',  cor: 'bg-red-100 text-red-700',         icone: Trash2 },
+// Criar = positivo; Editar = neutro/informativo; Excluir = negativo/atenção.
+const acaoConfig: Record<string, { label: string; tone: BadgeTone; icone: typeof Plus }> = {
+  CRIAR:   { label: 'Criou',    tone: 'success', icone: Plus },
+  EDITAR:  { label: 'Editou',   tone: 'info',    icone: Pencil },
+  EXCLUIR: { label: 'Excluiu',  tone: 'danger',  icone: Trash2 },
 }
+
+const selectClass = 'border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500'
 
 export default function AuditoriaPage() {
   const [filtroInicio, setFiltroInicio]     = useState(seteDiasAtras)
@@ -46,69 +51,52 @@ export default function AuditoriaPage() {
 
   return (
     <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <ShieldAlert size={24} className="text-red-600" /> Auditoria
-        </h1>
-        <p className="text-gray-500 text-sm">
-          Histórico de ações administrativas — quem criou, editou ou excluiu o quê, e quando.
-        </p>
-      </div>
+      <PageHeader title="Auditoria" subtitle="Histórico de ações administrativas" />
 
       {/* Filtros */}
-      <div className="bg-white rounded-xl border p-4 mb-4 flex flex-wrap items-end gap-3">
+      <Card padding="sm" className="mb-4 flex flex-wrap items-end gap-3">
         <Filter size={16} className="text-gray-400 mb-2" />
-        <div>
-          <label className="text-xs font-medium text-gray-600 block mb-1">De</label>
-          <input type="date" value={filtroInicio} onChange={e => setFiltroInicio(e.target.value)}
-            className="border rounded-lg px-3 py-1.5 text-sm" />
-        </div>
-        <div>
-          <label className="text-xs font-medium text-gray-600 block mb-1">Até</label>
-          <input type="date" value={filtroFim} onChange={e => setFiltroFim(e.target.value)}
-            className="border rounded-lg px-3 py-1.5 text-sm" />
-        </div>
-        <div>
-          <label className="text-xs font-medium text-gray-600 block mb-1">Módulo</label>
-          <select value={filtroModulo} onChange={e => setFiltroModulo(e.target.value)}
-            className="border rounded-lg px-3 py-1.5 text-sm min-w-[160px]">
+        <Field label="De">
+          <input type="date" value={filtroInicio} onChange={e => setFiltroInicio(e.target.value)} className={selectClass} />
+        </Field>
+        <Field label="Até">
+          <input type="date" value={filtroFim} onChange={e => setFiltroFim(e.target.value)} className={selectClass} />
+        </Field>
+        <Field label="Módulo">
+          <select value={filtroModulo} onChange={e => setFiltroModulo(e.target.value)} className={`${selectClass} min-w-[160px]`}>
             <option value="">Todos</option>
             {modulos.map(m => <option key={m.nome} value={m.nome}>{m.rotulo}</option>)}
           </select>
-        </div>
-        <div>
-          <label className="text-xs font-medium text-gray-600 block mb-1">Ação</label>
-          <select value={filtroAcao} onChange={e => setFiltroAcao(e.target.value)}
-            className="border rounded-lg px-3 py-1.5 text-sm">
+        </Field>
+        <Field label="Ação">
+          <select value={filtroAcao} onChange={e => setFiltroAcao(e.target.value)} className={selectClass}>
             <option value="">Todas</option>
             <option value="CRIAR">Criou</option>
             <option value="EDITAR">Editou</option>
             <option value="EXCLUIR">Excluiu</option>
           </select>
-        </div>
-        <div>
-          <label className="text-xs font-medium text-gray-600 block mb-1">Usuário</label>
-          <select value={filtroUsuarioId} onChange={e => setFiltroUsuarioId(e.target.value)}
-            className="border rounded-lg px-3 py-1.5 text-sm min-w-[160px]">
+        </Field>
+        <Field label="Usuário">
+          <select value={filtroUsuarioId} onChange={e => setFiltroUsuarioId(e.target.value)} className={`${selectClass} min-w-[160px]`}>
             <option value="">Todos</option>
             {usuarios.map(u => <option key={u.id} value={u.id}>{u.nome}</option>)}
           </select>
-        </div>
-      </div>
+        </Field>
+      </Card>
 
       {/* Lista */}
-      <div className="bg-white rounded-xl border overflow-hidden">
+      <Card padding="none" className="overflow-hidden">
         {isLoading ? (
-          <div className="p-8 text-center text-gray-400 text-sm">Carregando...</div>
+          <LoadingState />
         ) : (
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Quando</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Usuário</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Módulo</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Ação</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">O quê</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Quando</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Usuário</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Módulo</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Ação</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">O quê</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -130,9 +118,9 @@ export default function AuditoriaPage() {
                     </td>
                     <td className="px-4 py-3 text-gray-600">{rotuloDoModulo(l.modulo)}</td>
                     <td className="px-4 py-3 text-center">
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${cfg.cor}`}>
-                        <Icone size={11} /> {cfg.label}
-                      </span>
+                      <StatusBadge tone={cfg.tone}>
+                        <span className="flex items-center gap-1"><Icone size={11} /> {cfg.label}</span>
+                      </StatusBadge>
                     </td>
                     <td className="px-4 py-3 text-gray-500 font-mono text-xs">{l.descricao ?? '—'}</td>
                   </tr>
@@ -142,11 +130,9 @@ export default function AuditoriaPage() {
           </table>
         )}
         {!isLoading && logs.length === 0 && (
-          <p className="text-center text-gray-400 py-10 text-sm">
-            Nenhuma ação registrada para os filtros selecionados.
-          </p>
+          <EmptyState>Nenhuma ação registrada para os filtros selecionados.</EmptyState>
         )}
-      </div>
+      </Card>
     </div>
   )
 }

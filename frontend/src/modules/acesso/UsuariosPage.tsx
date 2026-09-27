@@ -1,10 +1,14 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Users, Plus, KeyRound, Power, Lock, X } from 'lucide-react'
+import { Plus, KeyRound, Power, Lock } from 'lucide-react'
 import { api } from '@/shared/api/axios'
 import { usePermissao } from '@/shared/hooks/usePermissao'
 import toast from 'react-hot-toast'
 import type { Usuario, Perfil } from '@/types/acesso'
+import {
+  PageHeader, Card, Modal, Button, StatusBadge, Field, baseInputClass,
+  Table, THead, TH, TBody, TR, TD, EmptyState,
+} from '@/shared/components/ui'
 
 export default function UsuariosPage() {
   const qc = useQueryClient()
@@ -69,11 +73,11 @@ export default function UsuariosPage() {
   if (!podeVer('USUARIOS')) {
     return (
       <div className="p-6">
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 max-w-lg">
-          <p className="flex items-center gap-2 font-medium text-amber-800">
+        <div className="bg-warning-50 border border-warning-100 rounded-xl p-5 max-w-lg">
+          <p className="flex items-center gap-2 font-medium text-warning-700">
             <Lock size={16} /> Acesso restrito
           </p>
-          <p className="text-sm text-amber-700 mt-1">
+          <p className="text-sm text-warning-600 mt-1">
             Seu perfil não tem permissão para visualizar os usuários do sistema.
           </p>
         </div>
@@ -83,75 +87,63 @@ export default function UsuariosPage() {
 
   return (
     <div className="p-6">
-      <div className="mb-6 flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Users size={24} className="text-red-600" /> Usuários
-          </h1>
-          <p className="text-gray-500 text-sm mt-0.5">Contas de acesso ao sistema e seus perfis</p>
-        </div>
-        {podeCriar('USUARIOS') && (
-          <button
-            onClick={() => setShowNovo(v => !v)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium"
-          >
-            <Plus size={16} /> Novo Usuário
-          </button>
-        )}
-      </div>
+      <PageHeader
+        title="Usuários"
+        subtitle="Contas de acesso ao sistema e seus perfis"
+        actions={
+          podeCriar('USUARIOS') && (
+            <Button variant="primary" onClick={() => setShowNovo(v => !v)}>
+              <Plus size={16} /> Novo Usuário
+            </Button>
+          )
+        }
+      />
 
       {showNovo && podeCriar('USUARIOS') && (
-        <div className="bg-white rounded-xl shadow p-4 mb-5 grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
-          <div>
-            <label className="text-xs font-medium text-gray-600 block mb-1">Nome *</label>
-            <input value={nome} onChange={e => setNome(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-gray-600 block mb-1">Login *</label>
-            <input value={login} onChange={e => setLogin(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-gray-600 block mb-1">Senha *</label>
-            <input type="password" value={senha} onChange={e => setSenha(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-gray-600 block mb-1">Perfil *</label>
-            <select value={perfilId} onChange={e => setPerfilId(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+        <Card className="mb-5 grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+          <Field label="Nome *">
+            <input value={nome} onChange={e => setNome(e.target.value)} className={baseInputClass} />
+          </Field>
+          <Field label="Login *">
+            <input value={login} onChange={e => setLogin(e.target.value)} className={baseInputClass} />
+          </Field>
+          <Field label="Senha *">
+            <input type="password" value={senha} onChange={e => setSenha(e.target.value)} className={baseInputClass} />
+          </Field>
+          <Field label="Perfil *">
+            <select value={perfilId} onChange={e => setPerfilId(e.target.value)} className={baseInputClass}>
               <option value="">Selecione...</option>
               {perfis.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
             </select>
-          </div>
-          <button
+          </Field>
+          <Button
+            variant="success"
+            disabled={!nome || !login || !senha || !perfilId}
+            loading={criar.isPending}
             onClick={() => criar.mutate()}
-            disabled={!nome || !login || !senha || !perfilId || criar.isPending}
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium disabled:opacity-60"
           >
             Criar
-          </button>
-        </div>
+          </Button>
+        </Card>
       )}
 
-      <div className="bg-white rounded-xl shadow overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b">
+      <Card padding="none" className="overflow-hidden">
+        <Table>
+          <THead>
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Nome</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Login</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Perfil</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
-              <th className="px-4 py-3 w-40" />
+              <TH>Nome</TH>
+              <TH>Login</TH>
+              <TH>Perfil</TH>
+              <TH>Status</TH>
+              <TH />
             </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
+          </THead>
+          <TBody>
             {usuarios.map(u => (
-              <tr key={u.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3 font-medium text-gray-900">{u.nome}</td>
-                <td className="px-4 py-3 text-gray-500 font-mono text-xs">{u.login}</td>
-                <td className="px-4 py-3">
+              <TR key={u.id}>
+                <TD className="font-medium text-gray-900">{u.nome}</TD>
+                <TD className="text-gray-500 font-mono text-xs">{u.login}</TD>
+                <TD>
                   {podeEditar('USUARIOS') ? (
                     <select
                       value={u.perfil.id}
@@ -163,70 +155,59 @@ export default function UsuariosPage() {
                   ) : (
                     <span className="text-gray-600">{u.perfil.nome}</span>
                   )}
-                </td>
-                <td className="px-4 py-3">
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium
-                    ${u.ativo ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-500'}`}>
-                    {u.ativo ? 'Ativo' : 'Inativo'}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-right space-x-1">
-                  {podeEditar('USUARIOS') && (
-                    <button
-                      onClick={() => setTrocandoSenhaId(u.id)}
-                      title="Trocar senha"
-                      className="p-1.5 text-gray-400 hover:text-blue-600 rounded"
-                    >
-                      <KeyRound size={15} />
-                    </button>
-                  )}
-                  {podeExcluir('USUARIOS') && (
-                    <button
-                      onClick={() => alterarStatus.mutate({ id: u.id, ativo: !u.ativo })}
-                      title={u.ativo ? 'Desativar' : 'Reativar'}
-                      className="p-1.5 text-gray-400 hover:text-red-600 rounded"
-                    >
-                      <Power size={15} />
-                    </button>
-                  )}
-                </td>
-              </tr>
+                </TD>
+                <TD>
+                  <StatusBadge tone={u.ativo ? 'success' : 'neutral'}>{u.ativo ? 'Ativo' : 'Inativo'}</StatusBadge>
+                </TD>
+                <TD align="right">
+                  <div className="flex items-center justify-end gap-1">
+                    {podeEditar('USUARIOS') && (
+                      <Button variant="ghost" size="sm" className="hover:!text-info-600" onClick={() => setTrocandoSenhaId(u.id)} title="Trocar senha">
+                        <KeyRound size={15} />
+                      </Button>
+                    )}
+                    {podeExcluir('USUARIOS') && (
+                      <Button variant="ghost" size="sm" className="hover:!text-danger-600" onClick={() => alterarStatus.mutate({ id: u.id, ativo: !u.ativo })} title={u.ativo ? 'Desativar' : 'Reativar'}>
+                        <Power size={15} />
+                      </Button>
+                    )}
+                  </div>
+                </TD>
+              </TR>
             ))}
             {usuarios.length === 0 && (
-              <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">Nenhum usuário cadastrado.</td></tr>
+              <tr><td colSpan={5}><EmptyState>Nenhum usuário cadastrado.</EmptyState></td></tr>
             )}
-          </tbody>
-        </table>
-      </div>
+          </TBody>
+        </Table>
+      </Card>
 
       {/* Modal de troca de senha */}
       {trocandoSenhaId !== null && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-5 w-full max-w-sm">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-bold text-gray-900">Trocar senha</h2>
-              <button onClick={() => { setTrocandoSenhaId(null); setNovaSenha('') }}
-                className="text-gray-400 hover:text-gray-700">
-                <X size={18} />
-              </button>
-            </div>
-            <input
-              type="password"
-              autoFocus
-              value={novaSenha}
-              onChange={e => setNovaSenha(e.target.value)}
-              placeholder="Nova senha (mín. 4 caracteres)"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-4"
-            />
-            <button
+        <Modal
+          title="Trocar senha"
+          onClose={() => { setTrocandoSenhaId(null); setNovaSenha('') }}
+          footer={
+            <Button
+              variant="primary"
+              fullWidth
+              disabled={novaSenha.length < 4}
+              loading={trocarSenha.isPending}
               onClick={() => trocarSenha.mutate(trocandoSenhaId)}
-              disabled={novaSenha.length < 4 || trocarSenha.isPending}
-              className="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium disabled:opacity-60"
             >
-              {trocarSenha.isPending ? 'Salvando...' : 'Salvar nova senha'}
-            </button>
-          </div>
-        </div>
+              Salvar nova senha
+            </Button>
+          }
+        >
+          <input
+            type="password"
+            autoFocus
+            value={novaSenha}
+            onChange={e => setNovaSenha(e.target.value)}
+            placeholder="Nova senha (mín. 4 caracteres)"
+            className={baseInputClass}
+          />
+        </Modal>
       )}
     </div>
   )

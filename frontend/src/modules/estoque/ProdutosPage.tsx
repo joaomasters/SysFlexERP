@@ -5,9 +5,14 @@ import { api } from '@/shared/api/axios'
 import toast from 'react-hot-toast'
 import type { Produto } from '@/types/produto'
 import ProdutoForm from './components/ProdutoForm'
+import { formatBRL, formatWeightDisplay } from '@/shared/utils/mask'
+import {
+  PageHeader, Button, StatusBadge, baseInputClass,
+  Table, THead, TH, TBody, TR, TD, LoadingState,
+} from '@/shared/components/ui'
 
-const brl  = (v?: number) => (v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-const qtd3 = (v: number)  => v.toLocaleString('pt-BR', { minimumFractionDigits: 3 })
+const brl  = (v?: number) => formatBRL(v ?? 0)
+const qtd3 = (v: number)  => formatWeightDisplay(v)
 
 function margemPct(custo?: number, venda?: number): number | null {
   if (!custo || custo <= 0 || !venda) return null
@@ -36,20 +41,15 @@ export default function ProdutosPage() {
 
   return (
     <div className="p-6">
-      {/* Cabeçalho */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Produtos</h1>
-          <p className="text-gray-500 text-sm mt-0.5">Cadastro e gestão de estoque</p>
-        </div>
-        <button
-          onClick={() => setForm({})}
-          className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white
-                     px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-        >
-          <Plus size={16} /> Novo Produto
-        </button>
-      </div>
+      <PageHeader
+        title="Produtos"
+        subtitle="Cadastro e gestão de estoque"
+        actions={
+          <Button variant="primary" onClick={() => setForm({})}>
+            <Plus size={16} /> Novo Produto
+          </Button>
+        }
+      />
 
       {/* Busca */}
       <div className="relative mb-4">
@@ -59,94 +59,84 @@ export default function ProdutosPage() {
           placeholder="Buscar por nome..."
           value={busca}
           onChange={e => setBusca(e.target.value)}
-          className="w-full pl-9 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm
-                     focus:outline-none focus:ring-2 focus:ring-red-500"
+          className={`${baseInputClass} pl-9 py-2.5`}
         />
       </div>
 
       {/* Tabela */}
-      <div className="bg-white rounded-xl shadow overflow-hidden">
+      <div className="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">
         {isLoading ? (
-          <div className="p-8 text-center text-gray-500">Carregando...</div>
+          <LoadingState />
         ) : isError ? (
           <div className="p-8 text-center">
-            <p className="text-red-600 font-medium mb-1">Erro ao carregar produtos</p>
+            <p className="text-danger-600 font-medium mb-1">Erro ao carregar produtos</p>
             <p className="text-gray-400 text-sm">{String((error as Error)?.message ?? 'Falha na requisição')}</p>
           </div>
         ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
+          <Table>
+            <THead>
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Código</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Nome</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Un.</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Custo Médio</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Preço Venda</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Margem</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Estoque</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">PLU</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Status</th>
-                <th className="px-4 py-3"></th>
+                <TH>Código</TH>
+                <TH>Nome</TH>
+                <TH>Un.</TH>
+                <TH align="right">Custo Médio</TH>
+                <TH align="right">Preço Venda</TH>
+                <TH align="right">Margem</TH>
+                <TH align="right">Estoque</TH>
+                <TH align="center">PLU</TH>
+                <TH align="center">Status</TH>
+                <TH />
               </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
+            </THead>
+            <TBody>
               {produtos.map(p => (
-                <tr key={p.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-mono text-xs text-gray-500">{p.codigoInterno}</td>
-                  <td className="px-4 py-3 font-medium">
+                <TR key={p.id}>
+                  <TD className="font-mono text-xs text-gray-500">{p.codigoInterno}</TD>
+                  <TD className="font-medium">
                     <div className="flex items-center gap-2">
                       {p.estoqueAtual <= p.estoqueMinimo && (
-                        <AlertTriangle size={14} className="text-orange-500 shrink-0" />
+                        <AlertTriangle size={14} className="text-warning-500 shrink-0" />
                       )}
                       {p.nome}
                     </div>
-                  </td>
-                  <td className="px-4 py-3 text-gray-500">{p.unidadeMedida}</td>
-                  <td className="px-4 py-3 text-right text-gray-500 tabular-nums">
+                  </TD>
+                  <TD className="text-gray-500">{p.unidadeMedida}</TD>
+                  <TD align="right" className="text-gray-500 tabular-nums">
                     {p.precoCusto ? brl(p.precoCusto) : '—'}
-                  </td>
-                  <td className="px-4 py-3 text-right font-medium tabular-nums">{brl(p.precoVenda)}</td>
-                  <td className="px-4 py-3 text-right tabular-nums">
+                  </TD>
+                  <TD align="right" className="font-medium tabular-nums">{brl(p.precoVenda)}</TD>
+                  <TD align="right" className="tabular-nums">
                     {(() => {
                       const m = margemPct(p.precoCusto, p.precoVenda)
                       if (m === null) return <span className="text-gray-400">—</span>
-                      const cor = m < 15 ? 'text-red-600' : m < 30 ? 'text-orange-500' : 'text-emerald-600'
+                      const cor = m < 15 ? 'text-danger-600' : m < 30 ? 'text-warning-500' : 'text-success-600'
                       return <span className={`font-semibold ${cor}`}>{m.toFixed(1)}%</span>
                     })()}
-                  </td>
-                  <td className={`px-4 py-3 text-right tabular-nums font-medium
-                    ${p.estoqueAtual <= p.estoqueMinimo ? 'text-orange-600' : 'text-gray-700'}`}>
+                  </TD>
+                  <TD align="right" className={`tabular-nums font-medium
+                    ${p.estoqueAtual <= p.estoqueMinimo ? 'text-warning-600' : 'text-gray-700'}`}>
                     {qtd3(p.estoqueAtual)} {p.unidadeMedida}
-                  </td>
-                  <td className="px-4 py-3 text-center text-gray-500 font-mono text-xs">
+                  </TD>
+                  <TD align="center" className="text-gray-500 font-mono text-xs">
                     {p.codigoBalanca ? String(p.codigoBalanca).padStart(5, '0') : '—'}
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium
-                      ${p.ativo ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
-                      {p.ativo ? 'Ativo' : 'Inativo'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
+                  </TD>
+                  <TD align="center">
+                    <StatusBadge tone={p.ativo ? 'success' : 'neutral'}>{p.ativo ? 'Ativo' : 'Inativo'}</StatusBadge>
+                  </TD>
+                  <TD>
                     <div className="flex items-center gap-1 justify-end">
-                      <button
-                        onClick={() => setForm(p)}
-                        className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700"
-                      >
+                      <Button variant="ghost" size="sm" onClick={() => setForm(p)}>
                         <Pencil size={14} />
-                      </button>
-                      <button
-                        onClick={() => deletar.mutate(p.id)}
-                        className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-500"
-                      >
+                      </Button>
+                      <Button variant="ghost" size="sm" className="hover:!text-danger-600" onClick={() => deletar.mutate(p.id)}>
                         <Trash2 size={14} />
-                      </button>
+                      </Button>
                     </div>
-                  </td>
-                </tr>
+                  </TD>
+                </TR>
               ))}
-            </tbody>
-          </table>
+            </TBody>
+          </Table>
         )}
       </div>
 

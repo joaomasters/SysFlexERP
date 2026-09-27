@@ -1,8 +1,13 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../shared/api/axios'
-import { getUsuarioId, getNomeUsuario } from '../../shared/auth'
 import { ArrowDownCircle, ArrowUpCircle, Plus, Wallet, AlertCircle, History, Lock, LockOpen, User } from 'lucide-react'
+import { getUsuarioId, getNomeUsuario } from '../../shared/auth'
+import { formatBRL } from '@/shared/utils/mask'
+import {
+  PageHeader, Card, Button, StatusBadge, CurrencyInput, Field, baseInputClass,
+  Table, THead, TH, TBody, TR, TD,
+} from '@/shared/components/ui'
 
 interface CaixaAberto {
   id: number
@@ -45,17 +50,17 @@ interface FechamentoDTO {
   movimentos: SangriaItem[]
 }
 
-const fmt = (v: number) => `R$ ${(v ?? 0).toFixed(2).replace('.', ',')}`
+const fmt = formatBRL
 
 export default function SangriaPage() {
   const qc = useQueryClient()
   const [tipo, setTipo] = useState<'SANGRIA' | 'SUPRIMENTO'>('SANGRIA')
-  const [valor, setValor] = useState('')
+  const [valor, setValor] = useState(0)
   const [motivo, setMotivo] = useState('')
   const [showFechamento, setShowFechamento] = useState(false)
   const [fechamento, setFechamento] = useState<FechamentoDTO | null>(null)
   const [showHistorico, setShowHistorico] = useState(false)
-  const [valorAbertura, setValorAbertura] = useState('')
+  const [valorAbertura, setValorAbertura] = useState(0)
 
   const operadorId = getUsuarioId()
   const nomeOperador = getNomeUsuario()
@@ -89,10 +94,10 @@ export default function SangriaPage() {
 
   const abrirCaixa = useMutation({
     mutationFn: () => api.post('/pdv/caixa/abrir', null, {
-      params: { operadorId, valorAbertura: parseFloat(valorAbertura.replace(',', '.')) },
+      params: { operadorId, valorAbertura },
     }),
     onSuccess: () => {
-      setValorAbertura('')
+      setValorAbertura(0)
       qc.invalidateQueries({ queryKey: ['caixa-aberto'] })
       qc.invalidateQueries({ queryKey: ['caixas-historico'] })
     },
@@ -106,13 +111,13 @@ export default function SangriaPage() {
 
   const registrar = useMutation({
     mutationFn: () => api.post(`/pdv/caixa/${caixaId}/${tipo.toLowerCase()}`, {
-      valor: parseFloat(valor.replace(',', '.')),
+      valor,
       motivo,
       operadorId,
     }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['sangria', caixaId] })
-      setValor('')
+      setValor(0)
       setMotivo('')
     },
   })
@@ -125,52 +130,42 @@ export default function SangriaPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800">Sangria / Suprimento</h1>
-          <p className="text-sm text-gray-500">Movimentações de numerário no caixa</p>
-        </div>
-      </div>
+      <PageHeader title="Sangria / Suprimento" subtitle="Movimentações de numerário no caixa" />
 
       {/* Identificação do caixa — automática, sem precisar saber o ID */}
       {caixaQuery.isLoading && (
-        <div className="bg-white rounded-xl border p-4 text-sm text-gray-400">Verificando caixa aberto...</div>
+        <Card padding="sm" className="text-sm text-gray-400">Verificando caixa aberto...</Card>
       )}
 
       {caixaQuery.isError && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
+        <div className="bg-warning-50 border border-warning-100 rounded-xl p-4 space-y-3">
           <div className="flex items-start gap-3">
-            <AlertCircle size={18} className="text-amber-600 shrink-0 mt-0.5" />
+            <AlertCircle size={18} className="text-warning-600 shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-medium text-amber-800">Nenhum caixa aberto no momento</p>
-              <p className="text-xs text-amber-700 mt-0.5">
+              <p className="text-sm font-medium text-warning-700">Nenhum caixa aberto no momento</p>
+              <p className="text-xs text-warning-600 mt-0.5">
                 Informe o valor inicial (fundo de troco) pra abrir um caixa novo.
               </p>
             </div>
           </div>
           <div className="flex gap-2 pl-8">
-            <input
-              type="text"
-              value={valorAbertura}
-              onChange={e => setValorAbertura(e.target.value)}
-              placeholder="0,00"
-              className="flex-1 border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white"
-            />
-            <button
+            <CurrencyInput value={valorAbertura} onChange={setValorAbertura} className="flex-1" />
+            <Button
+              variant="warning"
               onClick={() => abrirCaixa.mutate()}
-              disabled={!valorAbertura || abrirCaixa.isPending}
-              className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-medium disabled:opacity-50"
+              disabled={!valorAbertura}
+              loading={abrirCaixa.isPending}
             >
-              <LockOpen size={14} /> {abrirCaixa.isPending ? 'Abrindo...' : 'Abrir Caixa'}
-            </button>
+              <LockOpen size={14} /> Abrir Caixa
+            </Button>
           </div>
         </div>
       )}
 
       {caixaQuery.data && (
-        <div className="bg-white rounded-xl border p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
-            <Wallet size={18} className="text-emerald-600" />
+        <Card padding="sm" className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-success-50 flex items-center justify-center shrink-0">
+            <Wallet size={18} className="text-success-600" />
           </div>
           <div className="flex-1">
             <p className="text-sm font-medium text-gray-800">
@@ -183,17 +178,14 @@ export default function SangriaPage() {
               Abertura: {fmt(caixaQuery.data.valorAbertura)}
             </p>
           </div>
-          <button
-            onClick={verFechamento}
-            className="px-4 py-2 text-sm bg-gray-800 text-white rounded-lg hover:bg-gray-700 shrink-0"
-          >
+          <Button variant="secondary" size="sm" onClick={verFechamento}>
             Ver Fechamento
-          </button>
-        </div>
+          </Button>
+        </Card>
       )}
 
       {/* Quantos caixas já existem — histórico de todas as sessões */}
-      <div className="bg-white rounded-xl border overflow-hidden">
+      <Card padding="none" className="overflow-hidden">
         <button
           onClick={() => setShowHistorico(s => !s)}
           className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50"
@@ -211,59 +203,64 @@ export default function SangriaPage() {
         </button>
 
         {showHistorico && (
-          <table className="w-full text-sm border-t">
-            <thead>
-              <tr className="text-xs text-gray-400 border-b bg-gray-50">
-                <th className="px-4 py-2 text-left">Caixa</th>
-                <th className="px-4 py-2 text-left">Operador</th>
-                <th className="px-4 py-2 text-left">Abertura</th>
-                <th className="px-4 py-2 text-left">Fechamento</th>
-                <th className="px-4 py-2 text-right">Valor Abertura</th>
-                <th className="px-4 py-2 text-center">Status</th>
+          <Table>
+            <THead>
+              <tr>
+                <TH>Caixa</TH>
+                <TH>Operador</TH>
+                <TH>Abertura</TH>
+                <TH>Fechamento</TH>
+                <TH align="right">Valor Abertura</TH>
+                <TH align="right">Valor Fechamento</TH>
+                <TH align="center">Status</TH>
               </tr>
-            </thead>
-            <tbody>
+            </THead>
+            <TBody>
               {historicoQuery.data?.map(c => (
-                <tr key={c.id} className="border-b last:border-0 hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium">#{c.id}</td>
-                  <td className="px-4 py-3 text-gray-600">{nomeDoOperador(c.operadorId)}</td>
-                  <td className="px-4 py-3 text-gray-500 text-xs">
+                <TR key={c.id}>
+                  <TD className="font-medium">#{c.id}</TD>
+                  <TD className="text-gray-600">{nomeDoOperador(c.operadorId)}</TD>
+                  <TD className="text-gray-500 text-xs">
                     {new Date(c.dataAbertura).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                  </td>
-                  <td className="px-4 py-3 text-gray-500 text-xs">
+                  </TD>
+                  <TD className="text-gray-500 text-xs">
                     {c.dataFechamento
                       ? new Date(c.dataFechamento).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
                       : '—'}
-                  </td>
-                  <td className="px-4 py-3 text-right tabular-nums">{fmt(c.valorAbertura)}</td>
-                  <td className="px-4 py-3 text-center">
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium
-                      ${c.status === 'ABERTO' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
-                      {c.status === 'ABERTO' ? <LockOpen size={10} /> : <Lock size={10} />}
-                      {c.status}
-                    </span>
-                  </td>
-                </tr>
+                  </TD>
+                  <TD align="right" className="tabular-nums">{fmt(c.valorAbertura)}</TD>
+                  <TD align="right" className="tabular-nums">
+                    {c.valorFechamentoInformado != null ? fmt(c.valorFechamentoInformado) : '—'}
+                  </TD>
+                  <TD align="center">
+                    <StatusBadge tone={c.status === 'ABERTO' ? 'info' : 'neutral'}>
+                      <span className="flex items-center gap-1">
+                        {c.status === 'ABERTO' ? <LockOpen size={10} /> : <Lock size={10} />}
+                        {c.status}
+                      </span>
+                    </StatusBadge>
+                  </TD>
+                </TR>
               ))}
               {historicoQuery.data?.length === 0 && (
-                <tr><td colSpan={6} className="px-4 py-6 text-center text-gray-400">Nenhum caixa foi aberto ainda.</td></tr>
+                <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-400">Nenhum caixa foi aberto ainda.</td></tr>
               )}
-            </tbody>
-          </table>
+            </TBody>
+          </Table>
         )}
-      </div>
+      </Card>
 
       {/* Formulário */}
       {caixaId && (
-        <div className="bg-white rounded-xl border p-5 space-y-4">
+        <Card className="space-y-4">
           <div className="flex gap-3">
             {(['SANGRIA', 'SUPRIMENTO'] as const).map(t => (
               <button
                 key={t}
                 onClick={() => setTipo(t)}
-                className={`flex-1 py-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2 border transition
+                className={`flex-1 py-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2 border transition-colors
                   ${tipo === t
-                    ? t === 'SANGRIA' ? 'bg-red-600 text-white border-red-600' : 'bg-green-600 text-white border-green-600'
+                    ? t === 'SANGRIA' ? 'bg-danger-600 text-white border-danger-600' : 'bg-success-600 text-white border-success-600'
                     : 'text-gray-600 border-gray-200 hover:bg-gray-50'}`}
               >
                 {t === 'SANGRIA' ? <ArrowDownCircle size={16} /> : <ArrowUpCircle size={16} />}
@@ -273,74 +270,69 @@ export default function SangriaPage() {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-gray-500 font-medium">Valor (R$)</label>
-              <input
-                type="text"
-                value={valor}
-                onChange={e => setValor(e.target.value)}
-                className="mt-1 block w-full border rounded-lg px-3 py-2 text-sm"
-                placeholder="0,00"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 font-medium">Motivo</label>
+            <Field label="Valor">
+              <CurrencyInput value={valor} onChange={setValor} />
+            </Field>
+            <Field label="Motivo">
               <input
                 type="text"
                 value={motivo}
                 onChange={e => setMotivo(e.target.value)}
-                className="mt-1 block w-full border rounded-lg px-3 py-2 text-sm"
+                className={baseInputClass}
                 placeholder="Opcional"
               />
-            </div>
+            </Field>
           </div>
 
-          <button
+          <Button
+            variant={tipo === 'SANGRIA' ? 'danger' : 'success'}
+            fullWidth
+            disabled={!valor}
+            loading={registrar.isPending}
             onClick={() => registrar.mutate()}
-            disabled={!valor || registrar.isPending}
-            className="w-full py-2.5 bg-red-600 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-red-700 disabled:opacity-50"
           >
             <Plus size={16} />
             Registrar {tipo === 'SANGRIA' ? 'Sangria' : 'Suprimento'}
-          </button>
-        </div>
+          </Button>
+        </Card>
       )}
 
       {/* Lista de movimentos */}
       {movQuery.data && movQuery.data.length > 0 && (
-        <div className="bg-white rounded-xl border overflow-hidden">
+        <Card padding="none" className="overflow-hidden">
           <div className="px-5 py-3 border-b bg-gray-50 text-sm font-medium text-gray-600">
             Movimentos do Caixa
           </div>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-xs text-gray-400 border-b">
-                <th className="px-4 py-2 text-left">Tipo</th>
-                <th className="px-4 py-2 text-left">Valor</th>
-                <th className="px-4 py-2 text-left">Motivo</th>
-                <th className="px-4 py-2 text-left">Horário</th>
+          <Table>
+            <THead>
+              <tr>
+                <TH>Tipo</TH>
+                <TH>Valor</TH>
+                <TH>Motivo</TH>
+                <TH>Horário</TH>
               </tr>
-            </thead>
-            <tbody>
+            </THead>
+            <TBody>
               {movQuery.data.map(m => (
-                <tr key={m.id} className="border-b last:border-0 hover:bg-gray-50">
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium
-                      ${m.tipo === 'SANGRIA' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                      {m.tipo === 'SANGRIA' ? <ArrowDownCircle size={12} /> : <ArrowUpCircle size={12} />}
-                      {m.tipo}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 font-medium">{fmt(m.valor)}</td>
-                  <td className="px-4 py-3 text-gray-500">{m.motivo || '—'}</td>
-                  <td className="px-4 py-3 text-gray-400">
+                <TR key={m.id}>
+                  <TD>
+                    <StatusBadge tone={m.tipo === 'SANGRIA' ? 'danger' : 'success'}>
+                      <span className="flex items-center gap-1">
+                        {m.tipo === 'SANGRIA' ? <ArrowDownCircle size={12} /> : <ArrowUpCircle size={12} />}
+                        {m.tipo}
+                      </span>
+                    </StatusBadge>
+                  </TD>
+                  <TD className="font-medium">{fmt(m.valor)}</TD>
+                  <TD className="text-gray-500">{m.motivo || '—'}</TD>
+                  <TD className="text-gray-400">
                     {new Date(m.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                  </td>
-                </tr>
+                  </TD>
+                </TR>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </TBody>
+          </Table>
+        </Card>
       )}
 
       {/* Modal Fechamento */}
@@ -367,16 +359,13 @@ export default function SangriaPage() {
               ))}
               <div className="flex justify-between pt-2 text-base font-bold">
                 <span>Saldo Esperado em Caixa</span>
-                <span className="text-green-600">{fmt(fechamento.saldoEsperado)}</span>
+                <span className="text-success-600">{fmt(fechamento.saldoEsperado)}</span>
               </div>
               <p className="text-xs text-gray-400">{fechamento.quantidadeVendas} vendas no período</p>
             </div>
-            <button
-              onClick={() => setShowFechamento(false)}
-              className="w-full py-2 bg-gray-800 text-white rounded-lg text-sm"
-            >
+            <Button variant="secondary" fullWidth onClick={() => setShowFechamento(false)}>
               Fechar
-            </button>
+            </Button>
           </div>
         </div>
       )}

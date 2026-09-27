@@ -134,6 +134,10 @@ public class FaturamentoService {
         return contasRepo.findByClienteId(clienteId);
     }
 
+    public List<ContasAReceber> listarPorStatus(String status) {
+        return contasRepo.findByStatusOrderByDataVencimentoAsc(status);
+    }
+
     public BigDecimal saldoAbertoCliente(Long clienteId) {
         return contasRepo.saldoAberto(clienteId);
     }

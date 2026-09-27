@@ -8,7 +8,7 @@ import {
 import { usePermissao } from '@/shared/hooks/usePermissao'
 
 const atalhos = [
-  { label: 'PDV / Caixa',          href: '/pdv',                       icon: ShoppingCart,    modulo: 'PDV',            cor: 'bg-red-600' },
+  { label: 'PDV / Caixa',          href: '/pdv',                       icon: ShoppingCart,    modulo: 'PDV',            cor: 'bg-talho-600' },
   { label: 'Sangria / Suprimento', href: '/pdv/sangria',               icon: ArrowDownCircle, modulo: 'SANGRIA',        cor: 'bg-red-500' },
   { label: 'Produtos',             href: '/estoque/produtos',          icon: Package,         modulo: 'PRODUTOS',       cor: 'bg-blue-600' },
   { label: 'Recebimento',          href: '/estoque/recebimento',       icon: Truck,           modulo: 'RECEBIMENTO',    cor: 'bg-blue-500' },
@@ -25,7 +25,9 @@ const atalhos = [
   { label: 'Carga Balança',        href: '/balanca',                   icon: Scale,           modulo: 'CARGA_BALANCA',  cor: 'bg-violet-600' },
   { label: 'Usuários',             href: '/acesso/usuarios',           icon: Users,           modulo: 'USUARIOS',       cor: 'bg-gray-700' },
   { label: 'Perfis',               href: '/acesso/perfis',             icon: ShieldCheck,     modulo: 'PERFIS',         cor: 'bg-gray-800' },
+  { label: 'Auditoria',            href: '/acesso/auditoria',          icon: FileText,     modulo: 'AUDITORIA',      cor: 'bg-talho-600' },
 ]
+
 
 function saudacao(): string {
   const h = new Date().getHours()
@@ -52,9 +54,9 @@ export default function HomePage() {
       </div>
 
       {disponiveis.length === 0 ? (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 max-w-lg">
-          <p className="font-medium text-amber-800">Nenhum módulo liberado</p>
-          <p className="text-sm text-amber-700 mt-1">
+        <div className="bg-warning-50 border border-warning-100 rounded-xl p-5 max-w-lg">
+          <p className="font-medium text-warning-700">Nenhum módulo liberado</p>
+          <p className="text-sm text-warning-600 mt-1">
             Seu perfil ainda não tem permissão de acesso a nenhum módulo.
             Procure o administrador do sistema.
           </p>

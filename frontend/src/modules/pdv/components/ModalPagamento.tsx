@@ -6,6 +6,8 @@ import {
 import { api } from '@/shared/api/axios'
 import toast from 'react-hot-toast'
 import type { PagamentoDTO } from '@/types/venda'
+import { formatBRL } from '@/shared/utils/mask'
+import { CurrencyInput } from '@/shared/components/ui'
 
 // ─── URL do agente Stone instalado localmente ───────────────────────────────
 const STONE_AGENT_URL = 'http://localhost:12345'
@@ -22,8 +24,11 @@ interface Props {
   onCancelar:  () => void
 }
 
-const brl  = (v: number)  => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-const brlP = (s: string)  => parseFloat(s.replace(',', '.')) || 0
+// Tema escuro proposital — este modal faz parte do console de operação do
+// PDV (ver nota em PDVPage.tsx). Os campos de valor usam o mesmo
+// CurrencyInput (máscara "caixa eletrônico") do resto do sistema, só que
+// com a variante `dark`.
+const brl = formatBRL
 
 // ─── metadados dos métodos ────────────────────────────────────────────────────
 const METODOS: { value: Metodo; label: string; icon: React.ElementType; cor: string }[] = [
@@ -40,7 +45,7 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
   const [metodo,      setMetodo]      = useState<Metodo>('DINHEIRO')
 
   // ── Dinheiro / Cheque / Fiado ─────────────────────────────────────────────
-  const [valor,       setValor]       = useState('')
+  const [valor,       setValor]       = useState(0)
   const [chequeBanco, setChequeBanco] = useState('')
   const [chequeNum,   setChequeNum]   = useState('')
   const [chequeTit,   setChequeTit]   = useState('')
@@ -64,7 +69,7 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
 
   // Preenche valor com o restante quando muda de método
   useEffect(() => {
-    setValor(restante > 0 ? restante.toFixed(2).replace('.', ',') : '')
+    setValor(restante > 0 ? restante : 0)
     setStoneSt('idle')
     setStoneMsg('')
     setPixSt('idle')
@@ -77,7 +82,7 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
     if (v <= 0) return
     const novoPag: PagamentoDTO = { formaPagamento: forma, valor: v, ...extra }
     setPagamentos((prev: PagamentoDTO[]) => [...prev, novoPag])
-    setValor('')
+    setValor(0)
   }
 
   function removePagamento(i: number) {
@@ -86,19 +91,17 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
 
   // ── Dinheiro / Fiado ──────────────────────────────────────────────────────
   function confirmarDinheiro() {
-    const v = brlP(valor)
-    if (!v) return
-    addPagamento(metodo, v)
+    if (!valor) return
+    addPagamento(metodo, valor)
   }
 
   // ── Cheque ────────────────────────────────────────────────────────────────
   function confirmarCheque() {
-    const v = brlP(valor)
-    if (!v || !chequeBanco || !chequeNum) {
+    if (!valor || !chequeBanco || !chequeNum) {
       toast.error('Preencha banco e número do cheque')
       return
     }
-    addPagamento('CHEQUE', v, {
+    addPagamento('CHEQUE', valor, {
       chequeBanco,
       chequeNumero: chequeNum,
       chequeTitular: chequeTit,
@@ -110,7 +113,7 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
 
   // ── Stone ─────────────────────────────────────────────────────────────────
   async function iniciarStone() {
-    const v = brlP(valor)
+    const v = valor
     if (!v) return
 
     setStoneSt('aguardando')
@@ -167,7 +170,7 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
   useEffect(() => () => stopPixPoll(), [stopPixPoll])
 
   async function gerarPix() {
-    const v = brlP(valor)
+    const v = valor
     if (!v) return
 
     setPixSt('gerando')
@@ -300,19 +303,14 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
               {(metodo === 'DINHEIRO' || metodo === 'FIADO') && (
                 <div className="space-y-3">
                   <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">R$</span>
-                      <input
-                        type="text" inputMode="decimal"
-                        placeholder="0,00"
-                        value={valor}
-                        onChange={e => setValor(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && confirmarDinheiro()}
-                        className="w-full bg-gray-800 border border-gray-600 rounded-lg pl-9 pr-3 py-3 text-lg font-bold
-                                   focus:outline-none focus:border-emerald-500 tabular-nums"
-                        autoFocus
-                      />
-                    </div>
+                    <CurrencyInput
+                      value={valor}
+                      onChange={setValor}
+                      onKeyDown={e => e.key === 'Enter' && confirmarDinheiro()}
+                      dark
+                      autoFocus
+                      className="flex-1 [&_input]:text-lg [&_input]:font-bold"
+                    />
                     <button
                       onClick={confirmarDinheiro}
                       className="px-5 bg-emerald-600 hover:bg-emerald-500 rounded-lg font-bold transition-colors"
@@ -320,9 +318,9 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
                       ✓
                     </button>
                   </div>
-                  {metodo === 'DINHEIRO' && brlP(valor) > restante && (
+                  {metodo === 'DINHEIRO' && valor > restante && (
                     <p className="text-sm text-yellow-400">
-                      Troco: {brl(brlP(valor) - restante)}
+                      Troco: {brl(valor - restante)}
                     </p>
                   )}
                 </div>
@@ -332,17 +330,13 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
               {(metodo === 'DEBITO' || metodo === 'CREDITO') && (
                 <div className="space-y-3">
                   <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">R$</span>
-                      <input
-                        type="text" inputMode="decimal"
-                        value={valor}
-                        onChange={e => setValor(e.target.value)}
-                        disabled={stoneSt === 'aguardando'}
-                        className="w-full bg-gray-800 border border-gray-600 rounded-lg pl-9 pr-3 py-3 text-lg font-bold
-                                   focus:outline-none focus:border-blue-500 tabular-nums disabled:opacity-50"
-                      />
-                    </div>
+                    <CurrencyInput
+                      value={valor}
+                      onChange={setValor}
+                      disabled={stoneSt === 'aguardando'}
+                      dark
+                      className="flex-1 [&_input]:text-lg [&_input]:font-bold"
+                    />
                     {metodo === 'CREDITO' && (
                       <select
                         value={parcelas}
@@ -361,7 +355,7 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
                   {stoneSt === 'idle' && (
                     <button
                       onClick={iniciarStone}
-                      disabled={!brlP(valor)}
+                      disabled={!valor}
                       className="w-full py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold transition-colors disabled:opacity-50"
                     >
                       Enviar para Maquininha
@@ -418,7 +412,7 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
                         </button>
                         <span className="text-gray-600">·</span>
                         <button
-                          onClick={() => { setStoneSt('aprovado'); addPagamento(metodo, brlP(valor)) }}
+                          onClick={() => { setStoneSt('aprovado'); addPagamento(metodo, valor) }}
                           className="text-xs text-gray-400 hover:text-white"
                         >
                           Registrar manualmente
@@ -433,21 +427,17 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
               {metodo === 'PIX' && (
                 <div className="space-y-3">
                   <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">R$</span>
-                      <input
-                        type="text" inputMode="decimal"
-                        value={valor}
-                        onChange={e => setValor(e.target.value)}
-                        disabled={pixSt === 'aguardando' || pixSt === 'aprovado'}
-                        className="w-full bg-gray-800 border border-gray-600 rounded-lg pl-9 pr-3 py-3 text-lg font-bold
-                                   focus:outline-none focus:border-teal-500 tabular-nums disabled:opacity-50"
-                      />
-                    </div>
+                    <CurrencyInput
+                      value={valor}
+                      onChange={setValor}
+                      disabled={pixSt === 'aguardando' || pixSt === 'aprovado'}
+                      dark
+                      className="flex-1 [&_input]:text-lg [&_input]:font-bold [&_input]:focus:border-teal-500"
+                    />
                     {(pixSt === 'idle' || pixSt === 'erro') ? (
                       <button
                         onClick={gerarPix}
-                        disabled={!brlP(valor)}
+                        disabled={!valor}
                         className="px-4 bg-teal-600 hover:bg-teal-500 rounded-lg font-bold transition-colors disabled:opacity-50"
                       >
                         Gerar QR
@@ -526,17 +516,13 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
               {/* ── Painel Cheque ───────────────────────────────────────── */}
               {metodo === 'CHEQUE' && (
                 <div className="space-y-3">
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">R$</span>
-                    <input
-                      type="text" inputMode="decimal"
-                      placeholder="Valor do cheque"
-                      value={valor}
-                      onChange={e => setValor(e.target.value)}
-                      className="w-full bg-gray-800 border border-gray-600 rounded-lg pl-9 pr-3 py-2.5 text-lg font-bold
-                                 focus:outline-none focus:border-amber-500 tabular-nums"
-                    />
-                  </div>
+                  <CurrencyInput
+                    value={valor}
+                    onChange={setValor}
+                    dark
+                    placeholder="Valor do cheque"
+                    className="[&_input]:text-lg [&_input]:font-bold"
+                  />
                   <div className="grid grid-cols-2 gap-2">
                     <input
                       placeholder="Banco"
@@ -559,7 +545,7 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
                   />
                   <button
                     onClick={confirmarCheque}
-                    disabled={!brlP(valor) || !chequeBanco || !chequeNum}
+                    disabled={!valor || !chequeBanco || !chequeNum}
                     className="w-full py-3 bg-amber-600 hover:bg-amber-500 rounded-xl font-bold transition-colors disabled:opacity-50"
                   >
                     Registrar Cheque

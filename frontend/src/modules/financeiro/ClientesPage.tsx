@@ -1,11 +1,17 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Contact, Plus, Search, Pencil, Ban, RotateCcw } from 'lucide-react'
+import { Plus, Search, Pencil, Ban, RotateCcw } from 'lucide-react'
 import { api } from '@/shared/api/axios'
 import toast from 'react-hot-toast'
 import type { Cliente } from '@/types/venda'
+import { formatBRL } from '@/shared/utils/mask'
+import {
+  PageHeader, Modal, Button, StatusBadge, CurrencyInput, Field, baseInputClass,
+  Table, THead, TH, TBody, TR, TD, EmptyState,
+} from '@/shared/components/ui'
+import type { BadgeTone } from '@/shared/components/ui'
 
-const brl = (v?: number) => (v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const brl = (v?: number) => formatBRL(v ?? 0)
 
 const tipoClienteLabel: Record<Cliente['tipoCliente'], string> = {
   VAREJO: 'Varejo',
@@ -14,11 +20,13 @@ const tipoClienteLabel: Record<Cliente['tipoCliente'], string> = {
   CONVENIADO: 'Conveniado',
 }
 
-const tipoClienteCor: Record<Cliente['tipoCliente'], string> = {
-  VAREJO: 'bg-gray-100 text-gray-600',
-  ATACADO: 'bg-blue-100 text-blue-700',
-  RESTAURANTE: 'bg-orange-100 text-orange-700',
-  CONVENIADO: 'bg-purple-100 text-purple-700',
+// Tipo de cliente é uma categoria (rótulo), não um status — todos usam o tom
+// "purple", exceto Varejo (padrão/neutro, é o tipo mais comum, não precisa se destacar).
+const tipoClienteTom: Record<Cliente['tipoCliente'], BadgeTone> = {
+  VAREJO: 'neutral',
+  ATACADO: 'purple',
+  RESTAURANTE: 'purple',
+  CONVENIADO: 'purple',
 }
 
 type FormState = {
@@ -30,12 +38,12 @@ type FormState = {
   email: string
   endereco: string
   tipoCliente: Cliente['tipoCliente']
-  limiteCredito: string
+  limiteCredito: number
 }
 
 const formVazio: FormState = {
   nome: '', cpfCnpj: '', tipoPessoa: 'PF', telefone: '', email: '',
-  endereco: '', tipoCliente: 'VAREJO', limiteCredito: '0',
+  endereco: '', tipoCliente: 'VAREJO', limiteCredito: 0,
 }
 
 export default function ClientesPage() {
@@ -61,7 +69,7 @@ export default function ClientesPage() {
         email: f.email.trim() || null,
         endereco: f.endereco.trim() || null,
         tipoCliente: f.tipoCliente,
-        limiteCredito: parseFloat(f.limiteCredito.replace(',', '.')) || 0,
+        limiteCredito: f.limiteCredito || 0,
       }
       return f.id
         ? api.put(`/clientes/${f.id}`, payload)
@@ -99,25 +107,20 @@ export default function ClientesPage() {
     email: c.email ?? '',
     endereco: c.endereco ?? '',
     tipoCliente: c.tipoCliente,
-    limiteCredito: String(c.limiteCredito ?? 0),
+    limiteCredito: c.limiteCredito ?? 0,
   })
 
   return (
     <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Contact className="text-red-600" /> Clientes
-          </h1>
-          <p className="text-gray-500 text-sm">Cadastro de clientes atacado, restaurantes e conveniados</p>
-        </div>
-        <button
-          onClick={() => setForm({ ...formVazio })}
-          className="flex items-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium"
-        >
-          <Plus size={18} /> Novo Cliente
-        </button>
-      </div>
+      <PageHeader
+        title="Clientes"
+        subtitle="Cadastro de clientes"
+        actions={
+          <Button variant="primary" onClick={() => setForm({ ...formVazio })}>
+            <Plus size={18} /> Novo Cliente
+          </Button>
+        }
+      />
 
       {/* Filtros */}
       <div className="flex items-center gap-3 mb-4">
@@ -126,7 +129,7 @@ export default function ClientesPage() {
           <input
             type="text" value={busca} onChange={e => setBusca(e.target.value)}
             placeholder="Buscar por nome..."
-            className="w-full border rounded-lg pl-9 pr-3 py-2 text-sm"
+            className={`${baseInputClass} pl-9`}
           />
         </div>
         <label className="flex items-center gap-2 text-sm text-gray-600">
@@ -136,151 +139,137 @@ export default function ClientesPage() {
       </div>
 
       {/* Lista */}
-      <div className="bg-white rounded-xl border overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50">
+      <div className="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">
+        <Table>
+          <THead>
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Nome</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Tipo</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Contato</th>
-              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Limite Crédito</th>
-              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Saldo Fiado</th>
-              <th className="px-4 py-3"></th>
+              <TH>Nome</TH>
+              <TH>Tipo</TH>
+              <TH>Contato</TH>
+              <TH align="right">Limite Crédito</TH>
+              <TH align="right">Saldo Fiado</TH>
+              <TH />
             </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
+          </THead>
+          <TBody>
             {visiveis.map(c => (
-              <tr key={c.id} className={`hover:bg-gray-50 ${!c.ativo ? 'opacity-50' : ''}`}>
-                <td className="px-4 py-3 font-medium">
+              <TR key={c.id} className={!c.ativo ? 'opacity-50' : ''}>
+                <TD className="font-medium">
                   {c.nome}
                   {!c.ativo && <span className="ml-2 text-xs text-gray-400">(inativo)</span>}
-                </td>
-                <td className="px-4 py-3">
-                  <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${tipoClienteCor[c.tipoCliente]}`}>
-                    {tipoClienteLabel[c.tipoCliente]}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-gray-500 text-xs">
+                </TD>
+                <TD>
+                  <StatusBadge tone={tipoClienteTom[c.tipoCliente]}>{tipoClienteLabel[c.tipoCliente]}</StatusBadge>
+                </TD>
+                <TD className="text-gray-500 text-xs">
                   {c.telefone || c.email || '—'}
-                </td>
-                <td className="px-4 py-3 text-right tabular-nums">{brl(c.limiteCredito)}</td>
-                <td className={`px-4 py-3 text-right tabular-nums font-medium ${(c.saldoFiadoAtual ?? 0) > 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                </TD>
+                <TD align="right" className="tabular-nums">{brl(c.limiteCredito)}</TD>
+                <TD align="right" className={`tabular-nums font-medium ${(c.saldoFiadoAtual ?? 0) > 0 ? 'text-danger-600' : 'text-gray-400'}`}>
                   {brl(c.saldoFiadoAtual)}
-                </td>
-                <td className="px-4 py-3">
+                </TD>
+                <TD>
                   <div className="flex items-center justify-end gap-2">
-                    <button onClick={() => abrirEdicao(c)} title="Editar"
-                      className="text-gray-400 hover:text-blue-600">
+                    <Button variant="ghost" size="sm" onClick={() => abrirEdicao(c)} title="Editar">
                       <Pencil size={15} />
-                    </button>
+                    </Button>
                     {c.ativo ? (
-                      <button onClick={() => inativar.mutate(c.id)} title="Inativar"
-                        className="text-gray-400 hover:text-red-600">
+                      <Button variant="ghost" size="sm" className="hover:!text-danger-600" onClick={() => inativar.mutate(c.id)} title="Inativar">
                         <Ban size={15} />
-                      </button>
+                      </Button>
                     ) : (
-                      <button onClick={() => reativar.mutate(c.id)} title="Reativar"
-                        className="text-gray-400 hover:text-emerald-600">
+                      <Button variant="ghost" size="sm" className="hover:!text-success-600" onClick={() => reativar.mutate(c.id)} title="Reativar">
                         <RotateCcw size={15} />
-                      </button>
+                      </Button>
                     )}
                   </div>
-                </td>
-              </tr>
+                </TD>
+              </TR>
             ))}
-          </tbody>
-        </table>
+          </TBody>
+        </Table>
         {!isLoading && visiveis.length === 0 && (
-          <p className="text-center text-gray-400 py-10 text-sm">Nenhum cliente encontrado.</p>
+          <EmptyState>Nenhum cliente encontrado.</EmptyState>
         )}
       </div>
 
       {/* Modal de cadastro/edição */}
       {form && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-            <h2 className="font-bold text-gray-900">{form.id ? 'Editar Cliente' : 'Novo Cliente'}</h2>
-
-            <div>
-              <label className="text-xs font-medium text-gray-600 block mb-1">Nome *</label>
-              <input
-                type="text" value={form.nome} autoFocus
-                onChange={e => setForm({ ...form, nome: e.target.value })}
-                className="w-full border rounded-lg px-3 py-2 text-sm"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-medium text-gray-600 block mb-1">Tipo de Pessoa</label>
-                <select value={form.tipoPessoa} onChange={e => setForm({ ...form, tipoPessoa: e.target.value as 'PF' | 'PJ' })}
-                  className="w-full border rounded-lg px-3 py-2 text-sm">
-                  <option value="PF">Pessoa Física</option>
-                  <option value="PJ">Pessoa Jurídica</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-xs font-medium text-gray-600 block mb-1">CPF/CNPJ</label>
-                <input type="text" value={form.cpfCnpj} onChange={e => setForm({ ...form, cpfCnpj: e.target.value })}
-                  className="w-full border rounded-lg px-3 py-2 text-sm" />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-medium text-gray-600 block mb-1">Telefone</label>
-                <input type="text" value={form.telefone} onChange={e => setForm({ ...form, telefone: e.target.value })}
-                  className="w-full border rounded-lg px-3 py-2 text-sm" />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-gray-600 block mb-1">E-mail</label>
-                <input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })}
-                  className="w-full border rounded-lg px-3 py-2 text-sm" />
-              </div>
-            </div>
-
-            <div>
-              <label className="text-xs font-medium text-gray-600 block mb-1">Endereço</label>
-              <textarea value={form.endereco} onChange={e => setForm({ ...form, endereco: e.target.value })}
-                rows={2} className="w-full border rounded-lg px-3 py-2 text-sm" />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-medium text-gray-600 block mb-1">Tipo de Cliente</label>
-                <select value={form.tipoCliente} onChange={e => setForm({ ...form, tipoCliente: e.target.value as Cliente['tipoCliente'] })}
-                  className="w-full border rounded-lg px-3 py-2 text-sm">
-                  <option value="VAREJO">Varejo</option>
-                  <option value="ATACADO">Atacado</option>
-                  <option value="RESTAURANTE">Restaurante</option>
-                  <option value="CONVENIADO">Conveniado</option>
-                </select>
-                <p className="text-[11px] text-gray-400 mt-1">
-                  Só clientes Atacado/Restaurante/Conveniado aparecem pra Faturamento e Fiado.
-                </p>
-              </div>
-              <div>
-                <label className="text-xs font-medium text-gray-600 block mb-1">Limite de Crédito (R$)</label>
-                <input type="number" step="0.01" value={form.limiteCredito}
-                  onChange={e => setForm({ ...form, limiteCredito: e.target.value })}
-                  className="w-full border rounded-lg px-3 py-2 text-sm" />
-              </div>
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <button onClick={() => setForm(null)} className="flex-1 py-2.5 border rounded-lg text-sm hover:bg-gray-50">
-                Cancelar
-              </button>
-              <button
+        <Modal
+          title={form.id ? 'Editar Cliente' : 'Novo Cliente'}
+          onClose={() => setForm(null)}
+          maxWidth="lg"
+          footer={
+            <>
+              <Button variant="secondary" fullWidth onClick={() => setForm(null)}>Cancelar</Button>
+              <Button
+                variant="primary"
+                fullWidth
+                loading={salvar.isPending}
+                disabled={!form.nome.trim()}
                 onClick={() => salvar.mutate(form)}
-                disabled={!form.nome.trim() || salvar.isPending}
-                className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium disabled:opacity-60"
               >
-                {salvar.isPending ? 'Salvando...' : 'Salvar'}
-              </button>
-            </div>
+                Salvar
+              </Button>
+            </>
+          }
+        >
+          <Field label="Nome *">
+            <input
+              type="text" value={form.nome} autoFocus
+              onChange={e => setForm({ ...form, nome: e.target.value })}
+              className={baseInputClass}
+            />
+          </Field>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Tipo de Pessoa">
+              <select value={form.tipoPessoa} onChange={e => setForm({ ...form, tipoPessoa: e.target.value as 'PF' | 'PJ' })}
+                className={baseInputClass}>
+                <option value="PF">Pessoa Física</option>
+                <option value="PJ">Pessoa Jurídica</option>
+              </select>
+            </Field>
+            <Field label="CPF/CNPJ">
+              <input type="text" value={form.cpfCnpj} onChange={e => setForm({ ...form, cpfCnpj: e.target.value })}
+                className={baseInputClass} />
+            </Field>
           </div>
-        </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Telefone">
+              <input type="text" value={form.telefone} onChange={e => setForm({ ...form, telefone: e.target.value })}
+                className={baseInputClass} />
+            </Field>
+            <Field label="E-mail">
+              <input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })}
+                className={baseInputClass} />
+            </Field>
+          </div>
+
+          <Field label="Endereço">
+            <textarea value={form.endereco} onChange={e => setForm({ ...form, endereco: e.target.value })}
+              rows={2} className={baseInputClass} />
+          </Field>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Field
+              label="Tipo de Cliente"
+              hint="Só clientes Atacado/Restaurante/Conveniado aparecem pra Faturamento e Fiado."
+            >
+              <select value={form.tipoCliente} onChange={e => setForm({ ...form, tipoCliente: e.target.value as Cliente['tipoCliente'] })}
+                className={baseInputClass}>
+                <option value="VAREJO">Varejo</option>
+                <option value="ATACADO">Atacado</option>
+                <option value="RESTAURANTE">Restaurante</option>
+                <option value="CONVENIADO">Conveniado</option>
+              </select>
+            </Field>
+            <Field label="Limite de Crédito">
+              <CurrencyInput value={form.limiteCredito} onChange={v => setForm({ ...form, limiteCredito: v })} />
+            </Field>
+          </div>
+        </Modal>
       )}
     </div>
   )

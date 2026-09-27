@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import Layout from './shared/components/Layout'
-import PrivateRoute from './shared/components/PrivateRoute'
+import Layout from './shared/components/ui/Layout'
+import PrivateRoute from './shared/components/ui/PrivateRoute'
 import LoginPage from './modules/auth/LoginPage'
 import PDVPage from './modules/pdv/PDVPage'
 import SangriaPage from './modules/pdv/SangriaPage'

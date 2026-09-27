@@ -1,9 +1,10 @@
-import { useForm } from 'react-hook-form'
+import { useEffect } from 'react'
+import { useForm, Controller } from 'react-hook-form'
 import { useMutation } from '@tanstack/react-query'
-import { X } from 'lucide-react'
 import { api } from '@/shared/api/axios'
 import toast from 'react-hot-toast'
 import type { Produto } from '@/types/produto'
+import { Modal, Button, Field, baseInputClass, CurrencyInput, WeightInput } from '@/shared/components/ui'
 
 interface Props {
   produto: Partial<Produto>
@@ -13,9 +14,19 @@ interface Props {
 
 export default function ProdutoForm({ produto, onClose, onSaved }: Props) {
   const isEdicao = Boolean(produto.id)
-  const { register, handleSubmit, formState: { errors } } = useForm<Produto>({
+  const { register, handleSubmit, control, watch, setValue, formState: { errors } } = useForm<Produto>({
     defaultValues: produto,
   })
+
+  const unidadeMedida = watch('unidadeMedida')
+  const usaBalanca = unidadeMedida === 'KG' || unidadeMedida === 'G'
+  const isUnidade = !usaBalanca
+
+  useEffect(() => {
+    if (!usaBalanca) {
+      setValue('codigoBalanca', undefined)
+    }
+  }, [usaBalanca, setValue])
 
   const salvar = useMutation({
     mutationFn: (data: Produto) =>
@@ -29,125 +40,100 @@ export default function ProdutoForm({ produto, onClose, onSaved }: Props) {
   })
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl">
-
-        <div className="flex items-center justify-between px-6 py-4 border-b">
-          <h2 className="font-bold text-gray-900">{isEdicao ? 'Editar Produto' : 'Novo Produto'}</h2>
-          <button onClick={onClose}><X size={20} className="text-gray-400" /></button>
+    <Modal title={isEdicao ? 'Editar Produto' : 'Novo Produto'} onClose={onClose} maxWidth="lg">
+      <form id="produto-form" onSubmit={handleSubmit(d => salvar.mutate(d))} className="space-y-4 -mt-1">
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Nome *" error={errors.nome?.message}>
+            <input {...register('nome', { required: 'Obrigatório' })} className={baseInputClass} />
+          </Field>
+          <Field label="Unidade *">
+            <select {...register('unidadeMedida', { required: true })} className={baseInputClass}>
+              <option value="KG">KG — Quilo</option>
+              <option value="UN">UN — Unidade</option>
+              <option value="CX">CX — Caixa</option>
+              <option value="G">G — Grama</option>
+            </select>
+          </Field>
         </div>
 
-        <form onSubmit={handleSubmit(d => salvar.mutate(d))} className="px-6 py-5 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Nome *</label>
-              <input
-                {...register('nome', { required: 'Obrigatório' })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-              />
-              {errors.nome && <p className="text-red-500 text-xs mt-1">{errors.nome.message}</p>}
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Unidade *</label>
-              <select
-                {...register('unidadeMedida', { required: true })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-              >
-                <option value="KG">KG — Quilo</option>
-                <option value="UN">UN — Unidade</option>
-                <option value="CX">CX — Caixa</option>
-                <option value="G">G — Grama</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Tipo *</label>
-              <select
-                {...register('tipoProduto', { required: true })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-              >
-                <option value="CORTE">Corte de Carne</option>
-                <option value="INDUSTRIALIZADO">Industrializado</option>
-                <option value="INSUMO">Insumo</option>
-                <option value="SUBPRODUTO">Subproduto (sebo, osso...)</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">PLU Balança</label>
-              <input
-                type="number"
-                {...register('codigoBalanca')}
-                placeholder="00001"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Preço Venda (R$) *</label>
-              <input
-                type="number" step="0.01"
-                {...register('precoVenda', { required: true, min: 0.01 })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">
-                Custo (R$){isEdicao && <span className="text-gray-400 font-normal"> — automático</span>}
-              </label>
-              <input
-                type="number" step="0.0001"
-                disabled={isEdicao}
-                {...register('precoCusto')}
-                className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500
-                  ${isEdicao ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed' : 'border-gray-300'}`}
-              />
-              {isEdicao && (
-                <p className="text-[11px] text-gray-400 mt-1">Calculado pelas entradas de estoque.</p>
-              )}
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Estoque Mín.</label>
-              <input
-                type="number" step="0.001"
-                {...register('estoqueMinimo')}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">EAN-13 (industrializado)</label>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Tipo *">
+            <select {...register('tipoProduto', { required: true })} className={baseInputClass}>
+              <option value="CORTE">Corte de Carne</option>
+              <option value="INDUSTRIALIZADO">Industrializado</option>
+              <option value="INSUMO">Insumo</option>
+              <option value="SUBPRODUTO">Subproduto (sebo, osso...)</option>
+            </select>
+          </Field>
+          <Field
+            label="PLU Balança"
+            hint={isUnidade ? 'Não se aplica a produtos vendidos por unidade ou caixa.' : undefined}
+          >
             <input
-              {...register('ean13')}
-              maxLength={13}
-              placeholder="0000000000000"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-red-500"
+              type="number"
+              disabled={isUnidade}
+              {...register('codigoBalanca')}
+              placeholder="00001"
+              className={isUnidade
+                ? 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-100 text-gray-400 cursor-not-allowed'
+                : baseInputClass}
             />
-          </div>
+          </Field>
+        </div>
 
-          <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 py-2.5 border border-gray-300 rounded-lg text-sm hover:bg-gray-50"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={salvar.isPending}
-              className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium
-                         disabled:opacity-60 transition-colors"
-            >
-              {salvar.isPending ? 'Salvando...' : 'Salvar Produto'}
-            </button>
-          </div>
-        </form>
+        <div className="grid grid-cols-3 gap-4">
+          <Field label="Preço Venda (R$) *" error={errors.precoVenda ? 'Obrigatório' : undefined}>
+            <Controller
+              name="precoVenda"
+              control={control}
+              defaultValue={produto.precoVenda ?? 0}
+              rules={{ required: true, min: 0.01 }}
+              render={({ field }) => (
+                <CurrencyInput value={field.value ?? 0} onChange={field.onChange} />
+              )}
+            />
+          </Field>
+          <Field
+            label={isEdicao ? 'Custo (R$) — automático' : 'Custo (R$)'}
+            hint={isEdicao ? 'Calculado pelas entradas de estoque.' : undefined}
+          >
+            <Controller
+              name="precoCusto"
+              control={control}
+              defaultValue={produto.precoCusto ?? 0}
+              render={({ field }) => (
+                <CurrencyInput value={field.value ?? 0} onChange={field.onChange} disabled={isEdicao} />
+              )}
+            />
+          </Field>
+          <Field label="Estoque Mín.">
+            <Controller
+              name="estoqueMinimo"
+              control={control}
+              defaultValue={produto.estoqueMinimo ?? 0}
+              render={({ field }) => (
+                <WeightInput value={field.value ?? 0} onChange={field.onChange} unit={(unidadeMedida ?? 'kg').toLowerCase()} />
+              )}
+            />
+          </Field>
+        </div>
+
+        <Field label="EAN-13 (industrializado)">
+          <input
+            {...register('ean13')}
+            maxLength={13}
+            placeholder="0000000000000"
+            className={`${baseInputClass} font-mono`}
+          />
+        </Field>
+      </form>
+
+      <div className="flex gap-3 pt-2">
+        <Button type="button" variant="secondary" fullWidth onClick={onClose}>Cancelar</Button>
+        <Button type="submit" form="produto-form" variant="primary" fullWidth loading={salvar.isPending}>
+          Salvar Produto
+        </Button>
       </div>
-    </div>
+    </Modal>
   )
 }

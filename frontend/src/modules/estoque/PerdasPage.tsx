@@ -1,7 +1,13 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../shared/api/axios'
-import { AlertTriangle, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
+import { formatBRL, formatWeightDisplay } from '@/shared/utils/mask'
+import {
+  PageHeader, Card, Modal, Button, StatusBadge, WeightInput, Field, baseInputClass,
+  Table, THead, TH, TBody, TR, TD, EmptyState,
+} from '@/shared/components/ui'
+import type { BadgeTone } from '@/shared/components/ui'
 
 interface Produto { id: number; nome: string; unidadeMedida: string; precoCusto: number }
 interface Perda {
@@ -15,7 +21,18 @@ interface Perda {
 }
 
 const MOTIVOS = ['VENCIMENTO', 'AVARIA', 'FURTO', 'DESOSSA', 'OUTROS']
-const fmt = (v: number) => `R$ ${(v ?? 0).toFixed(2).replace('.', ',')}`
+const fmt = formatBRL
+const kg3 = formatWeightDisplay
+
+// FURTO é o mais grave (crime); VENCIMENTO/AVARIA pedem atenção mas são
+// operacionais; DESOSSA é perda esperada do processo (não é bem um "problema").
+const motivoTom: Record<string, BadgeTone> = {
+  FURTO: 'danger',
+  VENCIMENTO: 'warning',
+  AVARIA: 'warning',
+  DESOSSA: 'neutral',
+  OUTROS: 'neutral',
+}
 
 const hoje = new Date().toISOString().slice(0, 10)
 
@@ -25,13 +42,11 @@ export default function PerdasPage() {
   const [fim, setFim] = useState(hoje)
   const [showForm, setShowForm] = useState(false)
   const [produtoId, setProdutoId] = useState('')
-  const [quantidade, setQuantidade] = useState('')
+  const [quantidade, setQuantidade] = useState(0)
   const [motivo, setMotivo] = useState('VENCIMENTO')
   const [observacao, setObservacao] = useState('')
 
-  const qtdValida = quantidade === '' || /^[\d]+([,.][\d]+)?$/.test(quantidade.trim())
-  const qtdNum = parseFloat(quantidade.replace(',', '.'))
-  const podeLancar = !!produtoId && quantidade.trim() !== '' && qtdValida && qtdNum > 0
+  const podeLancar = !!produtoId && quantidade > 0
 
   const produtos = useQuery<Produto[]>({
     queryKey: ['produtos'],
@@ -46,7 +61,7 @@ export default function PerdasPage() {
   const lancar = useMutation({
     mutationFn: () => api.post('/estoque/perdas', {
       produtoId: parseInt(produtoId),
-      quantidade: parseFloat(quantidade.replace(',', '.')),
+      quantidade,
       motivo,
       observacao,
       usuarioId: 1,
@@ -55,146 +70,111 @@ export default function PerdasPage() {
       qc.invalidateQueries({ queryKey: ['perdas'] })
       setShowForm(false)
       setProdutoId('')
-      setQuantidade('')
+      setQuantidade(0)
       setObservacao('')
     },
   })
 
   const totalPerdas = perdas.data?.reduce((s, p) => s + (p.custoTotal ?? 0), 0) ?? 0
+  const produtoSel = produtos.data?.find(p => p.id === parseInt(produtoId))
 
   return (
     <div className="p-6 space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-            <AlertTriangle className="text-orange-500" size={24} />
-            Controle de Perdas
-          </h1>
-          <p className="text-sm text-gray-500">Vencimentos, avarias, furtos e quebras</p>
-        </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700"
-        >
-          <Plus size={16} /> Lançar Perda
-        </button>
-      </div>
+      <PageHeader
+        title="Controle de Perdas"
+        subtitle="Vencimentos, avarias, furtos e quebras"
+        actions={
+          <Button variant="primary" onClick={() => setShowForm(true)}>
+            <Plus size={16} /> Lançar Perda
+          </Button>
+        }
+      />
 
       {/* Filtro de período */}
-      <div className="bg-white rounded-xl border p-4 flex gap-4 items-end">
-        <div>
-          <label className="text-xs text-gray-500 font-medium">De</label>
-          <input type="date" value={inicio} onChange={e => setInicio(e.target.value)}
-            className="mt-1 block border rounded-lg px-3 py-2 text-sm" />
-        </div>
-        <div>
-          <label className="text-xs text-gray-500 font-medium">Até</label>
-          <input type="date" value={fim} onChange={e => setFim(e.target.value)}
-            className="mt-1 block border rounded-lg px-3 py-2 text-sm" />
-        </div>
+      <Card padding="sm" className="flex gap-4 items-end">
+        <Field label="De">
+          <input type="date" value={inicio} onChange={e => setInicio(e.target.value)} className={baseInputClass} />
+        </Field>
+        <Field label="Até">
+          <input type="date" value={fim} onChange={e => setFim(e.target.value)} className={baseInputClass} />
+        </Field>
         <div className="ml-auto text-right">
           <p className="text-xs text-gray-400">Total de perdas no período</p>
-          <p className="text-xl font-bold text-red-600">{fmt(totalPerdas)}</p>
+          <p className="text-xl font-bold text-danger-600 tabular-nums">{fmt(totalPerdas)}</p>
         </div>
-      </div>
+      </Card>
 
       {/* Tabela */}
-      <div className="bg-white rounded-xl border overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-gray-50 border-b text-xs text-gray-500 uppercase tracking-wide">
-              <th className="px-4 py-3 text-left">Produto</th>
-              <th className="px-4 py-3 text-left">Motivo</th>
-              <th className="px-4 py-3 text-right">Qtd</th>
-              <th className="px-4 py-3 text-right">Custo</th>
-              <th className="px-4 py-3 text-left">Observação</th>
-              <th className="px-4 py-3 text-left">Data</th>
+      <Card padding="none" className="overflow-hidden">
+        <Table>
+          <THead>
+            <tr>
+              <TH>Produto</TH>
+              <TH>Motivo</TH>
+              <TH align="right">Qtd</TH>
+              <TH align="right">Custo</TH>
+              <TH>Observação</TH>
+              <TH>Data</TH>
             </tr>
-          </thead>
-          <tbody>
+          </THead>
+          <TBody>
             {perdas.data?.length === 0 && (
-              <tr><td colSpan={6} className="text-center py-10 text-gray-400">Nenhuma perda no período</td></tr>
+              <tr><td colSpan={6}><EmptyState>Nenhuma perda no período</EmptyState></td></tr>
             )}
             {perdas.data?.map(p => (
-              <tr key={p.id} className="border-b last:border-0 hover:bg-gray-50">
-                <td className="px-4 py-3 font-medium">{p.produto.nome}</td>
-                <td className="px-4 py-3">
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium
-                    ${p.motivo === 'FURTO' ? 'bg-purple-100 text-purple-700'
-                      : p.motivo === 'VENCIMENTO' ? 'bg-red-100 text-red-700'
-                      : p.motivo === 'AVARIA' ? 'bg-orange-100 text-orange-700'
-                      : 'bg-gray-100 text-gray-600'}`}>
-                    {p.motivo}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-right">{p.quantidade} {p.produto.unidadeMedida}</td>
-                <td className="px-4 py-3 text-right font-medium text-red-600">{fmt(p.custoTotal)}</td>
-                <td className="px-4 py-3 text-gray-500 text-xs">{p.observacao || '—'}</td>
-                <td className="px-4 py-3 text-gray-400">
+              <TR key={p.id}>
+                <TD className="font-medium">{p.produto.nome}</TD>
+                <TD>
+                  <StatusBadge tone={motivoTom[p.motivo] ?? 'neutral'}>{p.motivo}</StatusBadge>
+                </TD>
+                <TD align="right" className="tabular-nums">{kg3(p.quantidade)} {p.produto.unidadeMedida}</TD>
+                <TD align="right" className="font-medium text-danger-600 tabular-nums">{fmt(p.custoTotal)}</TD>
+                <TD className="text-gray-500 text-xs">{p.observacao || '—'}</TD>
+                <TD className="text-gray-400">
                   {new Date(p.createdAt).toLocaleDateString('pt-BR')}
-                </td>
-              </tr>
+                </TD>
+              </TR>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </TBody>
+        </Table>
+      </Card>
 
       {/* Modal lançar perda */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl w-full max-w-md p-6 space-y-4">
-            <h2 className="text-lg font-bold">Lançar Perda</h2>
-            <div>
-              <label className="text-xs text-gray-500 font-medium">Produto</label>
-              <select value={produtoId} onChange={e => setProdutoId(e.target.value)}
-                className="mt-1 block w-full border rounded-lg px-3 py-2 text-sm">
-                <option value="">Selecione...</option>
-                {produtos.data?.map(p => (
-                  <option key={p.id} value={p.id}>{p.nome}</option>
-                ))}
+        <Modal
+          title="Lançar Perda"
+          onClose={() => setShowForm(false)}
+          footer={
+            <>
+              <Button variant="secondary" fullWidth onClick={() => setShowForm(false)}>Cancelar</Button>
+              <Button variant="primary" fullWidth disabled={!podeLancar} loading={lancar.isPending} onClick={() => lancar.mutate()}>
+                Lançar
+              </Button>
+            </>
+          }
+        >
+          <Field label="Produto">
+            <select value={produtoId} onChange={e => setProdutoId(e.target.value)} className={baseInputClass}>
+              <option value="">Selecione...</option>
+              {produtos.data?.map(p => (
+                <option key={p.id} value={p.id}>{p.nome}</option>
+              ))}
+            </select>
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Quantidade">
+              <WeightInput value={quantidade} onChange={setQuantidade} unit={(produtoSel?.unidadeMedida ?? 'kg').toLowerCase()} />
+            </Field>
+            <Field label="Motivo">
+              <select value={motivo} onChange={e => setMotivo(e.target.value)} className={baseInputClass}>
+                {MOTIVOS.map(m => <option key={m}>{m}</option>)}
               </select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs text-gray-500 font-medium">Quantidade</label>
-                <input
-                  type="text"
-                  value={quantidade}
-                  onChange={e => setQuantidade(e.target.value)}
-                  placeholder="0,000"
-                  className={`mt-1 block w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2
-                    ${!qtdValida && quantidade !== '' ? 'border-red-400 focus:ring-red-400' : 'border-gray-300 focus:ring-red-500'}`}
-                />
-                {!qtdValida && quantidade !== '' && (
-                  <p className="text-xs text-red-500 mt-1">Use vírgula como decimal. Ex: 1,250</p>
-                )}
-              </div>
-              <div>
-                <label className="text-xs text-gray-500 font-medium">Motivo</label>
-                <select value={motivo} onChange={e => setMotivo(e.target.value)}
-                  className="mt-1 block w-full border rounded-lg px-3 py-2 text-sm">
-                  {MOTIVOS.map(m => <option key={m}>{m}</option>)}
-                </select>
-              </div>
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 font-medium">Observação</label>
-              <input type="text" value={observacao} onChange={e => setObservacao(e.target.value)}
-                className="mt-1 block w-full border rounded-lg px-3 py-2 text-sm" />
-            </div>
-            <div className="flex gap-3">
-              <button onClick={() => setShowForm(false)}
-                className="flex-1 py-2 border rounded-lg text-sm text-gray-600 hover:bg-gray-50">
-                Cancelar
-              </button>
-              <button onClick={() => lancar.mutate()}
-                disabled={!podeLancar || lancar.isPending}
-                className="flex-1 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50">
-                {lancar.isPending ? 'Salvando...' : 'Lançar'}
-              </button>
-            </div>
+            </Field>
           </div>
-        </div>
+          <Field label="Observação">
+            <input type="text" value={observacao} onChange={e => setObservacao(e.target.value)} className={baseInputClass} />
+          </Field>
+        </Modal>
       )}
     </div>
   )

@@ -3,10 +3,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { FileText, Plus, X, ChevronDown, ChevronUp, Upload, CheckCircle, XCircle } from 'lucide-react'
 import { api } from '@/shared/api/axios'
 import toast from 'react-hot-toast'
+import { formatBRL, formatWeightDisplay } from '@/shared/utils/mask'
+import { PageHeader, Modal, Button, StatusBadge, CurrencyInput, WeightInput, Field, baseInputClass } from '@/shared/components/ui'
+import type { BadgeTone } from '@/shared/components/ui'
 
 interface Produto  { id: number; nome: string; precoVenda: number }
 interface Cliente  { id: number; nome: string }
-interface NfItem   { produtoId: number | null; descricao: string; quantidade: string; valorUnitario: string }
+interface NfItem   { produtoId: number | null; descricao: string; quantidade: number; valorUnitario: number }
 
 interface NotaFiscal {
   id: number
@@ -23,13 +26,14 @@ interface NotaFiscal {
   itens: { id: number; produto: { nome: string } | null; descricao: string; quantidade: number; valorUnitario: number; valorTotal: number }[]
 }
 
-const brl = (v?: number) => (v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-const parseNum = (s: string) => parseFloat(s.replace(',', '.')) || 0
+const brl = (v?: number) => formatBRL(v ?? 0)
+const qtd3 = formatWeightDisplay
 
-const STATUS_COR: Record<string, string> = {
-  PENDENTE:  'bg-yellow-100 text-yellow-700',
-  EMITIDA:   'bg-emerald-100 text-emerald-700',
-  CANCELADA: 'bg-red-100 text-red-600',
+// PENDENTE = aguardando emissão (atenção); EMITIDA = concluída; CANCELADA = negativa.
+const statusTom: Record<string, BadgeTone> = {
+  PENDENTE:  'warning',
+  EMITIDA:   'success',
+  CANCELADA: 'danger',
 }
 
 export default function NotaFiscalPage() {
@@ -45,7 +49,7 @@ export default function NotaFiscalPage() {
   const [serieNf, setSerieNf]         = useState('1')
   const [natureza, setNatureza]       = useState('VENDA DE MERCADORIAS')
   const [observacao, setObservacao]   = useState('')
-  const [itens, setItens]             = useState<NfItem[]>([{ produtoId: null, descricao: '', quantidade: '', valorUnitario: '' }])
+  const [itens, setItens]             = useState<NfItem[]>([{ produtoId: null, descricao: '', quantidade: 0, valorUnitario: 0 }])
 
   const { data: produtos = [] } = useQuery<Produto[]>({
     queryKey: ['produtos'],
@@ -75,8 +79,8 @@ export default function NotaFiscalPage() {
       itens: itens.filter(i => i.quantidade && i.valorUnitario).map(i => ({
         produtoId: i.produtoId,
         descricao: i.descricao || null,
-        quantidade: parseNum(i.quantidade),
-        valorUnitario: parseNum(i.valorUnitario),
+        quantidade: i.quantidade,
+        valorUnitario: i.valorUnitario,
       })),
     }),
     onSuccess: () => {
@@ -108,11 +112,11 @@ export default function NotaFiscalPage() {
     setShowForm(false)
     setClienteId(''); setNumeroNf(''); setSerieNf('1')
     setNatureza('VENDA DE MERCADORIAS'); setObservacao('')
-    setItens([{ produtoId: null, descricao: '', quantidade: '', valorUnitario: '' }])
+    setItens([{ produtoId: null, descricao: '', quantidade: 0, valorUnitario: 0 }])
   }
 
   function addItem() {
-    setItens(prev => [...prev, { produtoId: null, descricao: '', quantidade: '', valorUnitario: '' }])
+    setItens(prev => [...prev, { produtoId: null, descricao: '', quantidade: 0, valorUnitario: 0 }])
   }
 
   function removeItem(idx: number) {
@@ -124,7 +128,7 @@ export default function NotaFiscalPage() {
       if (i !== idx) return item
       if (field === 'produtoId' && typeof val === 'number') {
         const p = produtos.find(p => p.id === val)
-        return { ...item, produtoId: val, descricao: p?.nome ?? '', valorUnitario: p ? String(p.precoVenda) : '' }
+        return { ...item, produtoId: val, descricao: p?.nome ?? '', valorUnitario: p ? p.precoVenda : 0 }
       }
       return { ...item, [field]: val }
     }))
@@ -139,33 +143,27 @@ export default function NotaFiscalPage() {
     e.target.value = ''
   }
 
-  const totalForm = itens.reduce((s, i) => s + parseNum(i.quantidade) * parseNum(i.valorUnitario), 0)
-  const canSave = itens.some(i => parseNum(i.quantidade) > 0 && parseNum(i.valorUnitario) > 0)
+  const totalForm = itens.reduce((s, i) => s + i.quantidade * i.valorUnitario, 0)
+  const canSave = itens.some(i => i.quantidade > 0 && i.valorUnitario > 0)
   const nfXml = notas.find(n => n.id === xmlViewId)
 
   return (
     <div className="p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <FileText size={24} className="text-red-600" /> Notas Fiscais de Saída
-          </h1>
-          <p className="text-gray-500 text-sm mt-0.5">Faturamento e emissão de NF</p>
-        </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700"
-        >
-          <Plus size={16} /> Nova NF
-        </button>
-      </div>
+      <PageHeader
+        title="Notas Fiscais de Saída"
+        subtitle="Emissão de Nota fiscal"
+        actions={
+          <Button variant="primary" onClick={() => setShowForm(true)}>
+            <Plus size={16} /> Nova NF
+          </Button>
+        }
+      />
 
       {/* Lista */}
       <div className="space-y-2">
         {isLoading && <p className="text-gray-400 text-sm">Carregando...</p>}
         {notas.map(nf => (
-          <div key={nf.id} className="bg-white rounded-xl border overflow-hidden">
+          <div key={nf.id} className="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">
             <div
               className="flex items-center gap-4 px-5 py-4 cursor-pointer hover:bg-gray-50"
               onClick={() => setExpandId(expandId === nf.id ? null : nf.id)}
@@ -185,48 +183,40 @@ export default function NotaFiscalPage() {
                 </div>
                 <div>
                   <p className="text-xs text-gray-400">Total</p>
-                  <p className="text-sm font-medium text-gray-800">{brl(nf.valorTotal)}</p>
+                  <p className="text-sm font-medium text-gray-800 tabular-nums">{brl(nf.valorTotal)}</p>
                 </div>
                 <div className="flex items-center">
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COR[nf.status] ?? 'bg-gray-100 text-gray-600'}`}>
-                    {nf.status}
-                  </span>
+                  <StatusBadge tone={statusTom[nf.status] ?? 'neutral'}>{nf.status}</StatusBadge>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 {nf.xmlNf ? (
-                  <button
-                    onClick={e => { e.stopPropagation(); setXmlViewId(nf.id) }}
-                    className="flex items-center gap-1 px-2 py-1 text-xs bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100"
-                  >
+                  <Button variant="ghost" size="sm" className="!bg-info-50 !text-info-700 hover:!bg-info-100"
+                    onClick={e => { e.stopPropagation(); setXmlViewId(nf.id) }}>
                     <FileText size={12} /> XML
-                  </button>
+                  </Button>
                 ) : (
                   <label
                     onClick={e => e.stopPropagation()}
-                    className="flex items-center gap-1 px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 cursor-pointer"
+                    className="flex items-center gap-1 px-3 py-1.5 text-xs bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 cursor-pointer font-medium"
                   >
                     <Upload size={12} /> XML
                     <input type="file" accept=".xml" className="hidden" onChange={e => handleXmlFile(e, nf.id)} />
                   </label>
                 )}
                 {nf.status === 'PENDENTE' && (
-                  <button
+                  <Button variant="ghost" size="sm" className="hover:!text-success-600"
                     onClick={e => { e.stopPropagation(); atualizarStatus.mutate({ id: nf.id, status: 'EMITIDA' }) }}
-                    className="p-1.5 rounded hover:bg-emerald-50 text-gray-400 hover:text-emerald-600"
-                    title="Marcar como Emitida"
-                  >
+                    title="Marcar como Emitida">
                     <CheckCircle size={16} />
-                  </button>
+                  </Button>
                 )}
                 {nf.status !== 'CANCELADA' && (
-                  <button
+                  <Button variant="ghost" size="sm" className="hover:!text-danger-600"
                     onClick={e => { e.stopPropagation(); atualizarStatus.mutate({ id: nf.id, status: 'CANCELADA' }) }}
-                    className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-500"
-                    title="Cancelar NF"
-                  >
+                    title="Cancelar NF">
                     <XCircle size={16} />
-                  </button>
+                  </Button>
                 )}
                 {expandId === nf.id ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
               </div>
@@ -237,7 +227,7 @@ export default function NotaFiscalPage() {
                 <p className="text-xs text-gray-500 mb-3">{nf.naturezaOperacao}</p>
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-xs text-gray-500 uppercase">
+                    <tr className="text-xs text-gray-500 uppercase tracking-wide">
                       <th className="text-left pb-2">Descrição</th>
                       <th className="text-right pb-2">Qtd</th>
                       <th className="text-right pb-2">Unit.</th>
@@ -248,16 +238,16 @@ export default function NotaFiscalPage() {
                     {nf.itens.map(it => (
                       <tr key={it.id} className="border-t border-gray-200">
                         <td className="py-2">{it.descricao}</td>
-                        <td className="py-2 text-right">{it.quantidade}</td>
-                        <td className="py-2 text-right">{brl(it.valorUnitario)}</td>
-                        <td className="py-2 text-right font-medium">{brl(it.valorTotal)}</td>
+                        <td className="py-2 text-right tabular-nums">{qtd3(it.quantidade)}</td>
+                        <td className="py-2 text-right tabular-nums">{brl(it.valorUnitario)}</td>
+                        <td className="py-2 text-right font-medium tabular-nums">{brl(it.valorTotal)}</td>
                       </tr>
                     ))}
                   </tbody>
                   <tfoot>
                     <tr className="border-t-2 border-gray-300 font-semibold">
                       <td colSpan={3} className="pt-2 text-right text-xs uppercase text-gray-500">Total NF</td>
-                      <td className="pt-2 text-right">{brl(nf.valorTotal)}</td>
+                      <td className="pt-2 text-right tabular-nums">{brl(nf.valorTotal)}</td>
                     </tr>
                   </tfoot>
                 </table>
@@ -266,13 +256,13 @@ export default function NotaFiscalPage() {
           </div>
         ))}
         {!isLoading && notas.length === 0 && (
-          <div className="bg-white rounded-xl border p-10 text-center text-gray-400">
+          <div className="bg-white rounded-xl shadow border border-gray-100 p-10 text-center text-gray-400">
             Nenhuma nota fiscal emitida
           </div>
         )}
       </div>
 
-      {/* XML Viewer */}
+      {/* XML Viewer — tema "console" proposital, ver nota em RecebimentoPage.tsx */}
       {xmlViewId && nfXml && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-gray-900 rounded-2xl w-full max-w-4xl h-[80vh] flex flex-col">
@@ -282,7 +272,7 @@ export default function NotaFiscalPage() {
                 <p className="text-xs text-gray-400">NF {nfXml.numeroNf ?? 'S/N'} — {nfXml.cliente?.nome ?? 'Sem cliente'}</p>
               </div>
               <div className="flex items-center gap-3">
-                <label className="flex items-center gap-1 px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg cursor-pointer hover:bg-blue-700">
+                <label className="flex items-center gap-1 px-3 py-1.5 text-xs bg-primary-600 text-white rounded-lg cursor-pointer hover:bg-primary-700 font-medium">
                   <Upload size={12} /> Atualizar
                   <input type="file" accept=".xml" className="hidden" onChange={e => handleXmlFile(e, xmlViewId)} />
                 </label>
@@ -291,7 +281,7 @@ export default function NotaFiscalPage() {
                 </button>
               </div>
             </div>
-            <pre className="flex-1 overflow-auto p-5 text-xs text-green-400 font-mono whitespace-pre-wrap">
+            <pre className="flex-1 overflow-auto p-5 text-xs text-success-400 font-mono whitespace-pre-wrap">
               {nfXml.xmlNf}
             </pre>
           </div>
@@ -300,124 +290,105 @@ export default function NotaFiscalPage() {
 
       {/* Modal Nova NF */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl w-full max-w-2xl my-4 p-6 space-y-5">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold">Nova Nota Fiscal de Saída</h2>
-              <button onClick={resetForm}><X size={20} className="text-gray-400 hover:text-gray-700" /></button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2">
-                <label className="text-xs font-medium text-gray-600">Cliente</label>
-                <select value={clienteId} onChange={e => setClienteId(e.target.value)}
-                  className="mt-1 w-full border rounded-lg px-3 py-2 text-sm">
-                  <option value="">Sem cliente (consumidor final)</option>
-                  {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="text-xs font-medium text-gray-600">Número NF</label>
-                <input value={numeroNf} onChange={e => setNumeroNf(e.target.value)}
-                  className="mt-1 w-full border rounded-lg px-3 py-2 text-sm" placeholder="000001" />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-gray-600">Série</label>
-                <input value={serieNf} onChange={e => setSerieNf(e.target.value)}
-                  className="mt-1 w-full border rounded-lg px-3 py-2 text-sm" placeholder="1" />
-              </div>
-              <div className="col-span-2">
-                <label className="text-xs font-medium text-gray-600">Natureza da Operação</label>
-                <input value={natureza} onChange={e => setNatureza(e.target.value)}
-                  className="mt-1 w-full border rounded-lg px-3 py-2 text-sm" />
-              </div>
-              <div className="col-span-2">
-                <label className="text-xs font-medium text-gray-600">Observação</label>
-                <input value={observacao} onChange={e => setObservacao(e.target.value)}
-                  className="mt-1 w-full border rounded-lg px-3 py-2 text-sm" />
-              </div>
-            </div>
-
-            {/* Itens */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Itens</label>
-                <button onClick={addItem} className="flex items-center gap-1 text-xs text-red-600 hover:text-red-700">
-                  <Plus size={12} /> Adicionar
-                </button>
-              </div>
-              <div className="space-y-2">
-                {itens.map((item, idx) => (
-                  <div key={idx} className="grid grid-cols-12 gap-2 items-end bg-gray-50 rounded-lg p-3">
-                    <div className="col-span-4">
-                      {idx === 0 && <label className="text-xs text-gray-500 block mb-1">Produto</label>}
-                      <select
-                        value={item.produtoId ?? ''}
-                        onChange={e => updateItem(idx, 'produtoId', e.target.value ? parseInt(e.target.value) : null)}
-                        className="w-full border rounded px-2 py-1.5 text-sm bg-white"
-                      >
-                        <option value="">Outro</option>
-                        {produtos.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
-                      </select>
-                    </div>
-                    <div className="col-span-3">
-                      {idx === 0 && <label className="text-xs text-gray-500 block mb-1">Descrição</label>}
-                      <input
-                        value={item.descricao}
-                        onChange={e => updateItem(idx, 'descricao', e.target.value)}
-                        placeholder="Descrição"
-                        className="w-full border rounded px-2 py-1.5 text-sm"
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      {idx === 0 && <label className="text-xs text-gray-500 block mb-1">Qtd</label>}
-                      <input
-                        value={item.quantidade}
-                        onChange={e => updateItem(idx, 'quantidade', e.target.value)}
-                        placeholder="0,000"
-                        className="w-full border rounded px-2 py-1.5 text-sm"
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      {idx === 0 && <label className="text-xs text-gray-500 block mb-1">R$/un</label>}
-                      <input
-                        value={item.valorUnitario}
-                        onChange={e => updateItem(idx, 'valorUnitario', e.target.value)}
-                        placeholder="0,00"
-                        className="w-full border rounded px-2 py-1.5 text-sm"
-                      />
-                    </div>
-                    <div className="col-span-1 flex justify-center">
-                      {itens.length > 1 && (
-                        <button onClick={() => removeItem(idx)} className="text-red-400 hover:text-red-600">
-                          <X size={14} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              {totalForm > 0 && (
-                <p className="text-right text-sm font-semibold text-gray-700 mt-2">
-                  Total: {brl(totalForm)}
-                </p>
-              )}
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <button onClick={resetForm} className="flex-1 py-2.5 border rounded-lg text-sm text-gray-600">
-                Cancelar
-              </button>
-              <button
-                onClick={() => criar.mutate()}
-                disabled={!canSave || criar.isPending}
-                className="flex-1 py-2.5 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50"
-              >
-                {criar.isPending ? 'Criando...' : 'Criar NF'}
-              </button>
-            </div>
+        <Modal
+          title="Nova Nota Fiscal de Saída"
+          onClose={resetForm}
+          maxWidth="lg"
+          footer={
+            <>
+              <Button variant="secondary" fullWidth onClick={resetForm}>Cancelar</Button>
+              <Button variant="primary" fullWidth disabled={!canSave} loading={criar.isPending} onClick={() => criar.mutate()}>
+                Criar NF
+              </Button>
+            </>
+          }
+        >
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Cliente" className="col-span-2">
+              <select value={clienteId} onChange={e => setClienteId(e.target.value)} className={baseInputClass}>
+                <option value="">Sem cliente (consumidor final)</option>
+                {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            </Field>
+            <Field label="Número NF">
+              <input value={numeroNf} onChange={e => setNumeroNf(e.target.value)} className={baseInputClass} placeholder="000001" />
+            </Field>
+            <Field label="Série">
+              <input value={serieNf} onChange={e => setSerieNf(e.target.value)} className={baseInputClass} placeholder="1" />
+            </Field>
+            <Field label="Natureza da Operação" className="col-span-2">
+              <input value={natureza} onChange={e => setNatureza(e.target.value)} className={baseInputClass} />
+            </Field>
+            <Field label="Observação" className="col-span-2">
+              <input value={observacao} onChange={e => setObservacao(e.target.value)} className={baseInputClass} />
+            </Field>
           </div>
-        </div>
+
+          {/* Itens */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Itens</label>
+              <button onClick={addItem} className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 font-medium">
+                <Plus size={12} /> Adicionar
+              </button>
+            </div>
+            <div className="space-y-2">
+              {itens.map((item, idx) => (
+                <div key={idx} className="grid grid-cols-12 gap-2 items-end bg-gray-50 border border-gray-100 rounded-lg p-3">
+                  <div className="col-span-4">
+                    {idx === 0 && <label className="text-xs text-gray-500 block mb-1">Produto</label>}
+                    <select
+                      value={item.produtoId ?? ''}
+                      onChange={e => updateItem(idx, 'produtoId', e.target.value ? parseInt(e.target.value) : null)}
+                      className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white"
+                    >
+                      <option value="">Outro</option>
+                      {produtos.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                    </select>
+                  </div>
+                  <div className="col-span-3">
+                    {idx === 0 && <label className="text-xs text-gray-500 block mb-1">Descrição</label>}
+                    <input
+                      value={item.descricao}
+                      onChange={e => updateItem(idx, 'descricao', e.target.value)}
+                      placeholder="Descrição"
+                      className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    {idx === 0 && <label className="text-xs text-gray-500 block mb-1">Qtd</label>}
+                    <WeightInput
+                      value={item.quantidade}
+                      onChange={v => updateItem(idx, 'quantidade', v)}
+                      size="sm"
+                      unit=""
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    {idx === 0 && <label className="text-xs text-gray-500 block mb-1">R$/un</label>}
+                    <CurrencyInput
+                      value={item.valorUnitario}
+                      onChange={v => updateItem(idx, 'valorUnitario', v)}
+                      size="sm"
+                    />
+                  </div>
+                  <div className="col-span-1 flex justify-center">
+                    {itens.length > 1 && (
+                      <button onClick={() => removeItem(idx)} className="text-danger-400 hover:text-danger-600">
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {totalForm > 0 && (
+              <p className="text-right text-sm font-semibold text-gray-700 mt-2 tabular-nums">
+                Total: {brl(totalForm)}
+              </p>
+            )}
+          </div>
+        </Modal>
       )}
     </div>
   )

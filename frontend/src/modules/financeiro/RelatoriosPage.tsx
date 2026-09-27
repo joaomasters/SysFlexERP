@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '../../shared/api/axios'
 import { BarChart2, TrendingUp, TrendingDown, Package, ShoppingBag } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { formatBRL, formatWeightDisplay } from '@/shared/utils/mask'
+import { PageHeader, Card, Field, baseInputClass, Table, THead, TH, TBody, TR, TD } from '@/shared/components/ui'
 
 interface RelatorioVendas {
   totalVendas: number; quantidadeVendas: number; ticketMedio: number; totalPerdas: number
@@ -12,7 +14,7 @@ interface FluxoCaixa {
   totalRecebimentos: number; totalPagamentos: number; saldo: number
 }
 
-const fmt = (v: number) => `R$ ${(v ?? 0).toFixed(2).replace('.', ',')}`
+const fmt = formatBRL
 const hoje = new Date().toISOString().slice(0, 10)
 const primeiroDiaMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10)
 
@@ -31,70 +33,65 @@ export default function RelatoriosPage() {
   })
 
   const cards = [
-    { label: 'Total de Vendas', value: fmt(relVendas.data?.totalVendas ?? 0), icon: TrendingUp, color: 'text-green-600 bg-green-50' },
-    { label: 'Qtd. Vendas', value: relVendas.data?.quantidadeVendas ?? 0, icon: ShoppingBag, color: 'text-blue-600 bg-blue-50' },
+    { label: 'Total de Vendas', value: fmt(relVendas.data?.totalVendas ?? 0), icon: TrendingUp, color: 'text-success-600 bg-success-50' },
+    { label: 'Qtd. Vendas', value: relVendas.data?.quantidadeVendas ?? 0, icon: ShoppingBag, color: 'text-info-600 bg-info-50' },
     { label: 'Ticket Médio', value: fmt(relVendas.data?.ticketMedio ?? 0), icon: BarChart2, color: 'text-purple-600 bg-purple-50' },
-    { label: 'Total Perdas', value: fmt(relVendas.data?.totalPerdas ?? 0), icon: TrendingDown, color: 'text-red-600 bg-red-50' },
+    { label: 'Total Perdas', value: fmt(relVendas.data?.totalPerdas ?? 0), icon: TrendingDown, color: 'text-danger-600 bg-danger-50' },
   ]
+
+  const saldoPositivo = (fluxo.data?.saldo ?? 0) >= 0
 
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-800">Relatórios</h1>
-        <p className="text-sm text-gray-500">Análise de desempenho e controle gerencial</p>
-      </div>
+      <PageHeader title="Relatórios" subtitle="Análise de desempenho e controle gerencial" />
 
       {/* Filtro de período */}
-      <div className="bg-white rounded-xl border p-4 flex gap-4 items-end">
-        <div>
-          <label className="text-xs text-gray-500 font-medium">De</label>
-          <input type="date" value={inicio} onChange={e => setInicio(e.target.value)}
-            className="mt-1 block border rounded-lg px-3 py-2 text-sm" />
-        </div>
-        <div>
-          <label className="text-xs text-gray-500 font-medium">Até</label>
-          <input type="date" value={fim} onChange={e => setFim(e.target.value)}
-            className="mt-1 block border rounded-lg px-3 py-2 text-sm" />
-        </div>
-      </div>
+      <Card padding="sm" className="flex gap-4 items-end">
+        <Field label="De">
+          <input type="date" value={inicio} onChange={e => setInicio(e.target.value)} className={baseInputClass} />
+        </Field>
+        <Field label="Até">
+          <input type="date" value={fim} onChange={e => setFim(e.target.value)} className={baseInputClass} />
+        </Field>
+      </Card>
 
       {/* Cards de resumo */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {cards.map(c => (
-          <div key={c.label} className="bg-white rounded-xl border p-5">
+          <Card key={c.label} padding="md">
             <div className={`inline-flex p-2 rounded-lg ${c.color} mb-3`}>
               <c.icon size={20} />
             </div>
-            <p className="text-2xl font-bold text-gray-800">{c.value}</p>
+            <p className="text-2xl font-bold text-gray-900 tabular-nums">{c.value}</p>
             <p className="text-xs text-gray-500 mt-1">{c.label}</p>
-          </div>
+          </Card>
         ))}
       </div>
 
       {/* Fluxo de Caixa */}
-      <div className="bg-white rounded-xl border p-5">
+      <Card>
         <h2 className="text-base font-semibold text-gray-700 mb-4">Fluxo de Caixa</h2>
         <div className="grid grid-cols-3 gap-4">
-          <div className="text-center p-4 bg-green-50 rounded-lg">
+          <div className="text-center p-4 bg-success-50 rounded-lg">
             <p className="text-xs text-gray-500">Entradas</p>
-            <p className="text-xl font-bold text-green-600">{fmt(fluxo.data?.totalRecebimentos ?? 0)}</p>
+            <p className="text-xl font-bold text-success-600 tabular-nums">{fmt(fluxo.data?.totalRecebimentos ?? 0)}</p>
           </div>
-          <div className="text-center p-4 bg-red-50 rounded-lg">
+          <div className="text-center p-4 bg-danger-50 rounded-lg">
             <p className="text-xs text-gray-500">Saídas</p>
-            <p className="text-xl font-bold text-red-600">{fmt(fluxo.data?.totalPagamentos ?? 0)}</p>
+            <p className="text-xl font-bold text-danger-600 tabular-nums">{fmt(fluxo.data?.totalPagamentos ?? 0)}</p>
           </div>
-          <div className={`text-center p-4 rounded-lg ${(fluxo.data?.saldo ?? 0) >= 0 ? 'bg-blue-50' : 'bg-orange-50'}`}>
+          <div className={`text-center p-4 rounded-lg ${saldoPositivo ? 'bg-info-50' : 'bg-warning-50'}`}>
             <p className="text-xs text-gray-500">Saldo</p>
-            <p className={`text-xl font-bold ${(fluxo.data?.saldo ?? 0) >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
+            <p className={`text-xl font-bold tabular-nums ${saldoPositivo ? 'text-info-600' : 'text-warning-600'}`}>
               {fmt(fluxo.data?.saldo ?? 0)}
             </p>
           </div>
         </div>
-      </div>
+      </Card>
 
       {/* Top 10 Produtos */}
       {relVendas.data?.topProdutos && relVendas.data.topProdutos.length > 0 && (
-        <div className="bg-white rounded-xl border p-5">
+        <Card>
           <h2 className="text-base font-semibold text-gray-700 mb-4 flex items-center gap-2">
             <Package size={18} className="text-gray-500" />
             Top 10 Produtos por Faturamento
@@ -107,33 +104,33 @@ export default function RelatoriosPage() {
                 <XAxis type="number" tickFormatter={v => `R$${v.toFixed(0)}`} tick={{ fontSize: 11 }} />
                 <YAxis type="category" dataKey="nomeProduto" width={120} tick={{ fontSize: 11 }} />
                 <Tooltip formatter={(v: number) => fmt(v)} />
-                <Bar dataKey="valorTotal" name="Faturamento" fill="#dc2626" radius={[0, 4, 4, 0]} />
+                <Bar dataKey="valorTotal" name="Faturamento" fill="#A32B1E" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
 
           {/* Tabela ranking */}
-          <table className="w-full text-sm mt-4">
-            <thead>
-              <tr className="text-xs text-gray-400 border-b">
-                <th className="py-2 text-left">#</th>
-                <th className="py-2 text-left">Produto</th>
-                <th className="py-2 text-right">Qtd Vendida</th>
-                <th className="py-2 text-right">Faturamento</th>
+          <Table>
+            <THead>
+              <tr>
+                <TH>#</TH>
+                <TH>Produto</TH>
+                <TH align="right">Qtd Vendida</TH>
+                <TH align="right">Faturamento</TH>
               </tr>
-            </thead>
-            <tbody>
+            </THead>
+            <TBody>
               {relVendas.data.topProdutos.map((p, i) => (
-                <tr key={p.produtoId} className="border-b last:border-0">
-                  <td className="py-2 text-gray-400 font-mono">{i + 1}</td>
-                  <td className="py-2 font-medium">{p.nomeProduto}</td>
-                  <td className="py-2 text-right text-gray-600">{p.quantidadeTotal?.toFixed(3)}</td>
-                  <td className="py-2 text-right font-semibold text-green-600">{fmt(p.valorTotal)}</td>
-                </tr>
+                <TR key={p.produtoId}>
+                  <TD className="text-gray-400 font-mono">{i + 1}</TD>
+                  <TD className="font-medium">{p.nomeProduto}</TD>
+                  <TD align="right" className="text-gray-600 tabular-nums">{formatWeightDisplay(p.quantidadeTotal ?? 0)}</TD>
+                  <TD align="right" className="font-semibold text-success-600 tabular-nums">{fmt(p.valorTotal)}</TD>
+                </TR>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </TBody>
+          </Table>
+        </Card>
       )}
     </div>
   )

@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Scissors, ChevronRight, Link2, History, AlertTriangle, Filter } from 'lucide-react'
+import { ChevronRight, Link2, History, AlertTriangle, Filter } from 'lucide-react'
 import { api } from '@/shared/api/axios'
 import toast from 'react-hot-toast'
 import type { FichaDesossa, ExecutarDesossaDTO, ProcessoDesossa } from '@/types/produto'
+import { formatWeightDisplay } from '@/shared/utils/mask'
+import { PageHeader, Card, Button, CurrencyInput, WeightInput, Field, baseInputClass } from '@/shared/components/ui'
 
 interface Recebimento {
   id: number
@@ -13,14 +15,14 @@ interface Recebimento {
   itens: { produto: { id: number; nome: string }; quantidade: number; custoUnitario: number }[]
 }
 
-const kg3 = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })
+const kg3 = formatWeightDisplay
 
 export default function DesossaPage() {
   const qc = useQueryClient()
   const [fichaSel, setFichaSel]         = useState<FichaDesossa | null>(null)
-  const [qtdEntrada, setQtdEntrada]     = useState('')
-  const [custoPorKg, setCustoPorKg]     = useState('')
-  const [qtdsReais, setQtdsReais]       = useState<Record<number, string>>({})
+  const [qtdEntrada, setQtdEntrada]     = useState(0)
+  const [custoPorKg, setCustoPorKg]     = useState(0)
+  const [qtdsReais, setQtdsReais]       = useState<Record<number, number>>({})
   const [recebimentoId, setRecebimentoId] = useState('')
   const [preenchidoPelaNf, setPreenchidoPelaNf] = useState(false)
   const [confirmouPerdaAnormal, setConfirmouPerdaAnormal] = useState(false)
@@ -64,8 +66,8 @@ export default function DesossaPage() {
       qc.invalidateQueries({ queryKey: ['produtos'] })
       qc.invalidateQueries({ queryKey: ['desossa-historico'] })
       setFichaSel(null)
-      setQtdEntrada('')
-      setCustoPorKg('')
+      setQtdEntrada(0)
+      setCustoPorKg(0)
       setQtdsReais({})
       setRecebimentoId('')
       setPreenchidoPelaNf(false)
@@ -80,13 +82,9 @@ export default function DesossaPage() {
       : ''
     const dto: ExecutarDesossaDTO = {
       fichaDesossaId: fichaSel.id,
-      quantidadeKgEntrada: parseFloat(qtdEntrada),
-      custoPorKg: custoPorKg ? parseFloat(custoPorKg) : undefined,
-      quantidadesReais: Object.keys(qtdsReais).reduce((acc, k) => {
-        const v = parseFloat(qtdsReais[Number(k)])
-        if (!isNaN(v)) acc[Number(k)] = v
-        return acc
-      }, {} as Record<number, number>),
+      quantidadeKgEntrada: qtdEntrada,
+      custoPorKg: custoPorKg || undefined,
+      quantidadesReais: qtdsReais,
       usuarioId: 1,
       recebimentoId: recebimentoId ? parseInt(recebimentoId) : null,
       observacao: notaPerdaAnormal || undefined,
@@ -94,7 +92,7 @@ export default function DesossaPage() {
     executar.mutate(dto)
   }
 
-  const qtdNum = parseFloat(qtdEntrada) || 0
+  const qtdNum = qtdEntrada || 0
 
   // Soma prevista (pela ficha) x soma real (o que o operador está digitando).
   // Usados para alertar quando o rendimento real fica muito abaixo do esperado.
@@ -105,7 +103,7 @@ export default function DesossaPage() {
     ? fichaSel.itens.reduce((acc, item) => {
         const prevista = qtdNum * (item.percentualRendimento / 100)
         const real = qtdsReais[item.produtoFilho.id]
-        return acc + (real !== undefined && real !== '' ? parseFloat(real) || 0 : prevista)
+        return acc + (real !== undefined ? real : prevista)
       }, 0)
     : 0
   // A própria ficha já define o rendimento esperado (ex: 92%, com 8% de perda cadastrada).
@@ -116,15 +114,11 @@ export default function DesossaPage() {
   const recebSel = recebimentos.find(r => r.id === parseInt(recebimentoId))
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <Scissors size={24} className="text-red-600" /> Desossa / Rendimento
-        </h1>
-        <p className="text-gray-500 text-sm mt-0.5">
-          Processa peças inteiras em cortes filhos com rateio automático de custo
-        </p>
-      </div>
+    <div className="p-6">
+      <PageHeader
+        title="Desossa / Rendimento"
+        subtitle="Processa peças inteiras em cortes e filhos com rateio automático"
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
@@ -138,7 +132,7 @@ export default function DesossaPage() {
                 onClick={() => setFichaSel(f)}
                 className={`w-full flex items-center justify-between p-4 rounded-xl border-2 text-left transition-all
                   ${fichaSel?.id === f.id
-                    ? 'border-red-500 bg-red-50'
+                    ? 'border-primary-500 bg-primary-50'
                     : 'border-gray-200 bg-white hover:border-gray-300'}`}
               >
                 <div>
@@ -155,8 +149,8 @@ export default function DesossaPage() {
             )}
           </div>
 
-          {/* Histórico de execuções — agora escondido por padrão; só aparece
-              depois que o usuário escolhe um período, com destaque para perdas anormais */}
+          {/* Histórico de execuções — escondido por padrão; só aparece depois
+              que o usuário escolhe um período, com destaque para perdas anormais */}
           {fichaSel && (
             <div className="mt-6">
               <h2 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5">
@@ -168,12 +162,12 @@ export default function DesossaPage() {
                 <div>
                   <label className="text-[11px] text-gray-500 block mb-1">De</label>
                   <input type="date" value={historicoInicio} onChange={e => setHistoricoInicio(e.target.value)}
-                    className="border rounded-lg px-2 py-1 text-xs" />
+                    className="border border-gray-300 rounded-lg px-2 py-1 text-xs" />
                 </div>
                 <div>
                   <label className="text-[11px] text-gray-500 block mb-1">Até</label>
                   <input type="date" value={historicoFim} onChange={e => setHistoricoFim(e.target.value)}
-                    className="border rounded-lg px-2 py-1 text-xs" />
+                    className="border border-gray-300 rounded-lg px-2 py-1 text-xs" />
                 </div>
               </div>
 
@@ -187,7 +181,7 @@ export default function DesossaPage() {
                       <div
                         key={p.id}
                         className={`rounded-lg border px-3 py-2 text-sm ${
-                          anormal ? 'border-orange-300 bg-orange-50' : 'border-gray-200 bg-white'
+                          anormal ? 'border-warning-200 bg-warning-50' : 'border-gray-200 bg-white'
                         }`}
                       >
                         <div className="flex items-center justify-between">
@@ -195,7 +189,7 @@ export default function DesossaPage() {
                             {new Date(p.dataProcesso).toLocaleDateString('pt-BR')} — {kg3(p.quantidadeEntrada)} kg
                           </span>
                           {anormal && (
-                            <span className="flex items-center gap-1 text-orange-700 text-xs font-semibold">
+                            <span className="flex items-center gap-1 text-warning-700 text-xs font-semibold">
                               <AlertTriangle size={12} /> Perda anormal
                             </span>
                           )}
@@ -206,7 +200,7 @@ export default function DesossaPage() {
                           </p>
                         )}
                         {anormal && (
-                          <p className="text-xs text-orange-700 mt-1">{p.observacao}</p>
+                          <p className="text-xs text-warning-700 mt-1">{p.observacao}</p>
                         )}
                       </div>
                     )
@@ -222,43 +216,26 @@ export default function DesossaPage() {
 
         {/* Formulário de execução */}
         {fichaSel && (
-          <div className="bg-white rounded-xl shadow p-5 space-y-4">
+          <Card className="space-y-4">
             <h2 className="font-semibold text-gray-900">
-              Executar: <span className="text-red-600">{fichaSel.nome}</span>
+              Executar: <span className="text-primary-600">{fichaSel.nome}</span>
             </h2>
 
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-medium text-gray-600 block mb-1">
-                  Quantidade (kg) *{preenchidoPelaNf && <span className="text-blue-600 font-normal"> (da NF)</span>}
-                </label>
-                <input
-                  type="number" step="0.001" min="0.001"
+              <Field
+                label={<>Quantidade (kg) *{preenchidoPelaNf && <span className="text-info-600 font-normal"> (da NF)</span>}</>}
+                hint={preenchidoPelaNf ? 'Vem da NF — desvincule para editar manualmente.' : undefined}
+              >
+                <WeightInput
                   value={qtdEntrada}
+                  onChange={setQtdEntrada}
                   disabled={preenchidoPelaNf}
-                  onChange={e => setQtdEntrada(e.target.value)}
-                  className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500
-                    ${preenchidoPelaNf ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed' : 'border-gray-300'}`}
-                  placeholder="100.000"
+                  placeholder="100,000"
                 />
-                {preenchidoPelaNf && (
-                  <p className="text-[11px] text-gray-400 mt-1">Vem da NF — desvincule para editar manualmente.</p>
-                )}
-              </div>
-              <div>
-                <label className="text-xs font-medium text-gray-600 block mb-1">
-                  Custo / kg (R$){preenchidoPelaNf && <span className="text-blue-600 font-normal"> (da NF)</span>}
-                </label>
-                <input
-                  type="number" step="0.01"
-                  value={custoPorKg}
-                  disabled={preenchidoPelaNf}
-                  onChange={e => setCustoPorKg(e.target.value)}
-                  className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500
-                    ${preenchidoPelaNf ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed' : 'border-gray-300'}`}
-                  placeholder="25.00"
-                />
-              </div>
+              </Field>
+              <Field label={<>Custo / kg (R$){preenchidoPelaNf && <span className="text-info-600 font-normal"> (da NF)</span>}</>}>
+                <CurrencyInput value={custoPorKg} onChange={setCustoPorKg} disabled={preenchidoPelaNf} />
+              </Field>
             </div>
 
             {/* Casamento com NF de recebimento */}
@@ -274,8 +251,8 @@ export default function DesossaPage() {
                     const r = recebimentos.find(r => r.id === parseInt(e.target.value))
                     const itemPai = r?.itens.find(i => i.produto.id === fichaSel.produtoPai.id)
                     if (itemPai) {
-                      setQtdEntrada(String(itemPai.quantidade))
-                      setCustoPorKg(String(itemPai.custoUnitario))
+                      setQtdEntrada(itemPai.quantidade)
+                      setCustoPorKg(itemPai.custoUnitario)
                       setPreenchidoPelaNf(true)
                     } else if (r) {
                       toast.error(
@@ -286,8 +263,7 @@ export default function DesossaPage() {
                     setPreenchidoPelaNf(false)
                   }
                 }}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm
-                           focus:outline-none focus:ring-2 focus:ring-red-500"
+                className={baseInputClass}
               >
                 <option value="">Sem vínculo</option>
                 {recebimentos.map(r => (
@@ -297,13 +273,13 @@ export default function DesossaPage() {
                 ))}
               </select>
               {recebSel && (
-                <p className="mt-1 text-xs text-blue-600 flex items-center gap-1">
+                <p className="mt-1 text-xs text-info-600 flex items-center gap-1">
                   <Link2 size={10} />
                   Vinculada à NF {recebSel.numeroNf ?? 'S/N'} de {recebSel.fornecedor}
                 </p>
               )}
               {recebimentoId && saldoNf !== undefined && (
-                <p className={`mt-1 text-xs font-medium ${saldoNf > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                <p className={`mt-1 text-xs font-medium ${saldoNf > 0 ? 'text-success-600' : 'text-danger-600'}`}>
                   Saldo disponível nessa NF: {kg3(saldoNf)} kg
                 </p>
               )}
@@ -317,6 +293,7 @@ export default function DesossaPage() {
               <div className="space-y-2 max-h-48 overflow-y-auto">
                 {fichaSel.itens.map(item => {
                   const prevista = qtdNum * (item.percentualRendimento / 100)
+                  const valorAtual = qtdsReais[item.produtoFilho.id] ?? prevista
                   return (
                     <div key={item.id} className="flex items-center gap-3 bg-gray-50 rounded-lg px-3 py-2">
                       <div className="flex-1">
@@ -325,20 +302,15 @@ export default function DesossaPage() {
                           {item.percentualRendimento}% — Previsto: {kg3(prevista)} kg
                         </p>
                       </div>
-                      <input
-                        type="number" step="0.001"
-                        value={qtdsReais[item.produtoFilho.id] ?? ''}
-                        onChange={e => {
-                          setQtdsReais(prev => ({
-                            ...prev,
-                            [item.produtoFilho.id]: e.target.value,
-                          }))
+                      <WeightInput
+                        value={valorAtual}
+                        onChange={v => {
+                          setQtdsReais(prev => ({ ...prev, [item.produtoFilho.id]: v }))
                           setConfirmouPerdaAnormal(false)
                         }}
-                        placeholder={kg3(prevista)}
-                        className="w-28 border border-gray-300 rounded px-2 py-1 text-sm text-right"
+                        size="sm"
+                        className="w-32"
                       />
-                      <span className="text-xs text-gray-500">kg</span>
                     </div>
                   )
                 })}
@@ -346,41 +318,44 @@ export default function DesossaPage() {
             </div>
 
             {recebimentoId && saldoNf !== undefined && qtdNum > saldoNf && (
-              <p className="text-xs text-red-600 font-medium bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              <p className="text-xs text-danger-600 font-medium bg-danger-50 border border-danger-100 rounded-lg px-3 py-2">
                 Quantidade acima do saldo disponível na NF ({kg3(saldoNf)} kg).
               </p>
             )}
 
             {rendimentoAbaixoDoEsperado && (
-              <div className="text-xs bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 space-y-2">
-                <p className="text-orange-700 font-medium">
+              <div className="text-xs bg-warning-50 border border-warning-100 rounded-lg px-3 py-2 space-y-2">
+                <p className="text-warning-700 font-medium">
                   ⚠️ Rendimento real ({kg3(somaReal)} kg) está bem abaixo do previsto pela ficha ({kg3(somaPrevista)} kg).
                 </p>
-                <label className="flex items-center gap-2 text-orange-800 cursor-pointer">
+                <label className="flex items-center gap-2 text-warning-800 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={confirmouPerdaAnormal}
                     onChange={e => setConfirmouPerdaAnormal(e.target.checked)}
-                    className="rounded border-orange-400"
+                    className="rounded border-warning-400"
                   />
                   Confirmo que revisei os pesos e a perda está correta.
                 </label>
               </div>
             )}
 
-            <button
-              onClick={handleExecutar}
+            <Button
+              variant="primary"
+              fullWidth
+              size="md"
+              loading={executar.isPending}
               disabled={
-                !qtdEntrada || executar.isPending ||
+                !qtdEntrada ||
                 (recebimentoId !== '' && saldoNf !== undefined && qtdNum > saldoNf) ||
                 (rendimentoAbaixoDoEsperado && !confirmouPerdaAnormal)
               }
-              className="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium
-                         disabled:opacity-60 transition-colors"
+              onClick={handleExecutar}
+              className="!py-3"
             >
-              {executar.isPending ? 'Processando...' : 'Executar Desossa'}
-            </button>
-          </div>
+              Executar Desossa
+            </Button>
+          </Card>
         )}
       </div>
     </div>

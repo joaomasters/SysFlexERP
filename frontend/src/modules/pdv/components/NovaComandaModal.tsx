@@ -63,7 +63,7 @@ export default function NovaComandaModal({ onSelecionar, onFechar }: Props) {
             onChange={e => buscar(e.target.value)}
             placeholder="Nome do cliente..."
             className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-9 pr-3 py-2.5 text-sm
-                       focus:outline-none focus:ring-2 focus:ring-red-500"
+                       focus:outline-none focus:ring-2 focus:ring-primary-500"
           />
         </div>
 
@@ -86,9 +86,9 @@ export default function NovaComandaModal({ onSelecionar, onFechar }: Props) {
               onClick={criarECriarComanda}
               disabled={criando}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg
-                         bg-red-950/50 hover:bg-red-900/60 text-left transition-colors disabled:opacity-60"
+                         bg-primary-700/20 hover:bg-primary-700/30 text-left transition-colors disabled:opacity-60"
             >
-              <UserPlus size={16} className="text-red-400 shrink-0" />
+              <UserPlus size={16} className="text-primary-400 shrink-0" />
               <span className="text-sm">
                 {criando ? 'Criando...' : <>Criar cliente "<strong>{busca.trim()}</strong>" e abrir comanda</>}
               </span>
