@@ -8,7 +8,7 @@ export interface Cliente {
   telefone?: string
   email?: string
   endereco?: string
-  tipoCliente: 'VAREJO' | 'ATACADO' | 'RESTAURANTE' | 'CONVENIADO'
+  tipoCliente: 'VAREJO' | 'ATACADO' | 'RESTAURANTE' | 'CONVENIADO' | 'FIADO'
   limiteCredito: number
   saldoFiadoAtual?: number
   ativo: boolean

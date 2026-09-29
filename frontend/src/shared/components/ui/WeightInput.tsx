@@ -48,17 +48,19 @@ const WeightInput = forwardRef<HTMLInputElement, WeightInputProps>(function Weig
           setDisplay(d)
           onChange(v)
         }}
-        className={`w-full border rounded-lg pl-3 pr-9 text-right tabular-nums
+        className={`w-full border rounded-lg pl-3 text-right tabular-nums
           focus:outline-none focus:ring-2 focus:ring-primary-500
-          transition-colors ${sizeClasses}
+          transition-colors ${unit ? 'pr-9' : 'pr-3'} ${sizeClasses}
           ${dark
             ? (disabled ? 'bg-gray-800 text-gray-600 border-gray-800 cursor-not-allowed' : 'bg-gray-800 border-gray-700 text-white')
             : (disabled ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed' : 'border-gray-300 bg-white focus:border-primary-500')}`}
         {...rest}
       />
-      <span className={`pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
-        {unit}
-      </span>
+      {unit && (
+        <span className={`pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
+          {unit}
+        </span>
+      )}
     </div>
   )
 })

@@ -7,7 +7,7 @@ import type { Produto } from '@/types/produto'
 import ProdutoForm from './components/ProdutoForm'
 import { formatBRL, formatWeightDisplay } from '@/shared/utils/mask'
 import {
-  PageHeader, Button, StatusBadge, baseInputClass,
+  PageHeader, Button, StatusBadge, baseInputClass, ConfirmDialog,
   Table, THead, TH, TBody, TR, TD, LoadingState,
 } from '@/shared/components/ui'
 
@@ -23,6 +23,7 @@ export default function ProdutosPage() {
   const qc      = useQueryClient()
   const [busca, setBusca]   = useState('')
   const [form, setForm]     = useState<Partial<Produto> | null>(null)
+  const [confirmando, setConfirmando] = useState<Produto | null>(null)
 
   const { data: produtos = [], isLoading, isError, error } = useQuery<Produto[]>({
     queryKey: ['produtos', busca],
@@ -36,6 +37,7 @@ export default function ProdutosPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['produtos'] })
       toast.success('Produto inativado')
+      setConfirmando(null)
     },
   })
 
@@ -73,11 +75,14 @@ export default function ProdutosPage() {
             <p className="text-gray-400 text-sm">{String((error as Error)?.message ?? 'Falha na requisição')}</p>
           </div>
         ) : (
+          <div className="overflow-x-auto">
           <Table>
             <THead>
               <tr>
                 <TH>Código</TH>
                 <TH>Nome</TH>
+                <TH>Marca</TH>
+                <TH>Fornecedor</TH>
                 <TH>Un.</TH>
                 <TH align="right">Custo Médio</TH>
                 <TH align="right">Preço Venda</TH>
@@ -100,6 +105,8 @@ export default function ProdutosPage() {
                       {p.nome}
                     </div>
                   </TD>
+                  <TD className="text-gray-500">{p.marca || '—'}</TD>
+                  <TD className="text-gray-500">{p.fornecedor || '—'}</TD>
                   <TD className="text-gray-500">{p.unidadeMedida}</TD>
                   <TD align="right" className="text-gray-500 tabular-nums">
                     {p.precoCusto ? brl(p.precoCusto) : '—'}
@@ -128,7 +135,7 @@ export default function ProdutosPage() {
                       <Button variant="ghost" size="sm" onClick={() => setForm(p)}>
                         <Pencil size={14} />
                       </Button>
-                      <Button variant="ghost" size="sm" className="hover:!text-danger-600" onClick={() => deletar.mutate(p.id)}>
+                      <Button variant="ghost" size="sm" className="hover:!text-danger-600" onClick={() => setConfirmando(p)}>
                         <Trash2 size={14} />
                       </Button>
                     </div>
@@ -137,8 +144,21 @@ export default function ProdutosPage() {
               ))}
             </TBody>
           </Table>
+          </div>
         )}
       </div>
+
+      {/* Confirmação de inativação */}
+      {confirmando && (
+        <ConfirmDialog
+          title="Inativar produto?"
+          message={`"${confirmando.nome}" deixará de aparecer nas vendas e listagens ativas.`}
+          confirmLabel="Inativar"
+          loading={deletar.isPending}
+          onConfirm={() => deletar.mutate(confirmando.id)}
+          onCancel={() => setConfirmando(null)}
+        />
+      )}
 
       {/* Modal de formulário */}
       {form !== null && (

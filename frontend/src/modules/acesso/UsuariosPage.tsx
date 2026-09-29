@@ -6,7 +6,7 @@ import { usePermissao } from '@/shared/hooks/usePermissao'
 import toast from 'react-hot-toast'
 import type { Usuario, Perfil } from '@/types/acesso'
 import {
-  PageHeader, Card, Modal, Button, StatusBadge, Field, baseInputClass,
+  PageHeader, Card, Modal, Button, StatusBadge, Field, baseInputClass, ConfirmDialog,
   Table, THead, TH, TBody, TR, TD, EmptyState,
 } from '@/shared/components/ui'
 
@@ -21,6 +21,7 @@ export default function UsuariosPage() {
   const [perfilId, setPerfilId]   = useState('')
   const [trocandoSenhaId, setTrocandoSenhaId] = useState<number | null>(null)
   const [novaSenha, setNovaSenha] = useState('')
+  const [confirmando, setConfirmando] = useState<Usuario | null>(null)
 
   const { data: usuarios = [] } = useQuery<Usuario[]>({
     queryKey: ['usuarios'],
@@ -58,6 +59,7 @@ export default function UsuariosPage() {
     onSuccess: () => {
       toast.success('Status atualizado.')
       qc.invalidateQueries({ queryKey: ['usuarios'] })
+      setConfirmando(null)
     },
   })
 
@@ -167,7 +169,12 @@ export default function UsuariosPage() {
                       </Button>
                     )}
                     {podeExcluir('USUARIOS') && (
-                      <Button variant="ghost" size="sm" className="hover:!text-danger-600" onClick={() => alterarStatus.mutate({ id: u.id, ativo: !u.ativo })} title={u.ativo ? 'Desativar' : 'Reativar'}>
+                      <Button
+                        variant="ghost" size="sm"
+                        className="hover:!text-danger-600"
+                        onClick={() => u.ativo ? setConfirmando(u) : alterarStatus.mutate({ id: u.id, ativo: true })}
+                        title={u.ativo ? 'Desativar' : 'Reativar'}
+                      >
                         <Power size={15} />
                       </Button>
                     )}
@@ -208,6 +215,18 @@ export default function UsuariosPage() {
             className={baseInputClass}
           />
         </Modal>
+      )}
+
+      {/* Confirmação de desativação */}
+      {confirmando && (
+        <ConfirmDialog
+          title="Desativar usuário?"
+          message={`"${confirmando.nome}" não vai mais conseguir fazer login no sistema até ser reativado.`}
+          confirmLabel="Desativar"
+          loading={alterarStatus.isPending}
+          onConfirm={() => alterarStatus.mutate({ id: confirmando.id, ativo: false })}
+          onCancel={() => setConfirmando(null)}
+        />
       )}
     </div>
   )
