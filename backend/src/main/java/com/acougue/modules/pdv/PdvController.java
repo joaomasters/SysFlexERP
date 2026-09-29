@@ -87,7 +87,12 @@ public class PdvController {
         return ResponseEntity.ok(pdvService.fecharVenda(dto));
     }
 
-    @ExigirPermissao(modulo = Modulo.PDV, acao = Acao.CRIAR)
+    // Cancelar uma venda é uma ação sensível — exige a permissão de EXCLUIR
+    // no módulo PDV, que por padrão só ADMIN e SUPER_ADMIN têm (GESTOR e
+    // CAIXA não). Isso restringe o cancelamento ao administrador sem
+    // precisar de um mecanismo novo: reaproveita a matriz de perfis já
+    // existente (ver V9__controle_acesso_perfis.sql).
+    @ExigirPermissao(modulo = Modulo.PDV, acao = Acao.EXCLUIR)
     @PostMapping("/vendas/{id}/cancelar")
     public ResponseEntity<Venda> cancelarVenda(@PathVariable Long id) {
         return ResponseEntity.ok(pdvService.cancelarVenda(id));

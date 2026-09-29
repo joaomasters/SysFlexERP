@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { ShoppingBag, Wifi, WifiOff, Trash2, Plus, User, LockOpen, Lock, Printer } from 'lucide-react'
+import { ShoppingBag, Wifi, WifiOff, Trash2, Plus, User, LockOpen, Lock } from 'lucide-react'
 import { useBarcodeScan } from '@/shared/hooks/useBarcodeScan'
+import { usePermissao } from '@/shared/hooks/usePermissao'
 import { getNomeUsuario } from '@/shared/auth'
 import { api } from '@/shared/api/axios'
 import { usePdv } from './hooks/usePdv'
@@ -9,8 +10,6 @@ import ModalPagamento from './components/ModalPagamento'
 import NovaComandaModal from './components/NovaComandaModal'
 import { formatBRL } from '@/shared/utils/mask'
 import { CurrencyInput } from '@/shared/components/ui'
-import ReciboCupom from './components/ReciboCupom'
-import type { Venda } from '@/types/venda'
 
 // NOTA DE DESIGN: o PDV usa de propósito um tema escuro em tela cheia
 // ("console de caixa"), diferente do tema claro do back-office (financeiro,
@@ -51,17 +50,13 @@ export default function PDVPage() {
   const [valorContado, setValorContado]   = useState(0)
   const [fechando, setFechando]           = useState(false)
 
-  const [ultimaVenda, setUltimaVenda] = useState<Venda | null>(null)
-
   const nomeOperador = getNomeUsuario()
-
-  // Assim que uma venda fechada fica disponível, manda pra impressora.
-  // O setTimeout dá um tick pro <ReciboCupom> montar no DOM antes do print.
-  useEffect(() => {
-    if (!ultimaVenda) return
-    const t = setTimeout(() => window.print(), 100)
-    return () => clearTimeout(t)
-  }, [ultimaVenda])
+  const { podeExcluir } = usePermissao()
+  // Cancelar uma venda é restrito a quem tem a permissão de EXCLUIR no
+  // módulo PDV — por padrão, só ADMIN e SUPER_ADMIN (ver matriz de perfis).
+  // O botão fica visível mas desabilitado pro operador entender que a
+  // função existe, só que precisa de um administrador.
+  const podeCancelarVenda = podeExcluir('PDV')
 
   // Relógio
   useEffect(() => {
@@ -263,7 +258,8 @@ export default function PDVPage() {
 
           <button
             onClick={cancelarVenda}
-            disabled={!venda}
+            disabled={!venda || !podeCancelarVenda}
+            title={!podeCancelarVenda ? 'Só um administrador pode cancelar uma venda' : undefined}
             className="py-3 rounded-xl text-sm font-medium
                        bg-red-900/60 hover:bg-red-800 text-red-300
                        disabled:bg-gray-800 disabled:text-gray-600 disabled:cursor-not-allowed
@@ -272,17 +268,10 @@ export default function PDVPage() {
             <Trash2 size={15} />
             CANCELAR VENDA
           </button>
-
-          {ultimaVenda && (
-            <button
-              onClick={() => window.print()}
-              className="py-2.5 rounded-xl text-sm font-medium
-                         bg-gray-800 hover:bg-gray-700 text-gray-300
-                         flex items-center justify-center gap-2 transition-colors"
-            >
-              <Printer size={15} />
-              Reimprimir Cupom #{ultimaVenda.id}
-            </button>
+          {venda && !podeCancelarVenda && (
+            <p className="text-center text-[11px] text-gray-600 -mt-2">
+              Cancelamento restrito a administradores
+            </p>
           )}
 
           <div className="mt-auto text-center text-xs text-gray-600">
@@ -298,8 +287,7 @@ export default function PDVPage() {
           totalVenda={totalVenda}
           vendaId={venda?.id}
           onConfirmar={async (pagamentos) => {
-            const vendaFechada = await fecharVenda(pagamentos)
-            if (vendaFechada) setUltimaVenda(vendaFechada)
+            await fecharVenda(pagamentos)
             setShowPagto(false)
           }}
           onCancelar={() => setShowPagto(false)}
@@ -376,11 +364,6 @@ export default function PDVPage() {
             </div>
           </div>
         </div>
-      )}
-
-      {/* Recibo — invisível em tela, só aparece no @media print (ver index.css) */}
-      {ultimaVenda && (
-        <ReciboCupom venda={ultimaVenda} operador={nomeOperador ?? '—'} />
       )}
     </div>
   )

@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { FileText, Plus, X, ChevronDown, ChevronUp, Upload, CheckCircle, XCircle } from 'lucide-react'
+import { FileText, Plus, X, ChevronDown, ChevronUp, Upload, Download, Printer, CheckCircle, XCircle } from 'lucide-react'
 import { api } from '@/shared/api/axios'
 import toast from 'react-hot-toast'
 import { formatBRL, formatWeightDisplay } from '@/shared/utils/mask'
-import { PageHeader, Modal, Button, StatusBadge, CurrencyInput, WeightInput, Field, baseInputClass } from '@/shared/components/ui'
+import { PageHeader, Modal, Button, StatusBadge, CurrencyInput, WeightInput, Field, baseInputClass, ConfirmDialog } from '@/shared/components/ui'
 import type { BadgeTone } from '@/shared/components/ui'
+import ImpressaoNFModal from './components/ImpressaoNFModal'
 
 interface Produto  { id: number; nome: string; precoVenda: number }
 interface Cliente  { id: number; nome: string }
@@ -42,6 +43,8 @@ export default function NotaFiscalPage() {
   const [showForm, setShowForm]       = useState(false)
   const [expandId, setExpandId]       = useState<number | null>(null)
   const [xmlViewId, setXmlViewId]     = useState<number | null>(null)
+  const [confirmandoCancelar, setConfirmandoCancelar] = useState<NotaFiscal | null>(null)
+  const [imprimindoNf, setImprimindoNf] = useState<NotaFiscal | null>(null)
 
   // Form
   const [clienteId, setClienteId]     = useState('')
@@ -96,6 +99,7 @@ export default function NotaFiscalPage() {
     onSuccess: () => {
       toast.success('Status atualizado!')
       qc.invalidateQueries({ queryKey: ['notas-fiscais'] })
+      setConfirmandoCancelar(null)
     },
   })
 
@@ -132,6 +136,48 @@ export default function NotaFiscalPage() {
       }
       return { ...item, [field]: val }
     }))
+  }
+
+  // "Gerar o arquivo" da NF emitida: se já tem XML vinculado, baixa ele.
+  // Se não tem (foi marcada como Emitida manualmente, sem upload de XML),
+  // gera um resumo em texto com os dados da nota — não é um XML de NF-e
+  // válido pra SEFAZ, só um arquivo pra guardar/anexar.
+  function gerarArquivo(nf: NotaFiscal) {
+    let conteudo: string
+    let nomeArquivo: string
+    let tipo: string
+
+    if (nf.xmlNf) {
+      conteudo = nf.xmlNf
+      nomeArquivo = `NF_${nf.numeroNf ?? nf.id}.xml`
+      tipo = 'application/xml'
+    } else {
+      const linhas = nf.itens.map(it =>
+        `${(it.produto?.nome ?? it.descricao).padEnd(40)} ${qtd3(it.quantidade).padStart(10)}  ${brl(it.valorUnitario).padStart(12)}  ${brl(it.valorTotal).padStart(12)}`
+      )
+      conteudo = [
+        `NOTA FISCAL DE SAÍDA — RESUMO GERENCIAL (não é XML de NF-e válido para SEFAZ)`,
+        `NF: ${nf.numeroNf ?? 'S/N'}  Série: ${nf.serieNf}`,
+        `Cliente: ${nf.cliente?.nome ?? 'Consumidor final'}`,
+        `Natureza: ${nf.naturezaOperacao}`,
+        `Emissão: ${new Date(nf.dataEmissao).toLocaleDateString('pt-BR')}`,
+        `Status: ${nf.status}`,
+        '',
+        'ITENS',
+        ...linhas,
+        '',
+        `TOTAL: ${brl(nf.valorTotal)}`,
+      ].join('\n')
+      nomeArquivo = `NF_${nf.numeroNf ?? nf.id}_resumo.txt`
+      tipo = 'text/plain'
+    }
+
+    const url = URL.createObjectURL(new Blob([conteudo], { type: tipo }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = nomeArquivo
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   function handleXmlFile(e: React.ChangeEvent<HTMLInputElement>, id: number) {
@@ -211,9 +257,23 @@ export default function NotaFiscalPage() {
                     <CheckCircle size={16} />
                   </Button>
                 )}
+                {nf.status === 'EMITIDA' && (
+                  <>
+                    <Button variant="ghost" size="sm"
+                      onClick={e => { e.stopPropagation(); gerarArquivo(nf) }}
+                      title="Gerar arquivo da NF">
+                      <Download size={16} />
+                    </Button>
+                    <Button variant="ghost" size="sm"
+                      onClick={e => { e.stopPropagation(); setImprimindoNf(nf) }}
+                      title="Imprimir NF">
+                      <Printer size={16} />
+                    </Button>
+                  </>
+                )}
                 {nf.status !== 'CANCELADA' && (
                   <Button variant="ghost" size="sm" className="hover:!text-danger-600"
-                    onClick={e => { e.stopPropagation(); atualizarStatus.mutate({ id: nf.id, status: 'CANCELADA' }) }}
+                    onClick={e => { e.stopPropagation(); setConfirmandoCancelar(nf) }}
                     title="Cancelar NF">
                     <XCircle size={16} />
                   </Button>
@@ -389,6 +449,27 @@ export default function NotaFiscalPage() {
             )}
           </div>
         </Modal>
+      )}
+
+      {/* Confirmação de cancelamento */}
+      {confirmandoCancelar && (
+        <ConfirmDialog
+          title="Cancelar nota fiscal?"
+          message={
+            confirmandoCancelar.xmlNf
+              ? `A NF ${confirmandoCancelar.numeroNf ?? 'S/N'} já tem XML vinculado (foi emitida). Cancelar aqui só atualiza o status no sistema — se ela já foi transmitida à SEFAZ, o cancelamento fiscal de verdade precisa ser feito à parte.`
+              : `A NF ${confirmandoCancelar.numeroNf ?? 'S/N'} será marcada como cancelada. Essa ação não pode ser desfeita.`
+          }
+          confirmLabel="Cancelar NF"
+          loading={atualizarStatus.isPending}
+          onConfirm={() => atualizarStatus.mutate({ id: confirmandoCancelar.id, status: 'CANCELADA' })}
+          onCancel={() => setConfirmandoCancelar(null)}
+        />
+      )}
+
+      {/* Impressão */}
+      {imprimindoNf && (
+        <ImpressaoNFModal nf={imprimindoNf} onClose={() => setImprimindoNf(null)} />
       )}
     </div>
   )

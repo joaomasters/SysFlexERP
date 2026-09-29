@@ -6,7 +6,7 @@ import toast from 'react-hot-toast'
 import type { Cliente } from '@/types/venda'
 import { formatBRL } from '@/shared/utils/mask'
 import {
-  PageHeader, Modal, Button, StatusBadge, CurrencyInput, Field, baseInputClass,
+  PageHeader, Modal, Button, StatusBadge, CurrencyInput, Field, baseInputClass, ConfirmDialog,
   Table, THead, TH, TBody, TR, TD, EmptyState,
 } from '@/shared/components/ui'
 import type { BadgeTone } from '@/shared/components/ui'
@@ -18,6 +18,7 @@ const tipoClienteLabel: Record<Cliente['tipoCliente'], string> = {
   ATACADO: 'Atacado',
   RESTAURANTE: 'Restaurante',
   CONVENIADO: 'Conveniado',
+  FIADO: 'Fiado',
 }
 
 // Tipo de cliente é uma categoria (rótulo), não um status — todos usam o tom
@@ -27,6 +28,7 @@ const tipoClienteTom: Record<Cliente['tipoCliente'], BadgeTone> = {
   ATACADO: 'purple',
   RESTAURANTE: 'purple',
   CONVENIADO: 'purple',
+  FIADO: 'purple',
 }
 
 type FormState = {
@@ -51,6 +53,7 @@ export default function ClientesPage() {
   const [busca, setBusca] = useState('')
   const [form, setForm] = useState<FormState | null>(null)
   const [mostrarInativos, setMostrarInativos] = useState(false)
+  const [confirmando, setConfirmando] = useState<Cliente | null>(null)
 
   const { data: clientes = [], isLoading } = useQuery<Cliente[]>({
     queryKey: ['clientes', busca],
@@ -87,6 +90,7 @@ export default function ClientesPage() {
     onSuccess: () => {
       toast.success('Cliente inativado.')
       qc.invalidateQueries({ queryKey: ['clientes'] })
+      setConfirmando(null)
     },
   })
 
@@ -174,7 +178,7 @@ export default function ClientesPage() {
                       <Pencil size={15} />
                     </Button>
                     {c.ativo ? (
-                      <Button variant="ghost" size="sm" className="hover:!text-danger-600" onClick={() => inativar.mutate(c.id)} title="Inativar">
+                      <Button variant="ghost" size="sm" className="hover:!text-danger-600" onClick={() => setConfirmando(c)} title="Inativar">
                         <Ban size={15} />
                       </Button>
                     ) : (
@@ -255,7 +259,7 @@ export default function ClientesPage() {
           <div className="grid grid-cols-2 gap-3">
             <Field
               label="Tipo de Cliente"
-              hint="Só clientes Atacado/Restaurante/Conveniado aparecem pra Faturamento e Fiado."
+              hint="Só clientes Atacado/Restaurante/Conveniado/Fiado aparecem pra Faturamento e compra a prazo."
             >
               <select value={form.tipoCliente} onChange={e => setForm({ ...form, tipoCliente: e.target.value as Cliente['tipoCliente'] })}
                 className={baseInputClass}>
@@ -263,6 +267,7 @@ export default function ClientesPage() {
                 <option value="ATACADO">Atacado</option>
                 <option value="RESTAURANTE">Restaurante</option>
                 <option value="CONVENIADO">Conveniado</option>
+                <option value="FIADO">Fiado</option>
               </select>
             </Field>
             <Field label="Limite de Crédito">
@@ -270,6 +275,22 @@ export default function ClientesPage() {
             </Field>
           </div>
         </Modal>
+      )}
+
+      {/* Confirmação de inativação */}
+      {confirmando && (
+        <ConfirmDialog
+          title="Inativar cliente?"
+          message={
+            (confirmando.saldoFiadoAtual ?? 0) > 0
+              ? `"${confirmando.nome}" ainda tem ${brl(confirmando.saldoFiadoAtual)} de saldo fiado em aberto. Ele deixará de aparecer nas buscas de venda mesmo assim.`
+              : `"${confirmando.nome}" deixará de aparecer nas buscas de venda e listagens ativas.`
+          }
+          confirmLabel="Inativar"
+          loading={inativar.isPending}
+          onConfirm={() => inativar.mutate(confirmando.id)}
+          onCancel={() => setConfirmando(null)}
+        />
       )}
     </div>
   )

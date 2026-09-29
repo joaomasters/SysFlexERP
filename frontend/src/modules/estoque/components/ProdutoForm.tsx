@@ -25,6 +25,9 @@ export default function ProdutoForm({ produto, onClose, onSaved }: Props) {
   useEffect(() => {
     if (!usaBalanca) {
       setValue('codigoBalanca', undefined)
+    } else {
+      setValue('marca', undefined)
+      setValue('fornecedor', undefined)
     }
   }, [usaBalanca, setValue])
 
@@ -112,11 +115,38 @@ export default function ProdutoForm({ produto, onClose, onSaved }: Props) {
               control={control}
               defaultValue={produto.estoqueMinimo ?? 0}
               render={({ field }) => (
-                <WeightInput value={field.value ?? 0} onChange={field.onChange} unit={(unidadeMedida ?? 'kg').toLowerCase()} />
+                <WeightInput
+                  value={field.value ?? 0}
+                  onChange={field.onChange}
+                  unit={(unidadeMedida ?? 'kg').toLowerCase()}
+                  decimals={usaBalanca ? 3 : 0}
+                />
               )}
             />
           </Field>
         </div>
+
+        {/* Marca e Fornecedor — só fazem sentido pra produtos vendidos por
+            unidade ou caixa (industrializados, insumos). Cortes por KG/G
+            normalmente não têm uma marca comercial própria. */}
+        {isUnidade && (
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Marca">
+              <input
+                {...register('marca')}
+                placeholder="Ex: Sadia, Perdigão..."
+                className={baseInputClass}
+              />
+            </Field>
+            <Field label="Fornecedor">
+              <input
+                {...register('fornecedor')}
+                placeholder="Ex: Distribuidora ABC"
+                className={baseInputClass}
+              />
+            </Field>
+          </div>
+        )}
 
         <Field label="EAN-13 (industrializado)">
           <input

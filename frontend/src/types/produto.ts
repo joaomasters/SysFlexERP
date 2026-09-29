@@ -13,6 +13,8 @@ export interface Produto {
   descricao?: string
   unidadeMedida: 'KG' | 'UN' | 'CX' | 'G'
   tipoProduto: 'CORTE' | 'INDUSTRIALIZADO' | 'INSUMO' | 'SUBPRODUTO'
+  marca?: string
+  fornecedor?: string
   precoCusto?: number
   precoVenda: number
   estoqueAtual: number

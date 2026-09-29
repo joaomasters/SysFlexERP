@@ -11,8 +11,8 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "produtos", indexes = {
-    @Index(name = "idx_produto_codigo_balanca", columnList = "codigo_balanca"),
-    @Index(name = "idx_produto_ean13", columnList = "ean13")
+        @Index(name = "idx_produto_codigo_balanca", columnList = "codigo_balanca"),
+        @Index(name = "idx_produto_ean13", columnList = "ean13")
 })
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Produto {
@@ -38,11 +38,17 @@ public class Produto {
 
     @Column(name = "unidade_medida", nullable = false, length = 5)
     @NotBlank
-    private String unidadeMedida; 
+    private String unidadeMedida;
 
     @Column(name = "tipo_produto", nullable = false, length = 20)
     @NotBlank
-    private String tipoProduto; 
+    private String tipoProduto;
+
+    @Column(length = 100)
+    private String marca;
+
+    @Column(length = 150)
+    private String fornecedor;
 
     @Column(name = "preco_custo", precision = 12, scale = 4)
     private BigDecimal precoCusto;

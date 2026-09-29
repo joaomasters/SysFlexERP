@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../shared/api/axios'
-import { CheckCircle2, XCircle, Filter } from 'lucide-react'
+import { CheckCircle2, XCircle, Filter, Printer } from 'lucide-react'
 import { formatWeightDisplay } from '@/shared/utils/mask'
 import { PageHeader, Card, Button, StatusBadge, WeightInput, baseInputClass } from '@/shared/components/ui'
 import type { BadgeTone } from '@/shared/components/ui'
+import RelatorioEstoqueModal from './components/RelatorioEstoqueModal'
 
 interface Inventario {
   id: number; status: string; observacao: string
@@ -33,6 +34,7 @@ export default function InventarioPage() {
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [observacao, setObservacao] = useState('')
   const [contagens, setContagens] = useState<Record<number, number>>({})
+  const [showRelatorio, setShowRelatorio] = useState(false)
 
   // Filtro de período da lista de inventários — padrão de 30 dias, com
   // opção de limpar pra ver o histórico completo.
@@ -86,7 +88,15 @@ export default function InventarioPage() {
 
   return (
     <div className="p-6 space-y-5">
-      <PageHeader title="Inventário Físico" subtitle="Contagem física vs saldo do sistema" />
+      <PageHeader
+        title="Inventário Físico"
+        subtitle="Contagem física vs saldo do sistema"
+        actions={
+          <Button variant="secondary" onClick={() => setShowRelatorio(true)}>
+            <Printer size={16} /> Relatório de Estoque
+          </Button>
+        }
+      />
 
       <div className="grid grid-cols-3 gap-5">
         {/* Painel esquerdo — lista */}
@@ -213,6 +223,8 @@ export default function InventarioPage() {
           )}
         </div>
       </div>
+
+      {showRelatorio && <RelatorioEstoqueModal onClose={() => setShowRelatorio(false)} />}
     </div>
   )
 }

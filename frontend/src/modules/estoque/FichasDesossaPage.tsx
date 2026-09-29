@@ -7,7 +7,7 @@ import {
 import { api } from '@/shared/api/axios'
 import toast from 'react-hot-toast'
 import type { Produto, FichaDesossa } from '@/types/produto'
-import { PageHeader, Card, Button, Modal, Field, baseInputClass } from '@/shared/components/ui'
+import { PageHeader, Card, Button, Modal, Field, baseInputClass, ConfirmDialog } from '@/shared/components/ui'
 
 // ─── tipos locais ────────────────────────────────────────────────────────────
 interface ItemForm {
@@ -272,6 +272,7 @@ export default function FichasDesossaPage() {
   const [editFicha,  setEditFicha]  = useState<FichaDesossa | null>(null)
   const [expandId,   setExpandId]   = useState<number | null>(null)
   const [mostrarInativas, setMostrarInativas] = useState(false)
+  const [confirmando, setConfirmando] = useState<FichaDesossa | null>(null)
 
   const { data: fichas = [], isLoading } = useQuery<FichaDesossa[]>({
     queryKey: ['fichas-desossa', mostrarInativas],
@@ -285,7 +286,11 @@ export default function FichasDesossaPage() {
 
   const inativar = useMutation({
     mutationFn: (id: number) => api.delete(`/estoque/fichas-desossa/${id}`),
-    onSuccess: () => { toast.success('Ficha inativada'); qc.invalidateQueries({ queryKey: ['fichas-desossa'] }) },
+    onSuccess: () => {
+      toast.success('Ficha inativada')
+      qc.invalidateQueries({ queryKey: ['fichas-desossa'] })
+      setConfirmando(null)
+    },
   })
 
   const reativar = useMutation({
@@ -400,7 +405,7 @@ export default function FichasDesossaPage() {
                     className={ficha.ativo ? 'hover:!text-danger-600' : 'hover:!text-success-600'}
                     onClick={e => {
                       e.stopPropagation()
-                      ficha.ativo ? inativar.mutate(ficha.id) : reativar.mutate(ficha.id)
+                      ficha.ativo ? setConfirmando(ficha) : reativar.mutate(ficha.id)
                     }}
                     title={ficha.ativo ? 'Inativar' : 'Reativar'}
                   >
@@ -512,6 +517,18 @@ export default function FichasDesossaPage() {
           produtos={produtos}
           onClose={fecharForm}
           onSaved={fecharForm}
+        />
+      )}
+
+      {/* Confirmação de inativação */}
+      {confirmando && (
+        <ConfirmDialog
+          title="Inativar ficha de desossa?"
+          message={`"${confirmando.nome}" deixará de aparecer na tela de Desossa para novas execuções.`}
+          confirmLabel="Inativar"
+          loading={inativar.isPending}
+          onConfirm={() => inativar.mutate(confirmando.id)}
+          onCancel={() => setConfirmando(null)}
         />
       )}
     </div>

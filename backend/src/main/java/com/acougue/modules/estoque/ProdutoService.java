@@ -70,6 +70,8 @@ public class ProdutoService {
         // Aceitar edição manual aqui corromperia esse cálculo silenciosamente.
         existente.setUnidadeMedida(dados.getUnidadeMedida());
         existente.setTipoProduto(dados.getTipoProduto());
+        existente.setMarca(dados.getMarca());
+        existente.setFornecedor(dados.getFornecedor());
         existente.setCodigoBalanca(dados.getCodigoBalanca());
         existente.setEan13(dados.getEan13());
         existente.setEstoqueMinimo(dados.getEstoqueMinimo());
