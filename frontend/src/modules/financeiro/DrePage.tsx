@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { TrendingUp, TrendingDown } from 'lucide-react'
+import { TrendingUp, TrendingDown, Printer } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { api } from '@/shared/api/axios'
 import { formatBRL, formatPercent } from '@/shared/utils/mask'
@@ -53,12 +53,30 @@ export default function DrePage() {
     { label: 'Lucro Líquido',         value: dre.lucroLiquido,        cor: dre.lucroLiquido >= 0 ? 'text-success-700' : 'text-danger-700', bg: dre.lucroLiquido >= 0 ? 'bg-success-100' : 'bg-danger-100', pct: dre.percentualLucroLiquido },
   ] : []
 
+  const nomeMes = new Date(2000, mes - 1).toLocaleString('pt-BR', { month: 'long' })
+
   return (
     <div className="p-6">
-      <PageHeader title="DRE Simplificado" subtitle="Demonstrativo de Resultado do Exercício" />
+      <style>{`
+        @media print {
+          body * { visibility: hidden; }
+          #dre-print-area, #dre-print-area * { visibility: visible; }
+          #dre-print-area { position: absolute; top: 0; left: 0; width: 100%; }
+        }
+      `}</style>
 
-      {/* Filtros */}
-      <Card className="flex items-end gap-4 mb-6">
+      <PageHeader
+        title="DRE Simplificado"
+        subtitle="Demonstrativo de Resultado do Exercício"
+        actions={
+          <Button variant="secondary" disabled={!dre} onClick={() => window.print()}>
+            <Printer size={16} /> Imprimir Relatório
+          </Button>
+        }
+      />
+
+      {/* Filtros — somem na impressão */}
+      <Card className="flex items-end gap-4 mb-6 print:hidden">
         <Field label="Mês">
           <select value={mes} onChange={e => setMes(Number(e.target.value))} className={`${baseInputClass} w-40`}>
             {Array.from({ length: 12 }, (_, i) => (
@@ -81,11 +99,17 @@ export default function DrePage() {
       {isLoading && <div className="text-center py-12 text-gray-500 text-sm">Calculando...</div>}
 
       {dre && (
-        <>
+        <div id="dre-print-area">
+          {/* Cabeçalho só visível na impressão */}
+          <div className="hidden print:block mb-4">
+            <h1 className="text-xl font-bold text-gray-900">DRE Simplificado — {nomeMes}/{ano}</h1>
+            <p className="text-xs text-gray-500">Gerado em {new Date().toLocaleString('pt-BR')}</p>
+          </div>
+
           {/* Cards DRE */}
-          <div className="grid grid-cols-5 gap-4 mb-6">
+          <div className="grid grid-cols-5 gap-4 mb-6 print:grid-cols-3 print:gap-2">
             {cards.map((c, i) => (
-              <div key={i} className={`rounded-xl p-4 ${c.bg}`}>
+              <div key={i} className={`rounded-xl p-4 ${c.bg} print:border print:border-gray-200`}>
                 <p className="text-xs font-medium text-gray-500 mb-1">{c.label}</p>
                 <p className={`text-lg font-bold tabular-nums ${c.cor}`}>
                   {brl(c.value)}
@@ -101,7 +125,7 @@ export default function DrePage() {
           </div>
 
           {/* Gráfico de margem por produto */}
-          <Card>
+          <Card className="print:border print:shadow-none">
             <h2 className="font-semibold text-gray-900 mb-4">Margem de Lucro por Corte</h2>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={dre.margensPorProduto} layout="vertical"
@@ -128,7 +152,7 @@ export default function DrePage() {
               Verde ≥ 30% • Amarelo ≥ 15% • Vermelho &lt; 15%
             </p>
           </Card>
-        </>
+        </div>
       )}
     </div>
   )
