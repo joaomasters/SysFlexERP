@@ -1,5 +1,7 @@
 package com.acougue.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
@@ -60,6 +62,24 @@ public class NotaFiscalSaida {
 
     @Column(columnDefinition = "TEXT")
     private String observacao;
+
+    // Quem lançou a nota. Nunca serializado: só os NOMES saem no JSON, e só para administradores.
+    @JsonIgnore
+    @Column(name = "usuario_criacao_id")
+    private Long usuarioCriacaoId;
+
+    // Quem efetivou a saída (virou EMITIDA = baixa de estoque).
+    @JsonIgnore
+    @Column(name = "usuario_emissao_id")
+    private Long usuarioEmissaoId;
+
+    @Transient
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String usuarioCriacaoNome;
+
+    @Transient
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String usuarioEmissaoNome;
 
     @OneToMany(mappedBy = "nota", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default

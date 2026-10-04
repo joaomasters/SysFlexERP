@@ -39,8 +39,9 @@ public class RecebimentoService {
     }
 
     @Transactional
-    public RecebimentoMercadoria registrar(RecebimentoDTO dto) {
+    public RecebimentoMercadoria registrar(RecebimentoDTO dto, Long usuarioId) {
         RecebimentoMercadoria rec = RecebimentoMercadoria.builder()
+                .usuarioId(usuarioId)
                 .fornecedor(dto.fornecedor())
                 .numeroNf(dto.numeroNf())
                 .serieNf(dto.serieNf() != null ? dto.serieNf() : "1")
@@ -70,7 +71,7 @@ public class RecebimentoService {
 
             String docRef = "NF" + (dto.numeroNf() != null ? dto.numeroNf() : "S/N");
             estoqueService.entrada(produto, item.quantidade(), custoUnit,
-                    "ENTRADA_COMPRA", docRef, 1L);
+                    "ENTRADA_COMPRA", docRef, usuarioId);
         }
 
         return recebimentoRepo.save(rec);

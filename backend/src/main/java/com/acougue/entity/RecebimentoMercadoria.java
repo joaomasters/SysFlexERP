@@ -1,5 +1,7 @@
 package com.acougue.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
@@ -50,6 +52,16 @@ public class RecebimentoMercadoria {
 
     @Column(columnDefinition = "TEXT")
     private String observacao;
+
+    // Quem registrou a entrada. Nunca serializado: só o NOME sai no JSON, e só para administradores.
+    @JsonIgnore
+    @Column(name = "usuario_id")
+    private Long usuarioId;
+
+    // Preenchido pelo controller via IdentificacaoUsuario — só para administradores.
+    @Transient
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String usuarioNome;
 
     @OneToMany(mappedBy = "recebimento", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default

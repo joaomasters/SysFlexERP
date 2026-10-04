@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle, Layers } from 'lucide-react'
+import { CheckCircle, Layers, History, FileText } from 'lucide-react'
 import { api } from '@/shared/api/axios'
 import toast from 'react-hot-toast'
 import type { ContasAReceber, Cliente } from '@/types/venda'
@@ -11,6 +11,8 @@ import {
   Table, THead, TH, TBody, TR, TD, EmptyState, LoadingState,
 } from '@/shared/components/ui'
 import type { BadgeTone } from '@/shared/components/ui'
+import { usePermissao } from '@/shared/hooks/usePermissao'
+import HistoricoPagamentosModal from './components/HistoricoPagamentosModal'
 
 const brl = formatBRL
 
@@ -26,11 +28,15 @@ const statusTom: Record<string, BadgeTone> = {
 
 export default function ContasReceberPage() {
   const qc = useQueryClient()
+  const { podeVerIdentificacao } = usePermissao()
   const [searchParams] = useSearchParams()
   const [clienteId, setClienteId] = useState(searchParams.get('clienteId') ?? '')
   const [statusFiltro, setStatusFiltro] = useState('ABERTO')
   const [pagarId, setPagarId]     = useState<number | null>(null)
   const [valorPag, setValorPag]   = useState('')
+  // Histórico de recebimentos (somente administradores): de uma conta, ou o relatório geral
+  const [historicoContaId, setHistoricoContaId] = useState<number | null>(null)
+  const [mostrarRelatorio, setMostrarRelatorio] = useState(false)
 
   // Seletor de cliente — antes era um campo numérico livre pro ID, agora
   // busca da tela de Clientes (só quem pode ser faturado/fiado).
@@ -51,6 +57,7 @@ export default function ContasReceberPage() {
     onSuccess: () => {
       toast.success('Pagamento registrado!')
       qc.invalidateQueries({ queryKey: ['contas-receber'] })
+      qc.invalidateQueries({ queryKey: ['historico-pagamentos'] })
       setPagarId(null)
       setValorPag('')
     },
@@ -63,11 +70,21 @@ export default function ContasReceberPage() {
     ? contas.filter(c => String(c.cliente.id) === clienteId)
     : contas
 
+  const contaDoPagamento = pagarId ? contas.find(c => c.id === pagarId) : undefined
+
   const totalFiltrado = contasFiltradas.reduce((s, c) => s + c.valor - c.valorPago, 0)
 
   return (
     <div className="p-6">
-      <PageHeader title="Contas a Receber" subtitle="Fiado, caderneta e faturamento" />
+      <PageHeader
+        title="Contas a Receber"
+        subtitle="Fiado, caderneta e faturamento"
+        actions={podeVerIdentificacao ? (
+          <Button variant="secondary" onClick={() => setMostrarRelatorio(true)}>
+            <FileText size={16} /> Histórico de recebimentos
+          </Button>
+        ) : undefined}
+      />
 
       {/* Filtros — mesmo esquema da tela de Contas a Pagar: status como abas
           e cliente como um filtro opcional a mais, não mais um portão */}
@@ -127,11 +144,20 @@ export default function ContasReceberPage() {
                   </TD>
                   <TD className="text-xs text-gray-500">{c.dataVencimento ?? '—'}</TD>
                   <TD>
-                    {(c.status === 'ABERTO' || c.status === 'PARCIAL') && (
-                      <Button variant="ghost" size="sm" onClick={() => setPagarId(c.id)}>
-                        <CheckCircle size={16} />
-                      </Button>
-                    )}
+                    <div className="flex items-center justify-end gap-1">
+                      {podeVerIdentificacao && c.valorPago > 0 && (
+                        <Button variant="ghost" size="sm" onClick={() => setHistoricoContaId(c.id)}
+                          title="Histórico de recebimentos">
+                          <History size={16} />
+                        </Button>
+                      )}
+                      {(c.status === 'ABERTO' || c.status === 'PARCIAL') && (
+                        <Button variant="ghost" size="sm" onClick={() => setPagarId(c.id)}
+                          title="Registrar recebimento">
+                          <CheckCircle size={16} />
+                        </Button>
+                      )}
+                    </div>
                   </TD>
                 </TR>
               ))}
@@ -142,6 +168,14 @@ export default function ContasReceberPage() {
           <EmptyState>Nenhuma conta com esse status.</EmptyState>
         )}
       </Card>
+
+      {/* Histórico de recebimentos (administradores) */}
+      {podeVerIdentificacao && historicoContaId !== null && (
+        <HistoricoPagamentosModal tipo="receber" contaId={historicoContaId} onClose={() => setHistoricoContaId(null)} />
+      )}
+      {podeVerIdentificacao && mostrarRelatorio && (
+        <HistoricoPagamentosModal tipo="receber" onClose={() => setMostrarRelatorio(false)} />
+      )}
 
       {/* Modal pagamento */}
       {pagarId && (
@@ -163,6 +197,13 @@ export default function ContasReceberPage() {
             </>
           }
         >
+          {contaDoPagamento && (
+            <p className="text-xs text-gray-500">
+              Saldo da conta: <span className="font-semibold text-danger-600 tabular-nums">
+                {brl(contaDoPagamento.valor - contaDoPagamento.valorPago)}
+              </span>
+            </p>
+          )}
           <div>
             <label className="text-xs font-medium text-gray-600 block mb-1">Valor Recebido</label>
             <CurrencyInput

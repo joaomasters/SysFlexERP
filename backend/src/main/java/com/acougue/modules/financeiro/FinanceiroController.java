@@ -5,8 +5,10 @@ import com.acougue.entity.ContasAReceber;
 import com.acougue.entity.FaturamentoCliente;
 import com.acougue.entity.Modulo;
 import com.acougue.modules.financeiro.dto.DreDTO;
+import com.acougue.modules.financeiro.dto.HistoricoContaDTO;
 import com.acougue.repository.ClienteRepository;
 import com.acougue.security.Acao;
+import com.acougue.security.ContextoUsuario;
 import com.acougue.security.ExigirPermissao;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -23,6 +25,7 @@ import java.util.List;
 public class FinanceiroController {
 
     private final FaturamentoService  faturamentoService;
+    private final HistoricoPagamentosService historicoPagamentosService;
     private final DreService          dreService;
     private final ClienteRepository   clienteRepository;
 
@@ -74,7 +77,24 @@ public class FinanceiroController {
     public ResponseEntity<ContasAReceber> registrarPagamento(
             @PathVariable Long contaId,
             @RequestParam BigDecimal valor) {
-        return ResponseEntity.ok(faturamentoService.registrarPagamento(contaId, valor));
+        // Quem recebeu é SEMPRE o usuário logado (token), nunca um valor vindo do cliente.
+        return ResponseEntity.ok(faturamentoService.registrarPagamento(
+                contaId, valor, ContextoUsuario.atual().getUsuarioId()));
+    }
+
+    /**
+     * Histórico detalhado de recebimentos (data, valor, usuário, saldo antes/depois),
+     * agrupado por conta. Restrito a administradores (checado no service).
+     * Filtros opcionais: cliente, conta e período.
+     */
+    @ExigirPermissao(modulo = Modulo.CONTAS_RECEBER, acao = Acao.VER)
+    @GetMapping("/contas-receber/historico")
+    public ResponseEntity<List<HistoricoContaDTO>> historicoRecebimentos(
+            @RequestParam(required = false) Long clienteId,
+            @RequestParam(required = false) Long contaId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate inicio,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fim) {
+        return ResponseEntity.ok(historicoPagamentosService.historicoRecebimentos(clienteId, contaId, inicio, fim));
     }
 
     @ExigirPermissao(modulo = Modulo.DRE, acao = Acao.VER)

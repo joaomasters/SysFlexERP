@@ -3,7 +3,9 @@ package com.acougue.modules.financeiro;
 import com.acougue.entity.ContasPagar;
 import com.acougue.entity.Modulo;
 import com.acougue.modules.financeiro.dto.ContasPagarDTO;
+import com.acougue.modules.financeiro.dto.HistoricoContaDTO;
 import com.acougue.security.Acao;
+import com.acougue.security.ContextoUsuario;
 import com.acougue.security.ExigirPermissao;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -21,6 +23,7 @@ import java.util.Map;
 public class ContasPagarController {
 
     private final ContasPagarService contasPagarService;
+    private final HistoricoPagamentosService historicoPagamentosService;
 
     @ExigirPermissao(modulo = Modulo.CONTAS_PAGAR, acao = Acao.CRIAR)
     @PostMapping
@@ -55,7 +58,24 @@ public class ContasPagarController {
     public ResponseEntity<ContasPagar> pagar(
             @PathVariable Long id,
             @RequestBody Map<String, BigDecimal> body) {
-        return ResponseEntity.ok(contasPagarService.pagar(id, body.get("valor")));
+        // Quem pagou é SEMPRE o usuário logado (token), nunca um valor vindo do cliente.
+        return ResponseEntity.ok(contasPagarService.pagar(
+                id, body.get("valor"), ContextoUsuario.atual().getUsuarioId()));
+    }
+
+    /**
+     * Histórico detalhado de pagamentos (data, valor, usuário, saldo antes/depois),
+     * agrupado por conta. Restrito a administradores (checado no service).
+     * Filtros opcionais: conta, fornecedor (busca parcial) e período.
+     */
+    @ExigirPermissao(modulo = Modulo.CONTAS_PAGAR, acao = Acao.VER)
+    @GetMapping("/historico")
+    public ResponseEntity<List<HistoricoContaDTO>> historicoPagamentos(
+            @RequestParam(required = false) Long contaId,
+            @RequestParam(required = false) String fornecedor,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate inicio,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fim) {
+        return ResponseEntity.ok(historicoPagamentosService.historicoPagamentos(contaId, fornecedor, inicio, fim));
     }
 
     @ExigirPermissao(modulo = Modulo.CONTAS_PAGAR, acao = Acao.EXCLUIR)

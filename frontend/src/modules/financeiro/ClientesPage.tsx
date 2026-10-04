@@ -10,6 +10,7 @@ import {
   Table, THead, TH, TBody, TR, TD, EmptyState,
 } from '@/shared/components/ui'
 import type { BadgeTone } from '@/shared/components/ui'
+import { usePermissao } from '@/shared/hooks/usePermissao'
 
 const brl = (v?: number) => formatBRL(v ?? 0)
 
@@ -50,6 +51,7 @@ const formVazio: FormState = {
 
 export default function ClientesPage() {
   const qc = useQueryClient()
+  const { podeVerIdentificacao } = usePermissao()
   const [busca, setBusca] = useState('')
   const [form, setForm] = useState<FormState | null>(null)
   const [mostrarInativos, setMostrarInativos] = useState(false)
@@ -152,6 +154,7 @@ export default function ClientesPage() {
               <TH>Contato</TH>
               <TH align="right">Limite Crédito</TH>
               <TH align="right">Saldo Fiado</TH>
+              {podeVerIdentificacao && <TH>Cadastrado por</TH>}
               <TH />
             </tr>
           </THead>
@@ -172,6 +175,9 @@ export default function ClientesPage() {
                 <TD align="right" className={`tabular-nums font-medium ${(c.saldoFiadoAtual ?? 0) > 0 ? 'text-danger-600' : 'text-gray-400'}`}>
                   {brl(c.saldoFiadoAtual)}
                 </TD>
+                {podeVerIdentificacao && (
+                  <TD className="text-gray-500 text-xs">{c.criadoPorNome ?? '—'}</TD>
+                )}
                 <TD>
                   <div className="flex items-center justify-end gap-2">
                     <Button variant="ghost" size="sm" onClick={() => abrirEdicao(c)} title="Editar">

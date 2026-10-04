@@ -4,7 +4,9 @@ import com.acougue.entity.Modulo;
 import com.acougue.entity.RecebimentoMercadoria;
 import com.acougue.modules.estoque.dto.RecebimentoDTO;
 import com.acougue.security.Acao;
+import com.acougue.security.ContextoUsuario;
 import com.acougue.security.ExigirPermissao;
+import com.acougue.security.IdentificacaoUsuario;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -23,6 +25,7 @@ import java.util.Map;
 public class RecebimentoController {
 
     private final RecebimentoService recebimentoService;
+    private final IdentificacaoUsuario identificacao;
 
     @ExigirPermissao(modulo = Modulo.RECEBIMENTO, acao = Acao.VER)
     @GetMapping
@@ -32,27 +35,37 @@ public class RecebimentoController {
             @RequestParam(required = false) String fornecedor) {
 
         boolean semFiltro = inicio == null && fim == null && (fornecedor == null || fornecedor.isBlank());
+
+        List<RecebimentoMercadoria> recebimentos;
         if (semFiltro) {
             // Compatibilidade: DesossaPage usa esse mesmo endpoint sem filtros
             // pra popular o combo de "vincular NF de recebimento".
-            return ResponseEntity.ok(recebimentoService.listar());
+            recebimentos = recebimentoService.listar();
+        } else {
+            LocalDateTime desde = inicio != null ? inicio.atStartOfDay() : LocalDateTime.of(2000, 1, 1, 0, 0);
+            LocalDateTime ate   = fim    != null ? fim.atTime(LocalTime.MAX) : LocalDateTime.now();
+            recebimentos = recebimentoService.listar(desde, ate, fornecedor);
         }
 
-        LocalDateTime desde = inicio != null ? inicio.atStartOfDay() : LocalDateTime.of(2000, 1, 1, 0, 0);
-        LocalDateTime ate   = fim    != null ? fim.atTime(LocalTime.MAX) : LocalDateTime.now();
-        return ResponseEntity.ok(recebimentoService.listar(desde, ate, fornecedor));
+        identificacao.preencher(recebimentos,
+                RecebimentoMercadoria::getUsuarioId, RecebimentoMercadoria::setUsuarioNome);
+        return ResponseEntity.ok(recebimentos);
     }
 
     @ExigirPermissao(modulo = Modulo.RECEBIMENTO, acao = Acao.VER)
     @GetMapping("/{id}")
     public ResponseEntity<RecebimentoMercadoria> buscar(@PathVariable Long id) {
-        return ResponseEntity.ok(recebimentoService.buscar(id));
+        RecebimentoMercadoria recebimento = recebimentoService.buscar(id);
+        identificacao.preencherItem(recebimento,
+                RecebimentoMercadoria::getUsuarioId, RecebimentoMercadoria::setUsuarioNome);
+        return ResponseEntity.ok(recebimento);
     }
 
     @ExigirPermissao(modulo = Modulo.RECEBIMENTO, acao = Acao.CRIAR)
     @PostMapping
     public ResponseEntity<RecebimentoMercadoria> registrar(@RequestBody @Valid RecebimentoDTO dto) {
-        return ResponseEntity.ok(recebimentoService.registrar(dto));
+        // Quem deu entrada é SEMPRE o usuário logado (token).
+        return ResponseEntity.ok(recebimentoService.registrar(dto, ContextoUsuario.atual().getUsuarioId()));
     }
 
     @ExigirPermissao(modulo = Modulo.RECEBIMENTO, acao = Acao.EDITAR)

@@ -50,7 +50,8 @@ public class ProdutoService {
     }
 
     @Transactional
-    public Produto salvar(Produto produto) {
+    public Produto salvar(Produto produto, Long usuarioId) {
+        produto.setCriadoPorId(usuarioId); // autoria vem do token, nunca do corpo da requisição
         if (produto.getCodigoInterno() == null || produto.getCodigoInterno().isBlank()) {
             produto.setCodigoInterno(gerarCodigoInterno());
         }

@@ -1,5 +1,7 @@
 package com.acougue.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import lombok.*;
@@ -25,7 +27,7 @@ public class Cliente {
 
     @Column(name = "tipo_pessoa", length = 5)
     @Builder.Default
-    private String tipoPessoa = "PF"; 
+    private String tipoPessoa = "PF";
 
     @Column(length = 20)
     private String telefone;
@@ -38,7 +40,7 @@ public class Cliente {
 
     @Column(name = "tipo_cliente", length = 20)
     @Builder.Default
-    private String tipoCliente = "VAREJO"; 
+    private String tipoCliente = "VAREJO";
 
     @Column(name = "limite_credito", precision = 12, scale = 2)
     @Builder.Default
@@ -50,6 +52,17 @@ public class Cliente {
 
     @Builder.Default
     private Boolean ativo = true;
+
+    // Quem cadastrou o cliente. @JsonIgnore também impede o cliente da API de forjar esse valor
+    // (Cliente é usado como @RequestBody) — o service sempre grava o usuário logado.
+    @JsonIgnore
+    @Column(name = "criado_por_id")
+    private Long criadoPorId;
+
+    // Preenchido pelo controller via IdentificacaoUsuario — só para administradores.
+    @Transient
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String criadoPorNome;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

@@ -6,6 +6,7 @@ import toast from 'react-hot-toast'
 import type { FichaDesossa, ExecutarDesossaDTO, ProcessoDesossa } from '@/types/produto'
 import { formatWeightDisplay } from '@/shared/utils/mask'
 import { PageHeader, Card, Button, CurrencyInput, WeightInput, Field, baseInputClass } from '@/shared/components/ui'
+import { usePermissao } from '@/shared/hooks/usePermissao'
 
 interface Recebimento {
   id: number
@@ -19,6 +20,7 @@ const kg3 = formatWeightDisplay
 
 export default function DesossaPage() {
   const qc = useQueryClient()
+  const { podeVerIdentificacao } = usePermissao()
   const [fichaSel, setFichaSel]         = useState<FichaDesossa | null>(null)
   const [qtdEntrada, setQtdEntrada]     = useState(0)
   const [custoPorKg, setCustoPorKg]     = useState(0)
@@ -85,7 +87,6 @@ export default function DesossaPage() {
       quantidadeKgEntrada: qtdEntrada,
       custoPorKg: custoPorKg || undefined,
       quantidadesReais: qtdsReais,
-      usuarioId: 1,
       recebimentoId: recebimentoId ? parseInt(recebimentoId) : null,
       observacao: notaPerdaAnormal || undefined,
     }
@@ -194,6 +195,11 @@ export default function DesossaPage() {
                             </span>
                           )}
                         </div>
+                        {podeVerIdentificacao && (
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            Rateio por: <span className="font-medium">{p.usuarioNome ?? '—'}</span>
+                          </p>
+                        )}
                         {p.recebimento && (
                           <p className="text-xs text-gray-400 mt-0.5">
                             NF {p.recebimento.numeroNf ?? 'S/N'} — {p.recebimento.fornecedor}

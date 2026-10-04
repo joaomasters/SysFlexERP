@@ -59,7 +59,7 @@ public class InventarioService {
     }
 
     @Transactional
-    public InventarioFisico finalizarInventario(Long inventarioId) {
+    public InventarioFisico finalizarInventario(Long inventarioId, Long usuarioId) {
         InventarioFisico inventario = inventarioRepo.findById(inventarioId)
                 .orElseThrow(() -> new EntityNotFoundException("Inventário não encontrado: " + inventarioId));
         if (!"ABERTO".equals(inventario.getStatus())) {
@@ -73,23 +73,25 @@ public class InventarioService {
                 String tipo = item.getDivergencia().compareTo(BigDecimal.ZERO) > 0
                         ? "AJUSTE_POSITIVO" : "AJUSTE_NEGATIVO";
                 estoqueService.ajuste(item.getProduto(), item.getDivergencia().abs(),
-                        tipo, "INVENTARIO#" + inventarioId, inventario.getUsuarioId());
+                        tipo, "INVENTARIO#" + inventarioId, usuarioId);
             }
         }
 
         inventario.setStatus("FINALIZADO");
         inventario.setDataFim(LocalDateTime.now());
+        inventario.setFechadoPorId(usuarioId);
         return inventarioRepo.save(inventario);
     }
 
     @Transactional
-    public InventarioFisico cancelarInventario(Long inventarioId) {
+    public InventarioFisico cancelarInventario(Long inventarioId, Long usuarioId) {
         InventarioFisico inventario = inventarioRepo.findById(inventarioId)
                 .orElseThrow(() -> new EntityNotFoundException("Inventário não encontrado: " + inventarioId));
         if (!"ABERTO".equals(inventario.getStatus())) {
             throw new BusinessException("Somente inventários abertos podem ser cancelados.");
         }
         inventario.setStatus("CANCELADO");
+        inventario.setFechadoPorId(usuarioId);
         return inventarioRepo.save(inventario);
     }
 

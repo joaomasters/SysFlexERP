@@ -22,6 +22,7 @@ export interface Produto {
   categoria?: Categoria
   temFichaDesossa: boolean
   ativo: boolean
+  criadoPorNome?: string   // só vem para administradores
 }
 
 export interface FichaDesossaItem {
@@ -46,7 +47,6 @@ export interface ExecutarDesossaDTO {
   quantidadeKgEntrada: number
   custoPorKg?: number
   quantidadesReais?: Record<number, number>
-  usuarioId?: number
   observacao?: string
   recebimentoId?: number | null
 }
@@ -63,7 +63,7 @@ export interface ProcessoDesossa {
   id: number
   quantidadeEntrada: number
   dataProcesso: string
-  usuarioId?: number
+  usuarioNome?: string   // só vem para administradores
   observacao?: string
   status: string
   recebimento?: { id: number; numeroNf: string | null; fornecedor: string } | null

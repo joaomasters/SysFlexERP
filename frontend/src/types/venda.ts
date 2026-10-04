@@ -12,6 +12,7 @@ export interface Cliente {
   limiteCredito: number
   saldoFiadoAtual?: number
   ativo: boolean
+  criadoPorNome?: string   // só vem para administradores
 }
 
 export interface Caixa {

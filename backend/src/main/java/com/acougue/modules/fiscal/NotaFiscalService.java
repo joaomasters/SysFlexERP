@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -31,19 +32,25 @@ public class NotaFiscalService {
         return notaRepo.findAllByOrderByCreatedAtDesc();
     }
 
+    /** Listagem filtrada por período de emissão e, opcionalmente, nome do cliente (busca parcial). */
+    public List<NotaFiscalSaida> listar(LocalDateTime inicio, LocalDateTime fim, String cliente) {
+        return notaRepo.buscarComFiltros(inicio, fim, cliente == null ? "" : cliente.trim());
+    }
+
     public NotaFiscalSaida buscar(Long id) {
         return notaRepo.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("NF não encontrada: " + id));
     }
 
     @Transactional
-    public NotaFiscalSaida criar(NotaFiscalSaidaDTO dto) {
+    public NotaFiscalSaida criar(NotaFiscalSaidaDTO dto, Long usuarioId) {
         Cliente cliente = dto.clienteId() != null
                 ? clienteRepo.findById(dto.clienteId())
                 .orElseThrow(() -> new EntityNotFoundException("Cliente não encontrado: " + dto.clienteId()))
                 : null;
 
         NotaFiscalSaida nf = NotaFiscalSaida.builder()
+                .usuarioCriacaoId(usuarioId)
                 .cliente(cliente)
                 .numeroNf(dto.numeroNf())
                 .serieNf(dto.serieNf() != null ? dto.serieNf() : "1")
@@ -87,19 +94,19 @@ public class NotaFiscalService {
     }
 
     @Transactional
-    public NotaFiscalSaida atualizarStatus(Long id, String status) {
+    public NotaFiscalSaida atualizarStatus(Long id, String status, Long usuarioId) {
         NotaFiscalSaida nf = buscar(id);
-        aplicarTransicaoDeEstoque(nf, status);
+        aplicarTransicaoDeEstoque(nf, status, usuarioId);
         nf.setStatus(status);
         return notaRepo.save(nf);
     }
 
     @Transactional
-    public NotaFiscalSaida uploadXml(Long id, String xml) {
+    public NotaFiscalSaida uploadXml(Long id, String xml, Long usuarioId) {
         NotaFiscalSaida nf = buscar(id);
         nf.setXmlNf(xml);
         if ("PENDENTE".equals(nf.getStatus())) {
-            aplicarTransicaoDeEstoque(nf, "EMITIDA");
+            aplicarTransicaoDeEstoque(nf, "EMITIDA", usuarioId);
             nf.setStatus("EMITIDA");
         }
         return notaRepo.save(nf);
@@ -111,8 +118,11 @@ public class NotaFiscalService {
      estava EMITIDA e vira CANCELADA → devolve a quantidade ao estoque, SEM alterar o
      custo médio (a mercadoria nunca foi "comprada" de novo, só voltou pra prateleira)
      Itens sem produto vinculado (texto livre na nota) são ignorados — não há estoque a controlar.
+
+     O usuário que efetiva a saída (vira EMITIDA) fica registrado na nota e também nas
+     movimentações de estoque geradas; no estorno, as movimentações levam quem cancelou.
      */
-    private void aplicarTransicaoDeEstoque(NotaFiscalSaida nf, String novoStatus) {
+    private void aplicarTransicaoDeEstoque(NotaFiscalSaida nf, String novoStatus, Long usuarioId) {
         String statusAnterior = nf.getStatus();
         if (statusAnterior.equals(novoStatus)) return;
 
@@ -120,16 +130,17 @@ public class NotaFiscalService {
         boolean vaiCancelar = "CANCELADA".equals(novoStatus) && "EMITIDA".equals(statusAnterior);
 
         if (vaiEmitir) {
+            nf.setUsuarioEmissaoId(usuarioId);
             for (NotaFiscalSaidaItem item : nf.getItens()) {
                 if (item.getProduto() == null) continue;
                 estoqueService.saida(item.getProduto(), item.getQuantidade(),
-                        "SAIDA_NF", "NF#" + nf.getId(), null);
+                        "SAIDA_NF", "NF#" + nf.getId(), usuarioId);
             }
         } else if (vaiCancelar) {
             for (NotaFiscalSaidaItem item : nf.getItens()) {
                 if (item.getProduto() == null) continue;
                 estoqueService.entrada(item.getProduto(), item.getQuantidade(), null,
-                        "ENTRADA_ESTORNO_NF", "NF#" + nf.getId(), null);
+                        "ENTRADA_ESTORNO_NF", "NF#" + nf.getId(), usuarioId);
             }
         }
     }
