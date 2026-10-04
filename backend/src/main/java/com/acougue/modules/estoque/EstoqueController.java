@@ -5,7 +5,9 @@ import com.acougue.modules.estoque.dto.ExecutarDesossaDTO;
 import com.acougue.modules.estoque.dto.FichaDesossaDTO;
 import com.acougue.repository.MovimentacaoEstoqueRepository;
 import com.acougue.security.Acao;
+import com.acougue.security.ContextoUsuario;
 import com.acougue.security.ExigirPermissao;
+import com.acougue.security.IdentificacaoUsuario;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -25,6 +27,7 @@ public class EstoqueController {
     private final ProdutoService                 produtoService;
     private final DesossaService                 desossaService;
     private final MovimentacaoEstoqueRepository  movRepo;
+    private final IdentificacaoUsuario           identificacao;
 
     // Produtos
 
@@ -33,21 +36,30 @@ public class EstoqueController {
     public ResponseEntity<List<Produto>> listarProdutos(
             @RequestParam(required = false) String nome) {
         if (nome != null && !nome.isBlank()) {
-            return ResponseEntity.ok(produtoService.buscarPorNome(nome));
+            return ResponseEntity.ok(comNomes(produtoService.buscarPorNome(nome)));
         }
-        return ResponseEntity.ok(produtoService.listarAtivos());
+        return ResponseEntity.ok(comNomes(produtoService.listarAtivos()));
+    }
+
+    // Só administradores recebem o nome de quem cadastrou o produto — ver IdentificacaoUsuario.
+    private List<Produto> comNomes(List<Produto> produtos) {
+        identificacao.preencher(produtos, Produto::getCriadoPorId, Produto::setCriadoPorNome);
+        return produtos;
     }
 
     @ExigirPermissao(modulo = Modulo.PRODUTOS, acao = Acao.VER)
     @GetMapping("/produtos/{id}")
     public ResponseEntity<Produto> buscarProduto(@PathVariable Long id) {
-        return ResponseEntity.ok(produtoService.buscarPorId(id));
+        Produto produto = produtoService.buscarPorId(id);
+        identificacao.preencherItem(produto, Produto::getCriadoPorId, Produto::setCriadoPorNome);
+        return ResponseEntity.ok(produto);
     }
 
     @ExigirPermissao(modulo = Modulo.PRODUTOS, acao = Acao.CRIAR)
     @PostMapping("/produtos")
     public ResponseEntity<Produto> criarProduto(@RequestBody @Valid Produto produto) {
-        return ResponseEntity.ok(produtoService.salvar(produto));
+        // Quem cadastrou é SEMPRE o usuário logado (token).
+        return ResponseEntity.ok(produtoService.salvar(produto, ContextoUsuario.atual().getUsuarioId()));
     }
 
     @ExigirPermissao(modulo = Modulo.PRODUTOS, acao = Acao.EDITAR)
@@ -120,6 +132,8 @@ public class EstoqueController {
     @PostMapping("/desossa/executar")
     public ResponseEntity<ProcessoDesossa> executarDesossa(
             @RequestBody @Valid ExecutarDesossaDTO dto) {
+        // Quem executou o rateio é SEMPRE o usuário logado — ignora usuarioId do corpo.
+        dto.setUsuarioId(ContextoUsuario.atual().getUsuarioId());
         return ResponseEntity.ok(desossaService.executarDesossa(dto));
     }
 
@@ -133,7 +147,9 @@ public class EstoqueController {
     @ExigirPermissao(modulo = Modulo.RATEIO_DESOSSA, acao = Acao.VER)
     @GetMapping("/desossa/historico/{fichaId}")
     public ResponseEntity<List<ProcessoDesossa>> historicoDesossa(@PathVariable Long fichaId) {
-        return ResponseEntity.ok(desossaService.listarPorFicha(fichaId));
+        List<ProcessoDesossa> historico = desossaService.listarPorFicha(fichaId);
+        identificacao.preencher(historico, ProcessoDesossa::getUsuarioId, ProcessoDesossa::setUsuarioNome);
+        return ResponseEntity.ok(historico);
     }
 
     // Movimentações

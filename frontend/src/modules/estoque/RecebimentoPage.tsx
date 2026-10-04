@@ -5,6 +5,7 @@ import { api } from '@/shared/api/axios'
 import toast from 'react-hot-toast'
 import { formatBRL, formatWeightDisplay } from '@/shared/utils/mask'
 import { PageHeader, Card, Modal, Button, CurrencyInput, WeightInput, Field, baseInputClass } from '@/shared/components/ui'
+import { usePermissao } from '@/shared/hooks/usePermissao'
 
 interface Produto { id: number; nome: string; unidadeMedida: string }
 interface RecItem { produtoId: number; quantidade: number; custoUnitario: number }
@@ -21,6 +22,7 @@ interface Recebimento {
   status: string
   xmlNf: string | null
   observacao: string | null
+  usuarioNome?: string   // só vem para administradores
   itens: { id: number; produto: { nome: string; unidadeMedida: string }; quantidade: number; custoUnitario: number; custoTotal: number }[]
 }
 
@@ -33,6 +35,7 @@ const trintaDiasAtras = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOStr
 export default function RecebimentoPage() {
   const qc = useQueryClient()
   const fileRef = useRef<HTMLInputElement>(null)
+  const { podeVerIdentificacao } = usePermissao()
 
   const [showForm, setShowForm]       = useState(false)
   const [expandId, setExpandId]       = useState<number | null>(null)
@@ -188,7 +191,7 @@ export default function RecebimentoPage() {
               className="flex items-center gap-4 px-5 py-4 cursor-pointer hover:bg-gray-50"
               onClick={() => setExpandId(expandId === r.id ? null : r.id)}
             >
-              <div className="flex-1 grid grid-cols-4 gap-4">
+              <div className={`flex-1 grid gap-4 ${podeVerIdentificacao ? 'grid-cols-5' : 'grid-cols-4'}`}>
                 <div>
                   <p className="text-xs text-gray-400 font-medium">Fornecedor</p>
                   <p className="font-semibold text-gray-800 text-sm">{r.fornecedor}</p>
@@ -207,6 +210,12 @@ export default function RecebimentoPage() {
                   <p className="text-xs text-gray-400 font-medium">Valor Total</p>
                   <p className="text-sm font-medium text-gray-800 tabular-nums">{brl(r.valorTotal)}</p>
                 </div>
+                {podeVerIdentificacao && (
+                  <div>
+                    <p className="text-xs text-gray-400 font-medium">Entrada por</p>
+                    <p className="text-sm text-gray-700">{r.usuarioNome ?? '—'}</p>
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 {r.xmlNf ? (

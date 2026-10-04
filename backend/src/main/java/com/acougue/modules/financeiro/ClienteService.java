@@ -34,8 +34,9 @@ public class ClienteService {
     }
 
     @Transactional
-    public Cliente criar(Cliente cliente) {
+    public Cliente criar(Cliente cliente, Long usuarioId) {
         cliente.setId(null); // garante criação, nunca sobrescreve por engano
+        cliente.setCriadoPorId(usuarioId); // autoria vem do token, nunca do corpo da requisição
         return clienteRepo.save(cliente);
     }
 

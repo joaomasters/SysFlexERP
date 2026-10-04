@@ -46,6 +46,19 @@ public class UsuarioAutenticado {
         };
     }
 
+    /*
+     Regra única de "quem pode ver QUEM fez cada ação" nas telas operacionais
+     (recebimento, perdas, inventário, contas a pagar/receber etc.).
+
+     Hoje equivale a poder VER o módulo AUDITORIA — que já é, por desenho
+     (ver V15), exclusivo de quem administra o negócio: SUPER_ADMIN (sempre)
+     e o perfil ADMIN. Mantido num único método de propósito: se um dia essa
+     regra mudar (ex: um módulo/flag dedicado), muda só aqui.
+     */
+    public boolean podeVerIdentificacaoUsuarios() {
+        return pode(Modulo.AUDITORIA, Acao.VER);
+    }
+
     public Long getUsuarioId()     { return usuarioId; }
     public String getLogin()       { return login; }
     public String getNome()        { return nome; }

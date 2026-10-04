@@ -6,10 +6,13 @@ import { formatWeightDisplay } from '@/shared/utils/mask'
 import { PageHeader, Card, Button, StatusBadge, WeightInput, baseInputClass } from '@/shared/components/ui'
 import type { BadgeTone } from '@/shared/components/ui'
 import RelatorioEstoqueModal from './components/RelatorioEstoqueModal'
+import { usePermissao } from '@/shared/hooks/usePermissao'
 
 interface Inventario {
   id: number; status: string; observacao: string
   dataInicio: string; dataFim: string; createdAt: string
+  usuarioNome?: string      // quem abriu — só vem para administradores
+  fechadoPorNome?: string   // quem finalizou/cancelou — só vem para administradores
 }
 interface InventarioItem {
   id: number
@@ -31,6 +34,7 @@ const statusTom: Record<string, BadgeTone> = {
 
 export default function InventarioPage() {
   const qc = useQueryClient()
+  const { podeVerIdentificacao } = usePermissao()
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [observacao, setObservacao] = useState('')
   const [contagens, setContagens] = useState<Record<number, number>>({})
@@ -55,7 +59,7 @@ export default function InventarioPage() {
   })
 
   const abrir = useMutation({
-    mutationFn: () => api.post('/estoque/inventario/abrir', { usuarioId: 1, observacao }),
+    mutationFn: () => api.post('/estoque/inventario/abrir', { observacao }),
     onSuccess: (r) => {
       qc.invalidateQueries({ queryKey: ['inventarios'] })
       setSelectedId(r.data.id)
@@ -143,6 +147,14 @@ export default function InventarioPage() {
                 <p className="text-xs text-gray-400 mt-1">
                   {new Date(inv.createdAt).toLocaleDateString('pt-BR')}
                 </p>
+                {podeVerIdentificacao && (
+                  <p className="text-[11px] text-gray-500 mt-0.5">
+                    Aberto por {inv.usuarioNome ?? '—'}
+                    {inv.status !== 'ABERTO' && (
+                      <> · {inv.status === 'CANCELADO' ? 'Cancelado' : 'Finalizado'} por {inv.fechadoPorNome ?? '—'}</>
+                    )}
+                  </p>
+                )}
               </button>
             ))}
             {lista.data?.length === 0 && (

@@ -1,5 +1,7 @@
 package com.acougue.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.*;
@@ -76,6 +78,17 @@ public class Produto {
 
     @Builder.Default
     private Boolean ativo = true;
+
+    // Quem cadastrou o produto. @JsonIgnore também impede forjar o valor via @RequestBody —
+    // o service sempre grava o usuário logado.
+    @JsonIgnore
+    @Column(name = "criado_por_id", updatable = false)
+    private Long criadoPorId;
+
+    // Preenchido pelo controller via IdentificacaoUsuario — só para administradores.
+    @Transient
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String criadoPorNome;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

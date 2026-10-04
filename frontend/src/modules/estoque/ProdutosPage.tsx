@@ -5,6 +5,7 @@ import { api } from '@/shared/api/axios'
 import toast from 'react-hot-toast'
 import type { Produto } from '@/types/produto'
 import ProdutoForm from './components/ProdutoForm'
+import { usePermissao } from '@/shared/hooks/usePermissao'
 import { formatBRL, formatWeightDisplay } from '@/shared/utils/mask'
 import {
   PageHeader, Button, StatusBadge, baseInputClass, ConfirmDialog,
@@ -21,6 +22,7 @@ function margemPct(custo?: number, venda?: number): number | null {
 
 export default function ProdutosPage() {
   const qc      = useQueryClient()
+  const { podeVerIdentificacao } = usePermissao()
   const [busca, setBusca]   = useState('')
   const [form, setForm]     = useState<Partial<Produto> | null>(null)
   const [confirmando, setConfirmando] = useState<Produto | null>(null)
@@ -90,6 +92,7 @@ export default function ProdutosPage() {
                 <TH align="right">Estoque</TH>
                 <TH align="center">PLU</TH>
                 <TH align="center">Status</TH>
+                {podeVerIdentificacao && <TH>Cadastrado por</TH>}
                 <TH />
               </tr>
             </THead>
@@ -130,6 +133,9 @@ export default function ProdutosPage() {
                   <TD align="center">
                     <StatusBadge tone={p.ativo ? 'success' : 'neutral'}>{p.ativo ? 'Ativo' : 'Inativo'}</StatusBadge>
                   </TD>
+                  {podeVerIdentificacao && (
+                    <TD className="text-gray-500 text-xs">{p.criadoPorNome ?? '—'}</TD>
+                  )}
                   <TD>
                     <div className="flex items-center gap-1 justify-end">
                       <Button variant="ghost" size="sm" onClick={() => setForm(p)}>

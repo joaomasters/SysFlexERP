@@ -1,5 +1,7 @@
 package com.acougue.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -28,8 +30,14 @@ public class ProcessoDesossa {
     @CreationTimestamp
     private LocalDateTime dataProcesso;
 
+    // Quem executou o rateio. Nunca serializado: só o NOME sai no JSON, e só para administradores.
+    @JsonIgnore
     @Column(name = "usuario_id")
     private Long usuarioId;
+
+    @Transient
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String usuarioNome;
 
     @Column(columnDefinition = "TEXT")
     private String observacao;

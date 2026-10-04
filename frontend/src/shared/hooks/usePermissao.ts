@@ -27,9 +27,18 @@ export function usePermissao() {
   function podeEditar(modulo: string)  { return pode(modulo, 'editar') }
   function podeExcluir(modulo: string) { return pode(modulo, 'excluir') }
 
+  /**
+   * Quem pode ver QUEM fez cada ação (nome do usuário em Recebimento, Perdas,
+   * Inventário, Contas etc.). Espelha UsuarioAutenticado#podeVerIdentificacaoUsuarios
+   * no backend: hoje = poder ver a Auditoria (SUPER_ADMIN e ADMIN).
+   * Só controla o que é EXIBIDO — o backend já nem envia esses dados a quem não pode.
+   */
+  const podeVerIdentificacao = pode('AUDITORIA', 'ver')
+
   return {
     sessao,
     pode,
+    podeVerIdentificacao,
     podeVer,
     podeCriar,
     podeEditar,

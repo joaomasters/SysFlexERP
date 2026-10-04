@@ -1,13 +1,15 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../shared/api/axios'
-import { Plus, AlertCircle } from 'lucide-react'
+import { Plus, AlertCircle, History, FileText } from 'lucide-react'
 import { formatBRL } from '@/shared/utils/mask'
 import {
   PageHeader, Card, FilterTabs, Modal, Button, StatusBadge, CurrencyInput, Field, baseInputClass,
   Table, THead, TH, TBody, TR, TD, EmptyState,
 } from '@/shared/components/ui'
 import type { BadgeTone } from '@/shared/components/ui'
+import { usePermissao } from '@/shared/hooks/usePermissao'
+import HistoricoPagamentosModal from './components/HistoricoPagamentosModal'
 
 interface ContaPagar {
   id: number; descricao: string; fornecedor: string; valor: number
@@ -28,10 +30,14 @@ const statusTom: Record<string, BadgeTone> = {
 
 export default function ContasPagarPage() {
   const qc = useQueryClient()
+  const { podeVerIdentificacao } = usePermissao()
   const [statusFiltro, setStatusFiltro] = useState('ABERTO')
   const [showForm, setShowForm] = useState(false)
   const [pagandoId, setPagandoId] = useState<number | null>(null)
   const [valorPag, setValorPag] = useState(0)
+  // Histórico de pagamentos (somente administradores): de uma conta, ou o relatório geral
+  const [historicoContaId, setHistoricoContaId] = useState<number | null>(null)
+  const [mostrarRelatorio, setMostrarRelatorio] = useState(false)
   const [form, setForm] = useState({
     descricao: '', fornecedor: '', valor: 0, dataVencimento: '', categoria: '', observacao: ''
   })
@@ -59,6 +65,7 @@ export default function ContasPagarPage() {
     mutationFn: () => api.post(`/financeiro/contas-pagar/${pagandoId}/pagar`, { valor: valorPag }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['contas-pagar'] })
+      qc.invalidateQueries({ queryKey: ['historico-pagamentos'] })
       qc.invalidateQueries({ queryKey: ['contas-pagar-vencidas'] })
       setPagandoId(null)
       setValorPag(0)
@@ -70,6 +77,8 @@ export default function ContasPagarPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['contas-pagar'] }),
   })
 
+  const contaDoPagamento = pagandoId !== null ? contas.data?.find(c => c.id === pagandoId) : undefined
+
   const totalAberto = contas.data?.reduce((s, c) => s + (c.valor - c.valorPago), 0) ?? 0
 
   return (
@@ -78,9 +87,16 @@ export default function ContasPagarPage() {
         title="Contas a Pagar"
         subtitle="Gestão de pagamentos e fornecedores"
         actions={
-          <Button variant="primary" onClick={() => setShowForm(true)}>
-            <Plus size={16} /> Nova Conta
-          </Button>
+          <div className="flex gap-2">
+            {podeVerIdentificacao && (
+              <Button variant="secondary" onClick={() => setMostrarRelatorio(true)}>
+                <FileText size={16} /> Histórico de pagamentos
+              </Button>
+            )}
+            <Button variant="primary" onClick={() => setShowForm(true)}>
+              <Plus size={16} /> Nova Conta
+            </Button>
+          </div>
         }
       />
 
@@ -151,22 +167,38 @@ export default function ContasPagarPage() {
                   <StatusBadge tone={statusTom[c.status] ?? 'neutral'}>{c.status}</StatusBadge>
                 </TD>
                 <TD>
-                  {(c.status === 'ABERTO' || c.status === 'PARCIAL') && (
-                    <div className="flex gap-2">
-                      <Button variant="success" size="sm" onClick={() => { setPagandoId(c.id); setValorPag(0) }}>
-                        Pagar
+                  <div className="flex items-center gap-2">
+                    {podeVerIdentificacao && c.valorPago > 0 && (
+                      <Button variant="ghost" size="sm" onClick={() => setHistoricoContaId(c.id)}
+                        title="Histórico de pagamentos">
+                        <History size={16} />
                       </Button>
-                      <Button variant="outline-danger" size="sm" onClick={() => cancelar.mutate(c.id)}>
-                        Cancelar
-                      </Button>
-                    </div>
-                  )}
+                    )}
+                    {(c.status === 'ABERTO' || c.status === 'PARCIAL') && (
+                      <div className="flex gap-2">
+                        <Button variant="success" size="sm" onClick={() => { setPagandoId(c.id); setValorPag(0) }}>
+                          Pagar
+                        </Button>
+                        <Button variant="outline-danger" size="sm" onClick={() => cancelar.mutate(c.id)}>
+                          Cancelar
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 </TD>
               </TR>
             ))}
           </TBody>
         </Table>
       </Card>
+
+      {/* Histórico de pagamentos (administradores) */}
+      {podeVerIdentificacao && historicoContaId !== null && (
+        <HistoricoPagamentosModal tipo="pagar" contaId={historicoContaId} onClose={() => setHistoricoContaId(null)} />
+      )}
+      {podeVerIdentificacao && mostrarRelatorio && (
+        <HistoricoPagamentosModal tipo="pagar" onClose={() => setMostrarRelatorio(false)} />
+      )}
 
       {/* Modal nova conta */}
       {showForm && (
@@ -241,6 +273,13 @@ export default function ContasPagarPage() {
             </>
           }
         >
+          {contaDoPagamento && (
+            <p className="text-xs text-gray-500">
+              Saldo da conta: <span className="font-semibold text-danger-600 tabular-nums">
+                {fmt(contaDoPagamento.valor - contaDoPagamento.valorPago)}
+              </span>
+            </p>
+          )}
           <Field label="Valor Pago">
             <CurrencyInput value={valorPag} onChange={setValorPag} autoFocus />
           </Field>

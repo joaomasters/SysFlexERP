@@ -8,6 +8,7 @@ import {
   Table, THead, TH, TBody, TR, TD, EmptyState,
 } from '@/shared/components/ui'
 import type { BadgeTone } from '@/shared/components/ui'
+import { usePermissao } from '@/shared/hooks/usePermissao'
 
 interface Produto { id: number; nome: string; unidadeMedida: string; precoCusto: number }
 interface Perda {
@@ -18,6 +19,7 @@ interface Perda {
   motivo: string
   observacao: string
   createdAt: string
+  usuarioNome?: string   // só vem para administradores
 }
 
 const MOTIVOS = ['VENCIMENTO', 'AVARIA', 'FURTO', 'DESOSSA', 'OUTROS']
@@ -38,6 +40,7 @@ const hoje = new Date().toISOString().slice(0, 10)
 
 export default function PerdasPage() {
   const qc = useQueryClient()
+  const { podeVerIdentificacao } = usePermissao()
   const [inicio, setInicio] = useState(hoje)
   const [fim, setFim] = useState(hoje)
   const [showForm, setShowForm] = useState(false)
@@ -64,7 +67,6 @@ export default function PerdasPage() {
       quantidade,
       motivo,
       observacao,
-      usuarioId: 1,
     }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['perdas'] })
@@ -115,11 +117,12 @@ export default function PerdasPage() {
               <TH align="right">Custo</TH>
               <TH>Observação</TH>
               <TH>Data</TH>
+              {podeVerIdentificacao && <TH>Lançado por</TH>}
             </tr>
           </THead>
           <TBody>
             {perdas.data?.length === 0 && (
-              <tr><td colSpan={6}><EmptyState>Nenhuma perda no período</EmptyState></td></tr>
+              <tr><td colSpan={podeVerIdentificacao ? 7 : 6}><EmptyState>Nenhuma perda no período</EmptyState></td></tr>
             )}
             {perdas.data?.map(p => (
               <TR key={p.id}>
@@ -133,6 +136,9 @@ export default function PerdasPage() {
                 <TD className="text-gray-400">
                   {new Date(p.createdAt).toLocaleDateString('pt-BR')}
                 </TD>
+                {podeVerIdentificacao && (
+                  <TD className="text-gray-600">{p.usuarioNome ?? '—'}</TD>
+                )}
               </TR>
             ))}
           </TBody>

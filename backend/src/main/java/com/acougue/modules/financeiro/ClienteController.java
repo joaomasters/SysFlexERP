@@ -3,7 +3,9 @@ package com.acougue.modules.financeiro;
 import com.acougue.entity.Cliente;
 import com.acougue.entity.Modulo;
 import com.acougue.security.Acao;
+import com.acougue.security.ContextoUsuario;
 import com.acougue.security.ExigirPermissao;
+import com.acougue.security.IdentificacaoUsuario;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -17,15 +19,17 @@ import java.util.List;
 public class ClienteController {
 
     private final ClienteService clienteService;
+    private final IdentificacaoUsuario identificacao;
 
     @ExigirPermissao(modulo = Modulo.CLIENTES, acao = Acao.VER)
     @GetMapping
     public ResponseEntity<List<Cliente>> listar(
             @RequestParam(required = false) String nome) {
-        if (nome != null && !nome.isBlank()) {
-            return ResponseEntity.ok(clienteService.buscarPorNome(nome));
-        }
-        return ResponseEntity.ok(clienteService.listarAtivos());
+        List<Cliente> clientes = (nome != null && !nome.isBlank())
+                ? clienteService.buscarPorNome(nome)
+                : clienteService.listarAtivos();
+        identificacao.preencher(clientes, Cliente::getCriadoPorId, Cliente::setCriadoPorNome);
+        return ResponseEntity.ok(clientes);
     }
 
     @ExigirPermissao(modulo = Modulo.CLIENTES, acao = Acao.VER)
@@ -37,13 +41,15 @@ public class ClienteController {
     @ExigirPermissao(modulo = Modulo.CLIENTES, acao = Acao.VER)
     @GetMapping("/{id}")
     public ResponseEntity<Cliente> buscarPorId(@PathVariable Long id) {
-        return ResponseEntity.ok(clienteService.buscarPorId(id));
+        Cliente cliente = clienteService.buscarPorId(id);
+        identificacao.preencherItem(cliente, Cliente::getCriadoPorId, Cliente::setCriadoPorNome);
+        return ResponseEntity.ok(cliente);
     }
 
     @ExigirPermissao(modulo = Modulo.CLIENTES, acao = Acao.CRIAR)
     @PostMapping
     public ResponseEntity<Cliente> criar(@RequestBody @Valid Cliente cliente) {
-        return ResponseEntity.ok(clienteService.criar(cliente));
+        return ResponseEntity.ok(clienteService.criar(cliente, ContextoUsuario.atual().getUsuarioId()));
     }
 
     @ExigirPermissao(modulo = Modulo.CLIENTES, acao = Acao.EDITAR)

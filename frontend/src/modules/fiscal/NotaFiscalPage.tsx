@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { FileText, Plus, X, ChevronDown, ChevronUp, Upload, Download, Printer, CheckCircle, XCircle } from 'lucide-react'
+import { FileText, Plus, X, ChevronDown, ChevronUp, Upload, Download, Printer, CheckCircle, XCircle, Filter } from 'lucide-react'
 import { api } from '@/shared/api/axios'
 import toast from 'react-hot-toast'
 import { formatBRL, formatWeightDisplay } from '@/shared/utils/mask'
-import { PageHeader, Modal, Button, StatusBadge, CurrencyInput, WeightInput, Field, baseInputClass, ConfirmDialog } from '@/shared/components/ui'
+import { PageHeader, Card, Modal, Button, StatusBadge, CurrencyInput, WeightInput, Field, baseInputClass, ConfirmDialog } from '@/shared/components/ui'
 import type { BadgeTone } from '@/shared/components/ui'
 import ImpressaoNFModal from './components/ImpressaoNFModal'
+import { usePermissao } from '@/shared/hooks/usePermissao'
 
 interface Produto  { id: number; nome: string; precoVenda: number }
 interface Cliente  { id: number; nome: string }
@@ -24,6 +25,8 @@ interface NotaFiscal {
   valorTotal: number
   status: string
   xmlNf: string | null
+  usuarioCriacaoNome?: string   // quem lançou a nota — só vem para administradores
+  usuarioEmissaoNome?: string   // quem efetivou a saída (EMITIDA) — só vem para administradores
   itens: { id: number; produto: { nome: string } | null; descricao: string; quantidade: number; valorUnitario: number; valorTotal: number }[]
 }
 
@@ -37,14 +40,26 @@ const statusTom: Record<string, BadgeTone> = {
   CANCELADA: 'danger',
 }
 
+// Mesmos padrões de filtro da tela de Recebimento de Mercadoria: por padrão,
+// últimos 30 dias, pra não carregar o histórico inteiro de notas de uma vez.
+const hoje = new Date().toISOString().slice(0, 10)
+const trintaDiasAtras = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+
 export default function NotaFiscalPage() {
   const qc = useQueryClient()
+  const { podeVerIdentificacao } = usePermissao()
 
   const [showForm, setShowForm]       = useState(false)
   const [expandId, setExpandId]       = useState<number | null>(null)
   const [xmlViewId, setXmlViewId]     = useState<number | null>(null)
   const [confirmandoCancelar, setConfirmandoCancelar] = useState<NotaFiscal | null>(null)
   const [imprimindoNf, setImprimindoNf] = useState<NotaFiscal | null>(null)
+
+  // Filtros da listagem (mesmos da tela de Recebimento: período + busca por nome;
+  // aqui o nome é o do cliente, no lugar do fornecedor)
+  const [filtroInicio, setFiltroInicio]   = useState(trintaDiasAtras)
+  const [filtroFim, setFiltroFim]         = useState(hoje)
+  const [filtroCliente, setFiltroCliente] = useState('')
 
   // Form
   const [clienteId, setClienteId]     = useState('')
@@ -68,8 +83,10 @@ export default function NotaFiscalPage() {
   })
 
   const { data: notas = [], isLoading } = useQuery<NotaFiscal[]>({
-    queryKey: ['notas-fiscais'],
-    queryFn: () => api.get('/fiscal/notas').then(r => r.data),
+    queryKey: ['notas-fiscais', filtroInicio, filtroFim, filtroCliente],
+    queryFn: () => api.get('/fiscal/notas', {
+      params: { inicio: filtroInicio, fim: filtroFim, cliente: filtroCliente || undefined },
+    }).then(r => r.data),
   })
 
   const criar = useMutation({
@@ -205,6 +222,32 @@ export default function NotaFiscalPage() {
         }
       />
 
+      {/* Filtros */}
+      <Card padding="sm" className="mb-4 flex flex-wrap items-end gap-3">
+        <Filter size={16} className="text-gray-400 mb-2" />
+        <Field label="Emissão de">
+          <input type="date" value={filtroInicio} onChange={e => setFiltroInicio(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm" />
+        </Field>
+        <Field label="até">
+          <input type="date" value={filtroFim} onChange={e => setFiltroFim(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm" />
+        </Field>
+        <Field label="Cliente" className="flex-1 min-w-[180px]">
+          <input type="text" value={filtroCliente} onChange={e => setFiltroCliente(e.target.value)}
+            placeholder="Buscar por nome..."
+            className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm" />
+        </Field>
+        {(filtroCliente || filtroInicio !== trintaDiasAtras || filtroFim !== hoje) && (
+          <button
+            onClick={() => { setFiltroInicio(trintaDiasAtras); setFiltroFim(hoje); setFiltroCliente('') }}
+            className="text-xs text-primary-600 hover:text-primary-700 font-medium pb-2"
+          >
+            Limpar filtros
+          </button>
+        )}
+      </Card>
+
       {/* Lista */}
       <div className="space-y-2">
         {isLoading && <p className="text-gray-400 text-sm">Carregando...</p>}
@@ -214,7 +257,7 @@ export default function NotaFiscalPage() {
               className="flex items-center gap-4 px-5 py-4 cursor-pointer hover:bg-gray-50"
               onClick={() => setExpandId(expandId === nf.id ? null : nf.id)}
             >
-              <div className="flex-1 grid grid-cols-5 gap-3">
+              <div className={`flex-1 grid gap-3 ${podeVerIdentificacao ? 'grid-cols-6' : 'grid-cols-5'}`}>
                 <div>
                   <p className="text-xs text-gray-400">NF / Série</p>
                   <p className="font-semibold text-sm text-gray-800">{nf.numeroNf ? `${nf.numeroNf}/${nf.serieNf}` : 'S/N'}</p>
@@ -234,6 +277,12 @@ export default function NotaFiscalPage() {
                 <div className="flex items-center">
                   <StatusBadge tone={statusTom[nf.status] ?? 'neutral'}>{nf.status}</StatusBadge>
                 </div>
+                {podeVerIdentificacao && (
+                  <div>
+                    <p className="text-xs text-gray-400">Saída por</p>
+                    <p className="text-sm text-gray-700">{nf.usuarioEmissaoNome ?? '—'}</p>
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 {nf.xmlNf ? (
@@ -284,7 +333,14 @@ export default function NotaFiscalPage() {
 
             {expandId === nf.id && (
               <div className="border-t bg-gray-50 px-5 py-4">
-                <p className="text-xs text-gray-500 mb-3">{nf.naturezaOperacao}</p>
+                <p className="text-xs text-gray-500 mb-1">{nf.naturezaOperacao}</p>
+                {podeVerIdentificacao && (
+                  <p className="text-xs text-gray-500 mb-3">
+                    Lançada por <span className="font-medium">{nf.usuarioCriacaoNome ?? '—'}</span>
+                    {' · '}Saída efetivada por <span className="font-medium">{nf.usuarioEmissaoNome ?? '—'}</span>
+                  </p>
+                )}
+                {!podeVerIdentificacao && <div className="mb-2" />}
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-xs text-gray-500 uppercase tracking-wide">
@@ -317,7 +373,7 @@ export default function NotaFiscalPage() {
         ))}
         {!isLoading && notas.length === 0 && (
           <div className="bg-white rounded-xl shadow border border-gray-100 p-10 text-center text-gray-400">
-            Nenhuma nota fiscal emitida
+            Nenhuma nota fiscal encontrada para os filtros selecionados
           </div>
         )}
       </div>

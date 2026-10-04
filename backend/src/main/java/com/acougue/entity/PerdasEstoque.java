@@ -1,5 +1,7 @@
 package com.acougue.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -29,13 +31,19 @@ public class PerdasEstoque {
     private BigDecimal custoTotal;
 
     @Column(nullable = false, length = 50)
-    private String motivo; 
+    private String motivo;
 
     @Column(columnDefinition = "TEXT")
     private String observacao;
 
+    // Quem lançou a perda. Nunca serializado: só o NOME sai no JSON, e só para administradores.
+    @JsonIgnore
     @Column(name = "usuario_id")
     private Long usuarioId;
+
+    @Transient
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String usuarioNome;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

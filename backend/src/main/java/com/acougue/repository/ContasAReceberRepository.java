@@ -1,7 +1,9 @@
 package com.acougue.repository;
 
 import com.acougue.entity.ContasAReceber;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -18,6 +20,15 @@ public interface ContasAReceberRepository extends JpaRepository<ContasAReceber, 
     List<ContasAReceber> findByClienteIdAndStatusOrderByDataVencimentoAsc(Long clienteId, String status);
 
     List<ContasAReceber> findByClienteId(Long clienteId);
+
+    /**
+     * Carrega a conta com lock de escrita. Usado ao registrar pagamento: o
+     * saldo anterior/posterior gravado no histórico depende do valor_pago
+     * atual — sem o lock, dois recebimentos simultâneos leriam o mesmo saldo.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT c FROM ContasAReceber c WHERE c.id = :id")
+    Optional<ContasAReceber> buscarParaAtualizar(@Param("id") Long id);
 
     List<ContasAReceber> findByStatusOrderByDataVencimentoAsc(String status);
 
