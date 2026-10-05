@@ -148,6 +148,24 @@ export default function ProdutoForm({ produto, onClose, onSaved }: Props) {
           </div>
         )}
 
+        <Field
+          label="Validade padrão (dias)"
+          hint="Opcional. Entradas de estoque sem validade informada (ex: cortes da desossa) geram lote com este prazo — é o que alimenta o alerta de validade."
+          error={errors.validadePadraoDias?.message}
+        >
+          <input
+            type="number"
+            min={1}
+            step={1}
+            placeholder="Ex: 5"
+            {...register('validadePadraoDias', {
+              setValueAs: v => (v === '' || v == null ? null : Number(v)),
+              validate: v => v == null || (Number.isInteger(v) && v > 0) || 'Informe um número inteiro maior que zero',
+            })}
+            className={baseInputClass}
+          />
+        </Field>
+
         <Field label="EAN-13 (industrializado)">
           <input
             {...register('ean13')}

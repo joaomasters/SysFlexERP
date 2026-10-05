@@ -26,7 +26,7 @@ public class NotaFiscalService {
     private final NotaFiscalSaidaRepository notaRepo;
     private final ClienteRepository         clienteRepo;
     private final ProdutoRepository         produtoRepo;
-    private final EstoqueService            estoqueService;
+    private final EstoqueService estoqueService;
 
     public List<NotaFiscalSaida> listar() {
         return notaRepo.findAllByOrderByCreatedAtDesc();

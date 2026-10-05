@@ -66,12 +66,13 @@ public class RecebimentoService {
                     .quantidade(item.quantidade())
                     .custoUnitario(custoUnit)
                     .custoTotal(custoTotal)
+                    .dataValidade(item.dataValidade())
                     .build();
             rec.getItens().add(ri);
 
             String docRef = "NF" + (dto.numeroNf() != null ? dto.numeroNf() : "S/N");
             estoqueService.entrada(produto, item.quantidade(), custoUnit,
-                    "ENTRADA_COMPRA", docRef, usuarioId);
+                    "ENTRADA_COMPRA", docRef, usuarioId, item.dataValidade());
         }
 
         return recebimentoRepo.save(rec);
