@@ -26,6 +26,7 @@ const atalhos = [
   { label: 'Usuários',             href: '/acesso/usuarios',           icon: Users,           modulo: 'USUARIOS',       cor: 'bg-gray-700' },
   { label: 'Perfis',               href: '/acesso/perfis',             icon: ShieldCheck,     modulo: 'PERFIS',         cor: 'bg-gray-800' },
   { label: 'Auditoria',            href: '/acesso/auditoria',          icon: FileText,     modulo: 'AUDITORIA',      cor: 'bg-talho-600' },
+  { label: 'Validade',            href: '/estoque/validade',          icon: Package,     modulo: 'VALIDADE',      cor: 'bg-amber-600' },
 ]
 
 

@@ -8,6 +8,7 @@ import ProdutosPage from './modules/estoque/ProdutosPage'
 import DesossaPage from './modules/estoque/DesossaPage'
 import InventarioPage from './modules/estoque/InventarioPage'
 import PerdasPage from './modules/estoque/PerdasPage'
+import ValidadePage from './modules/estoque/ValidadePage'
 import FaturamentoPage from './modules/financeiro/FaturamentoPage'
 import ClientesPage from './modules/financeiro/ClientesPage'
 import ContasReceberPage from './modules/financeiro/ContasReceberPage'
@@ -45,6 +46,7 @@ export default function App() {
             <Route path="/estoque/desossa"           element={<DesossaPage />} />
             <Route path="/estoque/inventario"        element={<InventarioPage />} />
             <Route path="/estoque/perdas"            element={<PerdasPage />} />
+            <Route path="/estoque/validade"          element={<ValidadePage />} />
             <Route path="/estoque/recebimento"         element={<RecebimentoPage />} />
             <Route path="/estoque/fichas-desossa"     element={<FichasDesossaPage />} />
             <Route path="/fiscal/notas"              element={<NotaFiscalPage />} />

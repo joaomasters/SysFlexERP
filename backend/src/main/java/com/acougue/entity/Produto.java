@@ -68,6 +68,11 @@ public class Produto {
     @Builder.Default
     private BigDecimal estoqueMinimo = BigDecimal.ZERO;
 
+    // Prazo de validade padrão (dias). Entradas sem validade explícita geram lote com
+    // validade = hoje + este prazo. null = sem controle automático de validade.
+    @Column(name = "validade_padrao_dias")
+    private Integer validadePadraoDias;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "categoria_id")
     private Categoria categoria;

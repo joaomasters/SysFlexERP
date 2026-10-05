@@ -23,6 +23,7 @@ export interface Produto {
   temFichaDesossa: boolean
   ativo: boolean
   criadoPorNome?: string   // só vem para administradores
+  validadePadraoDias?: number | null   // prazo de validade padrão (dias) p/ gerar lote automático
 }
 
 export interface FichaDesossaItem {

@@ -1,6 +1,7 @@
 package com.acougue.modules.estoque;
 
 import com.acougue.entity.Produto;
+import com.acougue.exception.BusinessException;
 import com.acougue.modules.balanca.ItemPendenteBalancaService;
 import com.acougue.repository.ProdutoRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -45,6 +46,14 @@ public class ProdutoService {
         return produtoRepo.findByCodigoBalancaIsNotNullAndAtivoTrue();
     }
 
+    // Prazo padrão de validade é opcional, mas se informado precisa fazer sentido
+    // (o banco também tem CHECK > 0; aqui devolvemos erro amigável em vez de violação de constraint).
+    private void validarValidadePadrao(Integer dias) {
+        if (dias != null && dias <= 0) {
+            throw new BusinessException("A validade padrão deve ser de pelo menos 1 dia (ou deixe em branco).");
+        }
+    }
+
     public List<Produto> alertasEstoqueMinimo() {
         return produtoRepo.findEstoqueAbaixoMinimo();
     }
@@ -52,6 +61,7 @@ public class ProdutoService {
     @Transactional
     public Produto salvar(Produto produto, Long usuarioId) {
         produto.setCriadoPorId(usuarioId); // autoria vem do token, nunca do corpo da requisição
+        validarValidadePadrao(produto.getValidadePadraoDias());
         if (produto.getCodigoInterno() == null || produto.getCodigoInterno().isBlank()) {
             produto.setCodigoInterno(gerarCodigoInterno());
         }
@@ -76,6 +86,8 @@ public class ProdutoService {
         existente.setCodigoBalanca(dados.getCodigoBalanca());
         existente.setEan13(dados.getEan13());
         existente.setEstoqueMinimo(dados.getEstoqueMinimo());
+        validarValidadePadrao(dados.getValidadePadraoDias());
+        existente.setValidadePadraoDias(dados.getValidadePadraoDias());
         existente.setCategoria(dados.getCategoria());
         existente.setAtivo(dados.getAtivo());
         Produto salvo = produtoRepo.save(existente);

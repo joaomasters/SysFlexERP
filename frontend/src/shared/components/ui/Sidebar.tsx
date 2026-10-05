@@ -3,7 +3,7 @@ import {
   ShoppingCart, Package, Scissors, DollarSign,
   CreditCard, BarChart2, Scale, AlertTriangle,
   ClipboardList, TrendingDown, ArrowDownCircle, BarChart, LogOut,
-  Truck, FileText, Users, ShieldCheck, Home, Contact, ShieldAlert
+  Truck, FileText, Users, ShieldCheck, Home, Contact, ShieldAlert, CalendarClock
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import clsx from 'clsx'
@@ -24,6 +24,7 @@ const nav = [
   { label: 'Rateio de Desossa', href: '/estoque/desossa',        icon: Scissors,       modulo: 'RATEIO_DESOSSA' },
   { label: 'Inventário',        href: '/estoque/inventario',     icon: ClipboardList,  modulo: 'INVENTARIO' },
   { label: 'Perdas',            href: '/estoque/perdas',         icon: AlertTriangle,  modulo: 'PERDAS' },
+  { label: 'Validade',          href: '/estoque/validade',       icon: CalendarClock,  modulo: 'PRODUTOS' },
 
   { separator: 'Fiscal' },
   { label: 'NF de Saída', href: '/fiscal/notas', icon: FileText, modulo: 'NF_SAIDA' },

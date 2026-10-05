@@ -8,7 +8,7 @@ import { PageHeader, Card, Modal, Button, CurrencyInput, WeightInput, Field, bas
 import { usePermissao } from '@/shared/hooks/usePermissao'
 
 interface Produto { id: number; nome: string; unidadeMedida: string }
-interface RecItem { produtoId: number; quantidade: number; custoUnitario: number }
+interface RecItem { produtoId: number; quantidade: number; custoUnitario: number; dataValidade: string }
 
 interface Recebimento {
   id: number
@@ -23,7 +23,7 @@ interface Recebimento {
   xmlNf: string | null
   observacao: string | null
   usuarioNome?: string   // só vem para administradores
-  itens: { id: number; produto: { nome: string; unidadeMedida: string }; quantidade: number; custoUnitario: number; custoTotal: number }[]
+  itens: { id: number; produto: { nome: string; unidadeMedida: string }; quantidade: number; custoUnitario: number; custoTotal: number; dataValidade?: string | null }[]
 }
 
 const brl = (v?: number) => formatBRL(v ?? 0)
@@ -56,7 +56,7 @@ export default function RecebimentoPage() {
   const [valorTotal, setValorTotal]   = useState(0)
   const [observacao, setObservacao]   = useState('')
   const [xmlNf, setXmlNf]             = useState('')
-  const [itens, setItens]             = useState<RecItem[]>([{ produtoId: 0, quantidade: 0, custoUnitario: 0 }])
+  const [itens, setItens]             = useState<RecItem[]>([{ produtoId: 0, quantidade: 0, custoUnitario: 0, dataValidade: '' }])
 
   const { data: produtos = [] } = useQuery<Produto[]>({
     queryKey: ['produtos'],
@@ -84,6 +84,7 @@ export default function RecebimentoPage() {
         produtoId: i.produtoId,
         quantidade: i.quantidade,
         custoUnitario: i.custoUnitario || null,
+        dataValidade: i.dataValidade || null,
       })),
     }),
     onSuccess: () => {
@@ -108,18 +109,18 @@ export default function RecebimentoPage() {
     setFornecedor(''); setNumeroNf(''); setSerieNf('1')
     setChaveNf(''); setDataEmissao(''); setValorTotal(0)
     setObservacao(''); setXmlNf('')
-    setItens([{ produtoId: 0, quantidade: 0, custoUnitario: 0 }])
+    setItens([{ produtoId: 0, quantidade: 0, custoUnitario: 0, dataValidade: '' }])
   }
 
   function addItem() {
-    setItens(prev => [...prev, { produtoId: 0, quantidade: 0, custoUnitario: 0 }])
+    setItens(prev => [...prev, { produtoId: 0, quantidade: 0, custoUnitario: 0, dataValidade: '' }])
   }
 
   function removeItem(idx: number) {
     setItens(prev => prev.filter((_, i) => i !== idx))
   }
 
-  function updateItem(idx: number, field: keyof RecItem, val: number) {
+  function updateItem(idx: number, field: keyof RecItem, val: number | string) {
     setItens(prev => prev.map((item, i) => i === idx ? { ...item, [field]: val } : item))
   }
 
@@ -248,6 +249,7 @@ export default function RecebimentoPage() {
                       <th className="text-right pb-2">Quantidade</th>
                       <th className="text-right pb-2">Custo Unit.</th>
                       <th className="text-right pb-2">Custo Total</th>
+                      <th className="text-right pb-2">Validade</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -257,6 +259,9 @@ export default function RecebimentoPage() {
                         <td className="py-2 text-right tabular-nums">{kg3(it.quantidade)} {it.produto.unidadeMedida}</td>
                         <td className="py-2 text-right tabular-nums">{brl(it.custoUnitario)}</td>
                         <td className="py-2 text-right font-medium tabular-nums">{brl(it.custoTotal)}</td>
+                        <td className="py-2 text-right tabular-nums text-gray-600">
+                          {it.dataValidade ? new Date(it.dataValidade + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -373,7 +378,7 @@ export default function RecebimentoPage() {
                 const produtoSel = produtos.find(p => p.id === item.produtoId)
                 return (
                   <div key={idx} className="grid grid-cols-12 gap-2 items-end bg-gray-50 border border-gray-100 rounded-lg p-3">
-                    <div className="col-span-5">
+                    <div className="col-span-4">
                       {idx === 0 && <label className="text-xs text-gray-500 block mb-1">Produto</label>}
                       <select
                         value={item.produtoId}
@@ -395,12 +400,22 @@ export default function RecebimentoPage() {
                         size="sm"
                       />
                     </div>
-                    <div className="col-span-3">
+                    <div className="col-span-2">
                       {idx === 0 && <label className="text-xs text-gray-500 block mb-1">Custo/un</label>}
                       <CurrencyInput
                         value={item.custoUnitario}
                         onChange={v => updateItem(idx, 'custoUnitario', v)}
                         size="sm"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      {idx === 0 && <label className="text-xs text-gray-500 block mb-1">Validade</label>}
+                      <input
+                        type="date"
+                        value={item.dataValidade}
+                        onChange={e => updateItem(idx, 'dataValidade', e.target.value)}
+                        title="Validade do lote recebido (opcional)"
+                        className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white"
                       />
                     </div>
                     <div className="col-span-1 flex justify-center">

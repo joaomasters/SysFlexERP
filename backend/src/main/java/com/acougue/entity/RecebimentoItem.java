@@ -6,6 +6,7 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -33,6 +34,9 @@ public class RecebimentoItem {
 
     @Column(name = "custo_total", precision = 12, scale = 4)
     private BigDecimal custoTotal;
+
+    @Column(name = "data_validade")
+    private LocalDate dataValidade;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

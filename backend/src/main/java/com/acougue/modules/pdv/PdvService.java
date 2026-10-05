@@ -28,7 +28,7 @@ public class PdvService {
     private final ClienteRepository        clienteRepo;
     private final CaixaRepository          caixaRepo;
     private final ContasAReceberRepository contasRepo;
-    private final EstoqueService           estoqueService;
+    private final EstoqueService estoqueService;
     private final EanBalancaParser         eanParser;
     private final CaixaService             caixaService;
 
