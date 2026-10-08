@@ -30,7 +30,7 @@ public class JwtUtil {
      usuários já logados só veem a mudança no próximo login (token válido
      por até 24h). Trade-off normal de JWT stateless
      */
-    public String generateToken(Usuario usuario, List<PerfilPermissao> permissoes) {
+    public String generateToken(Usuario usuario, List<PerfilPermissao> permissoes, String tenantSchema) {
         boolean superAdmin = usuario.getPerfil().isSuperAdmin();
 
         Map<String, Object> permissoesClaim = new HashMap<>();
@@ -50,6 +50,7 @@ public class JwtUtil {
                 .claim("perfil", usuario.getPerfil().getNome())
                 .claim("superAdmin", superAdmin)
                 .claim("permissoes", permissoesClaim)
+                .claim("tenantSchema", tenantSchema)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION_MS))
                 .signWith(key, SignatureAlgorithm.HS256)
@@ -90,13 +91,19 @@ public class JwtUtil {
             }
         }
 
+        // Fallback "public": tokens emitidos antes da claim tenantSchema existir
+        // continuam válidos até expirar (24h), resolvendo pro único tenant de hoje.
+        Object tenantSchemaClaim = claims.get("tenantSchema");
+        String tenantSchema = tenantSchemaClaim != null ? (String) tenantSchemaClaim : "public";
+
         return new UsuarioAutenticado(
                 ((Number) claims.get("usuarioId")).longValue(),
                 claims.getSubject(),
                 (String) claims.get("nome"),
                 (String) claims.get("perfil"),
                 Boolean.TRUE.equals(claims.get("superAdmin")),
-                permissoes
+                permissoes,
+                tenantSchema
         );
     }
 }

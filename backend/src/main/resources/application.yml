@@ -18,7 +18,10 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
-        default_schema: public
+        # default_schema NÃO é setado de propósito: com multi-tenancy por
+        # schema (ver com.acougue.tenant), fixar um schema aqui faria o
+        # Hibernate literal-qualificar "public.tabela" em toda SQL gerada,
+        # ignorando o search_path trocado por tenant e quebrando o isolamento.
   flyway:
     enabled: true
     locations: classpath:db/migration

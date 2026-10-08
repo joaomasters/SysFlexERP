@@ -5,6 +5,7 @@ import com.acougue.entity.PerfilPermissao;
 import com.acougue.entity.Usuario;
 import com.acougue.repository.PerfilPermissaoRepository;
 import com.acougue.repository.UsuarioRepository;
+import com.acougue.tenant.TenantContext;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -30,6 +31,14 @@ public class AuthController {
         this.passwordEncoder = passwordEncoder;
     }
 
+    /*
+     O tenant já está resolvido quando este método roda: TenantResolvingFilter
+     (com.acougue.tenant) roda ANTES de tudo — inclusive antes do Hibernate
+     abrir sessão (Open Session In View) — e já deixou TenantContext correto,
+     a partir do header X-Tenant-Slug (login num tenant != public) ou "public"
+     por padrão. usuarioRepo/permissaoRepo abaixo já consultam o schema certo
+     sem este controller precisar saber disso.
+     */
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody Map<String, String> body) {
         String login = body.get("username");
@@ -49,7 +58,7 @@ public class AuthController {
         }
 
         List<PerfilPermissao> permissoes = permissaoRepo.findByPerfilId(usuario.getPerfil().getId());
-        String token = jwtUtil.generateToken(usuario, permissoes);
+        String token = jwtUtil.generateToken(usuario, permissoes, TenantContext.get());
 
         List<Map<String, Object>> permissoesResposta = permissoes.stream()
                 .map(p -> Map.<String, Object>of(
