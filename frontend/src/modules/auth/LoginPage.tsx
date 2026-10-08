@@ -1,34 +1,35 @@
 import { useState } from 'react'
 import axios from 'axios'
 import { useNavigate } from 'react-router-dom'
-import { setSessao, getEmpresaLembrada, setEmpresaLembrada } from '../../shared/auth'
+import { setSessao } from '../../shared/auth'
 import { Building2, Lock, User } from 'lucide-react'
 import logo from '../../assets/sysflex-logo.png'
 
 export default function LoginPage() {
   const navigate = useNavigate()
-  const [empresa, setEmpresa] = useState(getEmpresaLembrada())
+  const [codigoEmpresa, setCodigoEmpresa] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  // Código nunca é lembrado (localStorage, sessão, nada) — precisa ser
+  // digitado em todo login, de propósito, inclusive pelo Açougue do Zé
+  // (código 001). Ver TenantResolvingFilter/AuthController no backend.
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError('')
     try {
-      const slug = empresa.trim().toLowerCase()
       const res = await axios.post(
         '/api/auth/login',
         { username, password },
-        slug ? { headers: { 'X-Tenant-Slug': slug } } : undefined
+        { headers: { 'X-Tenant-Codigo': codigoEmpresa.trim() } }
       )
-      setEmpresaLembrada(slug)
       setSessao(res.data)
       navigate('/inicio')
     } catch {
-      setError('Usuário, senha ou empresa incorretos')
+      setError('Código da empresa, usuário ou senha incorretos')
     } finally {
       setLoading(false)
     }
@@ -55,12 +56,16 @@ export default function LoginPage() {
                 <Building2 size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
                 <input
                   type="text"
-                  value={empresa}
-                  onChange={e => setEmpresa(e.target.value)}
+                  inputMode="numeric"
+                  value={codigoEmpresa}
+                  onChange={e => setCodigoEmpresa(e.target.value)}
                   className="block w-full bg-aco-900 border border-white/15 rounded-lg pl-9 pr-3 py-2.5 text-white placeholder-white/30 text-sm focus:outline-none focus:border-talho-600 transition"
-                  placeholder="Deixe em branco se for o único negócio"
+                  placeholder="Ex: 001"
                   autoCapitalize="none"
                   autoCorrect="off"
+                  autoComplete="off"
+                  required
+                  autoFocus
                 />
               </div>
             </div>
@@ -76,7 +81,6 @@ export default function LoginPage() {
                   className="block w-full bg-aco-900 border border-white/15 rounded-lg pl-9 pr-3 py-2.5 text-white placeholder-white/30 text-sm focus:outline-none focus:border-talho-600 transition"
                   placeholder="Digite seu usuário"
                   required
-                  autoFocus
                 />
               </div>
             </div>

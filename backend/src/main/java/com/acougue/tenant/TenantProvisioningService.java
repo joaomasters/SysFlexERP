@@ -9,10 +9,10 @@ import java.util.regex.Pattern;
 
 /*
  Onboarding de um tenant novo: cria o schema e aplica nele a MESMA cadeia
- de migrations (V1...V21, classpath:db/migration) que já roda em public —
- nenhuma migration existente é editada, só reaplicada num schema vazio.
- Isso cria produtos/vendas/caixa/usuarios/perfis do zero, prontos pro
- primeiro login daquele negócio.
+ de migrations (classpath:db/migration) que já roda em public — nenhuma
+ migration existente é editada, só reaplicada num schema vazio. Isso cria
+ produtos/vendas/caixa/usuarios/perfis do zero, prontos pro primeiro login
+ daquele negócio.
  */
 @Service
 public class TenantProvisioningService {
@@ -55,7 +55,8 @@ public class TenantProvisioningService {
                 .load()
                 .migrate();
 
-        tenantRepository.insert(slug, nome, schemaName);
+        String codigo = proximoCodigo();
+        tenantRepository.insert(codigo, slug, nome, schemaName);
 
         return tenantRepository.findBySlug(slug)
                 .orElseThrow(() -> new IllegalStateException("Tenant recém-criado não encontrado: " + slug));
@@ -63,5 +64,11 @@ public class TenantProvisioningService {
 
     private String normalizarSlug(String slugBruto) {
         return slugBruto == null ? "" : slugBruto.trim().toLowerCase();
+    }
+
+    // Sequencial, 3 dígitos (001, 002, ...) — curto o bastante pra passar por
+    // telefone/WhatsApp pro dono do negócio novo digitar no login.
+    private String proximoCodigo() {
+        return String.format("%03d", tenantRepository.contarTenants() + 1);
     }
 }

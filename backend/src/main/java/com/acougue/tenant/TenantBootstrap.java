@@ -15,7 +15,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class TenantBootstrap implements ApplicationRunner {
 
-    private static final String SLUG_TENANT_ATUAL   = "acougue-do-ze";
+    private static final String CODIGO_TENANT_ATUAL  = "001";
+    private static final String SLUG_TENANT_ATUAL    = "acougue-do-ze";
     private static final String NOME_TENANT_ATUAL    = "Açougue e Mercearia do Zé";
     private static final String SCHEMA_TENANT_ATUAL  = "public";
 
@@ -28,7 +29,7 @@ public class TenantBootstrap implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) {
         if (!tenantRepository.existsBySchemaName(SCHEMA_TENANT_ATUAL)) {
-            tenantRepository.insert(SLUG_TENANT_ATUAL, NOME_TENANT_ATUAL, SCHEMA_TENANT_ATUAL);
+            tenantRepository.insert(CODIGO_TENANT_ATUAL, SLUG_TENANT_ATUAL, NOME_TENANT_ATUAL, SCHEMA_TENANT_ATUAL);
         }
     }
 }
