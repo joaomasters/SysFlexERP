@@ -33,6 +33,12 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse(ex.getMessage(), 400));
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse(ex.getMessage(), 400));
+    }
+
     @ExceptionHandler(jakarta.persistence.EntityNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleNotFound(jakarta.persistence.EntityNotFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)

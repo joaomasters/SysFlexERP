@@ -3,7 +3,7 @@ import {
   ShoppingCart, Package, Scissors, DollarSign,
   CreditCard, BarChart2, Scale, AlertTriangle,
   ClipboardList, TrendingDown, ArrowDownCircle, BarChart, LogOut,
-  Truck, FileText, Users, ShieldCheck, Home, Contact, ShieldAlert, CalendarClock
+  Truck, FileText, Users, ShieldCheck, Home, Contact, ShieldAlert, CalendarClock, Building2
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import clsx from 'clsx'
@@ -44,6 +44,10 @@ const nav = [
   { label: 'Usuários', href: '/acesso/usuarios', icon: Users,       modulo: 'USUARIOS' },
   { label: 'Perfis',   href: '/acesso/perfis',   icon: ShieldCheck, modulo: 'PERFIS' },
   { label: 'Auditoria', href: '/acesso/auditoria', icon: ShieldAlert, modulo: 'AUDITORIA' },
+  // Sem Modulo correspondente no backend de propósito — só super admin
+  // provisiona/ativa empresas, e o filtro abaixo já dá bypass pra ele
+  // (isSuperAdmin ||) antes mesmo de chamar podeVer.
+  { label: 'Empresas', href: '/acesso/empresas', icon: Building2, modulo: 'TENANTS' },
 ]
 
 export default function Sidebar() {

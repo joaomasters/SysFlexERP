@@ -5,7 +5,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import javax.sql.DataSource;
-import java.util.regex.Pattern;
+import java.text.Normalizer;
 
 /*
  Onboarding de um tenant novo: cria o schema e aplica nele a MESMA cadeia
@@ -13,11 +13,14 @@ import java.util.regex.Pattern;
  migration existente é editada, só reaplicada num schema vazio. Isso cria
  produtos/vendas/caixa/usuarios/perfis do zero, prontos pro primeiro login
  daquele negócio.
+
+ Nasce INATIVO de propósito — só pode logar depois que alguém com acesso
+ de super admin ativar explicitamente (ver TenantAdminController). Quem
+ chama aqui só informa o nome; slug (interno, usado só pro nome do schema)
+ e código (o que a pessoa digita no login) são gerados sozinhos.
  */
 @Service
 public class TenantProvisioningService {
-
-    private static final Pattern SLUG_VALIDO = Pattern.compile("^[a-z0-9]+(-[a-z0-9]+)*$");
 
     private final DataSource dataSource;
     private final JdbcTemplate jdbc;
@@ -29,16 +32,12 @@ public class TenantProvisioningService {
         this.tenantRepository = tenantRepository;
     }
 
-    public Tenant provisionar(String slugBruto, String nome) {
-        String slug = normalizarSlug(slugBruto);
-        if (!SLUG_VALIDO.matcher(slug).matches()) {
-            throw new IllegalArgumentException(
-                    "Slug inválido: use apenas letras minúsculas, números e hífen (ex: padaria-maria)");
-        }
-        if (tenantRepository.existsBySlug(slug)) {
-            throw new IllegalArgumentException("Já existe um tenant com o slug '" + slug + "'");
+    public Tenant provisionar(String nome) {
+        if (nome == null || nome.isBlank()) {
+            throw new IllegalArgumentException("Nome da empresa é obrigatório.");
         }
 
+        String slug = slugUnico(nome.trim());
         String schemaName = "tenant_" + slug.replace('-', '_');
 
         // Defesa extra — Flyway também cria o schema sozinho via createSchemas(true),
@@ -56,19 +55,38 @@ public class TenantProvisioningService {
                 .migrate();
 
         String codigo = proximoCodigo();
-        tenantRepository.insert(codigo, slug, nome, schemaName);
+        tenantRepository.insertInativo(codigo, slug, nome.trim(), schemaName);
 
         return tenantRepository.findBySlug(slug)
                 .orElseThrow(() -> new IllegalStateException("Tenant recém-criado não encontrado: " + slug));
-    }
-
-    private String normalizarSlug(String slugBruto) {
-        return slugBruto == null ? "" : slugBruto.trim().toLowerCase();
     }
 
     // Sequencial, 3 dígitos (001, 002, ...) — curto o bastante pra passar por
     // telefone/WhatsApp pro dono do negócio novo digitar no login.
     private String proximoCodigo() {
         return String.format("%03d", tenantRepository.contarTenants() + 1);
+    }
+
+    // "Padaria da Maria" -> "padaria-da-maria". Se já existir, acrescenta
+    // um sufixo numérico (padaria-da-maria-2) até achar um livre — nunca
+    // falha por conflito, só o slug muda, o que a pessoa vê é o código.
+    private String slugUnico(String nome) {
+        String base = slugificar(nome);
+        String slug = base;
+        int sufixo = 2;
+        while (tenantRepository.existsBySlug(slug)) {
+            slug = base + "-" + sufixo++;
+        }
+        return slug;
+    }
+
+    private String slugificar(String texto) {
+        String semAcento = Normalizer.normalize(texto, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "");
+        String slug = semAcento.toLowerCase()
+                .replaceAll("[^a-z0-9\\s-]", "")
+                .trim()
+                .replaceAll("[\\s-]+", "-");
+        return slug.isBlank() ? "empresa" : slug;
     }
 }

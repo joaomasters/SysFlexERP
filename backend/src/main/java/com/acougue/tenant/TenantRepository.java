@@ -5,6 +5,7 @@ import org.springframework.stereotype.Repository;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Optional;
 
 /*
@@ -52,6 +53,20 @@ public class TenantRepository {
         ).stream().findFirst();
     }
 
+    public Optional<Tenant> findById(Long id) {
+        return jdbc.query(
+                "SELECT " + COLUNAS + " FROM public.tenants WHERE id = ?",
+                (rs, rowNum) -> mapear(rs),
+                id
+        ).stream().findFirst();
+    }
+
+    public List<Tenant> listarTodos() {
+        return jdbc.query(
+                "SELECT " + COLUNAS + " FROM public.tenants ORDER BY id",
+                (rs, rowNum) -> mapear(rs));
+    }
+
     public boolean existsBySchemaName(String schemaName) {
         Integer count = jdbc.queryForObject(
                 "SELECT COUNT(*) FROM public.tenants WHERE schema_name = ?",
@@ -66,10 +81,28 @@ public class TenantRepository {
         return count != null && count > 0;
     }
 
+    // Usado só pelo TenantBootstrap — o tenant public já existia antes da
+    // multi-tenancy, então entra direto ativo (sem passo de ativação manual).
     public void insert(String codigo, String slug, String nome, String schemaName) {
         jdbc.update(
                 "INSERT INTO public.tenants (codigo, slug, nome, schema_name) VALUES (?, ?, ?, ?)",
                 codigo, slug, nome, schemaName);
+    }
+
+    // Usado pelo TenantProvisioningService — todo tenant provisionado por
+    // aqui nasce INATIVO, só loga depois de alguém clicar em "Ativar".
+    public void insertInativo(String codigo, String slug, String nome, String schemaName) {
+        jdbc.update(
+                "INSERT INTO public.tenants (codigo, slug, nome, schema_name, ativo) VALUES (?, ?, ?, ?, false)",
+                codigo, slug, nome, schemaName);
+    }
+
+    public void ativar(Long id) {
+        jdbc.update("UPDATE public.tenants SET ativo = true WHERE id = ?", id);
+    }
+
+    public void desativar(Long id) {
+        jdbc.update("UPDATE public.tenants SET ativo = false WHERE id = ?", id);
     }
 
     // Base pra gerar o próximo código sequencial (001, 002, ...) ao provisionar.

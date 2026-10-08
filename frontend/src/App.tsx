@@ -22,6 +22,7 @@ import NotaFiscalPage from './modules/fiscal/NotaFiscalPage'
 import UsuariosPage from './modules/acesso/UsuariosPage'
 import AuditoriaPage from './modules/acesso/AuditoriaPage'
 import PerfisPage from './modules/acesso/PerfisPage'
+import TenantsPage from './modules/acesso/TenantsPage'
 import HomePage from './modules/home/HomePage'
 
 export default function App() {
@@ -60,6 +61,7 @@ export default function App() {
             <Route path="/acesso/usuarios"           element={<UsuariosPage />} />
             <Route path="/acesso/auditoria"          element={<AuditoriaPage />} />
             <Route path="/acesso/perfis"             element={<PerfisPage />} />
+            <Route path="/acesso/empresas"           element={<TenantsPage />} />
           </Route>
         </Route>
 
