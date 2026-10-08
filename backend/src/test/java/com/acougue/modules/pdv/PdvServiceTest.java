@@ -3,6 +3,7 @@ package com.acougue.modules.pdv;
 import com.acougue.entity.*;
 import com.acougue.exception.BusinessException;
 import com.acougue.modules.balanca.EanBalancaParser;
+import com.acougue.modules.estoque.EstoqueService;
 import com.acougue.modules.pdv.dto.*;
 import com.acougue.repository.*;
 import jakarta.persistence.EntityNotFoundException;
