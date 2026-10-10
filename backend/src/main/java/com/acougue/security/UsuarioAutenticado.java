@@ -21,17 +21,27 @@ public class UsuarioAutenticado {
     private final String perfilNome;
     private final boolean superAdmin;
     private final Map<Modulo, Permissoes> permissoes;
+    private final String tenantSchema;
 
     public record Permissoes(boolean ver, boolean criar, boolean editar, boolean excluir) {}
 
+    // Mantido por compatibilidade: testes e código existente que ainda não
+    // lidam com tenant seguem funcionando, resolvendo pro schema "public"
+    // (o único tenant até hoje).
     public UsuarioAutenticado(Long usuarioId, String login, String nome, String perfilNome,
                               boolean superAdmin, Map<Modulo, Permissoes> permissoes) {
+        this(usuarioId, login, nome, perfilNome, superAdmin, permissoes, "public");
+    }
+
+    public UsuarioAutenticado(Long usuarioId, String login, String nome, String perfilNome,
+                              boolean superAdmin, Map<Modulo, Permissoes> permissoes, String tenantSchema) {
         this.usuarioId = usuarioId;
         this.login = login;
         this.nome = nome;
         this.perfilNome = perfilNome;
         this.superAdmin = superAdmin;
         this.permissoes = permissoes;
+        this.tenantSchema = tenantSchema;
     }
 
     public boolean pode(Modulo modulo, Acao acao) {
@@ -65,4 +75,5 @@ public class UsuarioAutenticado {
     public String getPerfilNome()  { return perfilNome; }
     public boolean isSuperAdmin()  { return superAdmin; }
     public Map<Modulo, Permissoes> getPermissoes() { return permissoes; }
+    public String getTenantSchema() { return tenantSchema; }
 }
