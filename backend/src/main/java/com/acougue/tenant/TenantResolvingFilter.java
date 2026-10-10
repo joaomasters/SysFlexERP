@@ -27,7 +27,13 @@ import java.io.IOException;
  */
 public class TenantResolvingFilter extends OncePerRequestFilter {
 
-    public static final String HEADER_TENANT_SLUG = "X-Tenant-Slug";
+    public static final String HEADER_TENANT_CODIGO = "X-Tenant-Codigo";
+
+    // Schema garantidamente inexistente — nunca cai em public por engano
+    // quando o código informado está errado (ver AuthController, que é
+    // quem efetivamente barra o login com 401 antes de qualquer query rodar
+    // contra este schema fantasma).
+    private static final String SCHEMA_CODIGO_INVALIDO = "__codigo_invalido__";
 
     private final JwtUtil jwtUtil;
     private final TenantRepository tenantRepository;
@@ -66,14 +72,18 @@ public class TenantResolvingFilter extends OncePerRequestFilter {
         // o corpo da requisição não está disponível nesta altura da cadeia
         // sem consumir o InputStream, e o OSIV já abre sessão antes do
         // AuthController rodar.
-        String slug = req.getHeader(HEADER_TENANT_SLUG);
-        if (slug != null && !slug.isBlank()) {
-            return tenantRepository.findBySlug(slug.trim().toLowerCase())
+        String codigo = req.getHeader(HEADER_TENANT_CODIGO);
+        if (codigo != null && !codigo.isBlank()) {
+            return tenantRepository.findByCodigo(codigo.trim())
                     .filter(Tenant::ativo)
                     .map(Tenant::schemaName)
-                    .orElse("public");
+                    .orElse(SCHEMA_CODIGO_INVALIDO);
         }
 
+        // Nenhum código: endpoints que não envolvem tenant (healthcheck,
+        // webhook do PIX) continuam resolvendo pro schema public. O
+        // /auth/login em si EXIGE o código — quem barra isso com um 401
+        // limpo é o AuthController, não este filtro.
         return "public";
     }
 }

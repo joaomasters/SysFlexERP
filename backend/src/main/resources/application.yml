@@ -79,3 +79,12 @@ balanca:
     tipo:  ${BALANCA_TIPO:TOLEDO_MGV7}
     ip:    ${BALANCA_IP:}
     porta: ${BALANCA_PORTA:8000}
+
+# Dados do tenant public (Açougue do Zé) — já existia antes da
+# multi-tenancy, então precisa de um bootstrap (ver TenantBootstrap).
+# Configurável aqui só por precaução; não deve mudar na prática.
+tenant:
+  publico:
+    codigo: ${TENANT_PUBLICO_CODIGO:001}
+    slug:   ${TENANT_PUBLICO_SLUG:acougue-do-ze}
+    nome:   ${TENANT_PUBLICO_NOME:Açougue e Mercearia do Zé}
