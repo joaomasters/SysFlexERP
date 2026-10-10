@@ -46,3 +46,15 @@ export const isAuthenticated = (): boolean => !!getToken()
 // (abrir/fechar caixa, sangria, venda) — evita operadorId fixo no código.
 export const getUsuarioId = (): number | null => getSessao()?.usuarioId ?? null
 export const getNomeUsuario = (): string | null => getSessao()?.nome ?? null
+
+// Código da empresa (slug do tenant) lembrado entre acessos, pra quem não é
+// o Açougue do Zé não precisar redigitar toda vez que for logar — enviado
+// como header X-Tenant-Slug no /auth/login (ver LoginPage).
+const EMPRESA_KEY = 'acougue_ultima_empresa'
+
+export const getEmpresaLembrada = (): string => localStorage.getItem(EMPRESA_KEY) ?? ''
+
+export const setEmpresaLembrada = (slug: string): void => {
+  if (slug) localStorage.setItem(EMPRESA_KEY, slug)
+  else localStorage.removeItem(EMPRESA_KEY)
+}
