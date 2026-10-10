@@ -28,6 +28,7 @@ public class PdvService {
     private final ClienteRepository        clienteRepo;
     private final CaixaRepository          caixaRepo;
     private final ContasAReceberRepository contasRepo;
+    private final UsuarioRepository        usuarioRepo;
     private final EstoqueService estoqueService;
     private final EanBalancaParser         eanParser;
     private final CaixaService             caixaService;
@@ -193,6 +194,7 @@ public class PdvService {
         BigDecimal troco = totalPago.subtract(venda.getTotal()).max(BigDecimal.ZERO);
         venda.setTroco(troco);
         venda.setStatus("FECHADA");
+        registrarComissao(venda);
 
         return vendaRepo.save(venda);
     }
@@ -269,6 +271,21 @@ public class PdvService {
                 .setScale(2, RoundingMode.HALF_UP);
         venda.setSubtotal(subtotal);
         venda.setTotal(subtotal.subtract(venda.getDesconto()).setScale(2, RoundingMode.HALF_UP));
+    }
+
+    /**
+     * Grava na venda o percentual de comissão vigente do operador e o valor
+     * calculado sobre o total (já com desconto). Snapshot: mudar o percentual
+     * do funcionário depois não altera vendas já fechadas.
+     */
+    private void registrarComissao(Venda venda) {
+        BigDecimal percentual = venda.getOperadorId() == null ? BigDecimal.ZERO
+                : usuarioRepo.findById(venda.getOperadorId())
+                        .map(Usuario::getPercentualComissao)
+                        .orElse(BigDecimal.ZERO);
+        venda.setPercentualComissao(percentual);
+        venda.setValorComissao(venda.getTotal().multiply(percentual)
+                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP));
     }
 
     private void lancarContaAReceber(Venda venda, BigDecimal valor) {

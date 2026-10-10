@@ -36,6 +36,23 @@ public interface VendaRepository extends JpaRepository<Venda, Long> {
             @Param("fim") LocalDateTime fim
     );
 
+    /** Comissões: [operadorId, qtdVendas, totalVendido, totalComissao] por operador no período. */
+    @Query("SELECT v.operadorId, COUNT(v), COALESCE(SUM(v.total), 0), COALESCE(SUM(v.valorComissao), 0) " +
+            "FROM Venda v WHERE v.status = 'FECHADA' AND v.operadorId IS NOT NULL " +
+            "AND v.dataVenda BETWEEN :inicio AND :fim GROUP BY v.operadorId")
+    List<Object[]> resumirComissoesPorOperador(
+            @Param("inicio") LocalDateTime inicio,
+            @Param("fim") LocalDateTime fim
+    );
+
+    @Query("SELECT v FROM Venda v WHERE v.status = 'FECHADA' AND v.operadorId = :operadorId " +
+            "AND v.dataVenda BETWEEN :inicio AND :fim ORDER BY v.dataVenda DESC")
+    List<Venda> findFechadasDoOperador(
+            @Param("operadorId") Long operadorId,
+            @Param("inicio") LocalDateTime inicio,
+            @Param("fim") LocalDateTime fim
+    );
+
     @Query("SELECT COALESCE(SUM(v.total), 0) FROM Venda v " +
             "WHERE v.dataVenda BETWEEN :inicio AND :fim AND v.status = 'FECHADA'")
     BigDecimal somarTotalPeriodo(

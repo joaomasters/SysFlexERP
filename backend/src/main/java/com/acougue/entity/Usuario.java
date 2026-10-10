@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -38,6 +39,11 @@ public class Usuario {
     @Builder.Default
     @Column(nullable = false)
     private Boolean ativo = true;
+
+    // Percentual de comissão sobre as vendas fechadas por este usuário no PDV (0 = sem comissão)
+    @Builder.Default
+    @Column(name = "percentual_comissao", nullable = false, precision = 5, scale = 2)
+    private BigDecimal percentualComissao = BigDecimal.ZERO;
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

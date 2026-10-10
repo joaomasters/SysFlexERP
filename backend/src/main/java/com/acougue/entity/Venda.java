@@ -1,5 +1,6 @@
 package com.acougue.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -67,6 +68,16 @@ public class Venda {
 
     @Column(columnDefinition = "TEXT")
     private String observacao;
+
+    // Snapshot da comissão do operador no fechamento (NULL em vendas anteriores ao módulo).
+    // Fora do JSON: só o módulo Comissões expõe esses valores, via DTO e com permissão própria.
+    @JsonIgnore
+    @Column(name = "percentual_comissao", precision = 5, scale = 2)
+    private BigDecimal percentualComissao;
+
+    @JsonIgnore
+    @Column(name = "valor_comissao", precision = 12, scale = 2)
+    private BigDecimal valorComissao;
 
     @OneToMany(mappedBy = "venda", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default

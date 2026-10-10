@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, KeyRound, Power, Lock } from 'lucide-react'
 import { api } from '@/shared/api/axios'
 import { usePermissao } from '@/shared/hooks/usePermissao'
+import { formatPercent } from '@/shared/utils/mask'
 import toast from 'react-hot-toast'
 import type { Usuario, Perfil } from '@/types/acesso'
 import {
@@ -13,6 +14,7 @@ import {
 export default function UsuariosPage() {
   const qc = useQueryClient()
   const { podeVer, podeCriar, podeEditar, podeExcluir } = usePermissao()
+  const verComissao = podeVer('COMISSOES')
 
   const [showNovo, setShowNovo]   = useState(false)
   const [nome, setNome]           = useState('')
@@ -136,6 +138,7 @@ export default function UsuariosPage() {
               <TH>Nome</TH>
               <TH>Login</TH>
               <TH>Perfil</TH>
+              {verComissao && <TH align="right">Comissão</TH>}
               <TH>Status</TH>
               <TH />
             </tr>
@@ -158,6 +161,11 @@ export default function UsuariosPage() {
                     <span className="text-gray-600">{u.perfil.nome}</span>
                   )}
                 </TD>
+                {verComissao && (
+                  <TD align="right" className="tabular-nums text-gray-600">
+                    {u.percentualComissao > 0 ? formatPercent(u.percentualComissao, 2) : '—'}
+                  </TD>
+                )}
                 <TD>
                   <StatusBadge tone={u.ativo ? 'success' : 'neutral'}>{u.ativo ? 'Ativo' : 'Inativo'}</StatusBadge>
                 </TD>
@@ -183,7 +191,7 @@ export default function UsuariosPage() {
               </TR>
             ))}
             {usuarios.length === 0 && (
-              <tr><td colSpan={5}><EmptyState>Nenhum usuário cadastrado.</EmptyState></td></tr>
+              <tr><td colSpan={verComissao ? 6 : 5}><EmptyState>Nenhum usuário cadastrado.</EmptyState></td></tr>
             )}
           </TBody>
         </Table>
