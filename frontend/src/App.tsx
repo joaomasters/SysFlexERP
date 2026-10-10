@@ -15,6 +15,7 @@ import ContasReceberPage from './modules/financeiro/ContasReceberPage'
 import ContasPagarPage from './modules/financeiro/ContasPagarPage'
 import DrePage from './modules/financeiro/DrePage'
 import RelatoriosPage from './modules/financeiro/RelatoriosPage'
+import ComissoesPage from './modules/comissao/ComissoesPage'
 import CargaBalancaPage from './modules/balanca/CargaBalancaPage'
 import RecebimentoPage from './modules/estoque/RecebimentoPage'
 import FichasDesossaPage from './modules/estoque/FichasDesossaPage'
@@ -56,6 +57,7 @@ export default function App() {
             <Route path="/financeiro/contas-pagar"   element={<ContasPagarPage />} />
             <Route path="/financeiro/dre"            element={<DrePage />} />
             <Route path="/financeiro/relatorios"     element={<RelatoriosPage />} />
+            <Route path="/financeiro/comissoes"      element={<ComissoesPage />} />
             <Route path="/balanca"                   element={<CargaBalancaPage />} />
             <Route path="/acesso/usuarios"           element={<UsuariosPage />} />
             <Route path="/acesso/auditoria"          element={<AuditoriaPage />} />

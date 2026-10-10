@@ -3,7 +3,7 @@ import {
   ShoppingCart, Package, Scissors, DollarSign,
   CreditCard, BarChart2, Scale, AlertTriangle,
   ClipboardList, TrendingDown, ArrowDownCircle, BarChart, LogOut,
-  Truck, FileText, Users, ShieldCheck, Home, Contact, ShieldAlert, CalendarClock
+  Truck, FileText, Users, ShieldCheck, Home, Contact, ShieldAlert, CalendarClock, Percent
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import clsx from 'clsx'
@@ -36,6 +36,7 @@ const nav = [
   { label: 'Contas a Pagar',   href: '/financeiro/contas-pagar',   icon: TrendingDown, modulo: 'CONTAS_PAGAR' },
   { label: 'DRE',              href: '/financeiro/dre',            icon: BarChart2,   modulo: 'DRE' },
   { label: 'Relatórios',       href: '/financeiro/relatorios',     icon: BarChart,    modulo: 'RELATORIOS' },
+  { label: 'Comissões',        href: '/financeiro/comissoes',      icon: Percent,     modulo: 'COMISSOES' },
 
   { separator: 'Balança' },
   { label: 'Carga Balança', href: '/balanca', icon: Scale, modulo: 'CARGA_BALANCA' },

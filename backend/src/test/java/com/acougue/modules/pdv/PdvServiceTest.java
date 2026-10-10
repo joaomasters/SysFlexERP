@@ -34,6 +34,7 @@ class PdvServiceTest {
     @Mock ClienteRepository          clienteRepo;
     @Mock CaixaRepository            caixaRepo;
     @Mock ContasAReceberRepository   contasRepo;
+    @Mock UsuarioRepository          usuarioRepo;
     @Mock EstoqueService             estoqueService;
     @Mock EanBalancaParser           eanParser;
     @Mock ApplicationEventPublisher  eventPublisher;
@@ -184,6 +185,34 @@ class PdvServiceTest {
 
         assertThat(resultado.getStatus()).isEqualTo("FECHADA");
         assertThat(resultado.getTroco()).isEqualByComparingTo("10.00");
+    }
+
+    @Test
+    @DisplayName("fecharVenda: grava snapshot da comissão do operador sobre o total")
+    void fecharVenda_registraComissaoDoOperador() {
+        Venda venda = Venda.builder()
+                .id(1L).status("ABERTA").caixa(caixaAberto).operadorId(10L)
+                .total(new BigDecimal("89.90")).desconto(BigDecimal.ZERO).build();
+
+        FecharVendaDTO dto = new FecharVendaDTO();
+        dto.setVendaId(1L);
+
+        PagamentoDTO pag = new PagamentoDTO();
+        pag.setFormaPagamento("DINHEIRO");
+        pag.setValor(new BigDecimal("89.90"));
+        dto.setPagamentos(List.of(pag));
+
+        Usuario operador = Usuario.builder().id(10L).percentualComissao(new BigDecimal("2.50")).build();
+
+        when(vendaRepo.findById(1L)).thenReturn(Optional.of(venda));
+        when(itensRepo.findByVendaId(1L)).thenReturn(List.of());
+        when(usuarioRepo.findById(10L)).thenReturn(Optional.of(operador));
+        when(vendaRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Venda resultado = service.fecharVenda(dto);
+
+        assertThat(resultado.getPercentualComissao()).isEqualByComparingTo("2.50");
+        assertThat(resultado.getValorComissao()).isEqualByComparingTo("2.25"); // 89,90 × 2,5% = 2,2475
     }
 
     @Test
