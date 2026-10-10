@@ -37,6 +37,7 @@ class PdvServiceTest {
     @Mock EstoqueService             estoqueService;
     @Mock EanBalancaParser           eanParser;
     @Mock ApplicationEventPublisher  eventPublisher;
+    @Mock CaixaService               caixaService;
 
     @InjectMocks PdvService service;
 
@@ -93,6 +94,8 @@ class PdvServiceTest {
     void fecharCaixa_mudaStatusParaFechado() {
         when(caixaRepo.findById(1L)).thenReturn(Optional.of(caixaAberto));
         when(caixaRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(caixaService.calcularFechamento(1L)).thenReturn(
+                FechamentoCaixaDetalhadoDTO.builder().saldoEsperado(new BigDecimal("350.00")).build());
 
         Caixa resultado = service.fecharCaixa(1L, new BigDecimal("350.00"));
 
