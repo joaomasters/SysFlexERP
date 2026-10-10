@@ -3,7 +3,7 @@ import {
   ShoppingCart, Package, Scissors, DollarSign,
   CreditCard, BarChart2, Scale, AlertTriangle,
   ClipboardList, TrendingDown, ArrowDownCircle, BarChart,
-  Truck, FileText, Users, ShieldCheck,
+  Truck, FileText, Users, ShieldCheck, Percent,
 } from 'lucide-react'
 import { usePermissao } from '@/shared/hooks/usePermissao'
 
@@ -22,6 +22,7 @@ const atalhos = [
   { label: 'Contas a Pagar',       href: '/financeiro/contas-pagar',   icon: TrendingDown,    modulo: 'CONTAS_PAGAR',   cor: 'bg-orange-600' },
   { label: 'DRE',                  href: '/financeiro/dre',            icon: BarChart2,       modulo: 'DRE',            cor: 'bg-teal-600' },
   { label: 'Relatórios',           href: '/financeiro/relatorios',     icon: BarChart,        modulo: 'RELATORIOS',     cor: 'bg-teal-500' },
+  { label: 'Comissões',            href: '/financeiro/comissoes',      icon: Percent,         modulo: 'COMISSOES',      cor: 'bg-emerald-700' },
   { label: 'Carga Balança',        href: '/balanca',                   icon: Scale,           modulo: 'CARGA_BALANCA',  cor: 'bg-violet-600' },
   { label: 'Usuários',             href: '/acesso/usuarios',           icon: Users,           modulo: 'USUARIOS',       cor: 'bg-gray-700' },
   { label: 'Perfis',               href: '/acesso/perfis',             icon: ShieldCheck,     modulo: 'PERFIS',         cor: 'bg-gray-800' },

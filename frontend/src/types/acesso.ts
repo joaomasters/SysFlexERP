@@ -24,6 +24,7 @@ export interface Usuario {
   login: string
   perfil: Perfil
   ativo: boolean
+  percentualComissao: number
   createdAt?: string
 }
 
