@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Filter, Lock, Eye, Save } from 'lucide-react'
+import { Filter, Lock, Eye, Save, Printer } from 'lucide-react'
 import { api } from '@/shared/api/axios'
 import { usePermissao } from '@/shared/hooks/usePermissao'
 import { formatBRL, formatPercent } from '@/shared/utils/mask'
 import toast from 'react-hot-toast'
 import type { Usuario } from '@/types/acesso'
 import type { ComissaoFuncionario, VendaComissao } from '@/types/comissao'
+import RelatorioComissoesModal from './components/RelatorioComissoesModal'
 import {
   PageHeader, Card, Modal, Button, StatusBadge, Field, FilterTabs,
   Table, THead, TH, TBody, TR, TD, EmptyState, LoadingState,
@@ -22,6 +23,11 @@ const dateClass = 'border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-whit
 export default function ComissoesPage() {
   const { podeVer } = usePermissao()
   const [aba, setAba] = useState<Aba>('apuracao')
+  // Período vive aqui (e não na aba Apuração) para o Relatório, aberto pelo
+  // cabeçalho, já nascer com o período que a pessoa está vendo na tela.
+  const [inicio, setInicio] = useState(inicioDoMes)
+  const [fim, setFim]       = useState(hoje)
+  const [showRelatorio, setShowRelatorio] = useState(false)
 
   if (!podeVer('COMISSOES')) {
     return (
@@ -40,29 +46,46 @@ export default function ComissoesPage() {
 
   return (
     <div className="p-6">
-      <PageHeader title="Comissões" subtitle="Percentual de comissão por funcionário e apuração sobre as vendas do PDV" />
+      <PageHeader
+        title="Comissões"
+        subtitle="Percentual de comissão por funcionário e apuração sobre as vendas do PDV"
+        actions={
+          <Button variant="secondary" onClick={() => setShowRelatorio(true)}>
+            <Printer size={16} /> Relatório de Comissões
+          </Button>
+        }
+      />
 
       <div className="flex flex-wrap gap-2 mb-4">
         <FilterTabs<Aba>
           value={aba}
           onChange={setAba}
           options={[
-            { value: 'apuracao', label: 'Apuração' },
-            { value: 'percentuais', label: 'Percentuais por funcionário' },
+            { value: 'apuracao', label: 'APURAÇÃO' },
+            { value: 'percentuais', label: 'PERCENTUAIS POR FUNCIONÁRIO' },
           ]}
         />
       </div>
 
-      {aba === 'apuracao' ? <Apuracao /> : <Percentuais />}
+      {aba === 'apuracao'
+        ? <Apuracao inicio={inicio} fim={fim} onInicioChange={setInicio} onFimChange={setFim} />
+        : <Percentuais />}
+
+      {showRelatorio && (
+        <RelatorioComissoesModal inicio={inicio} fim={fim} onClose={() => setShowRelatorio(false)} />
+      )}
     </div>
   )
 }
 
 // ─── Apuração ───────────────────────────────────────────────────────────────
 
-function Apuracao() {
-  const [inicio, setInicio] = useState(inicioDoMes)
-  const [fim, setFim]       = useState(hoje)
+function Apuracao({ inicio, fim, onInicioChange, onFimChange }: {
+  inicio: string
+  fim: string
+  onInicioChange: (v: string) => void
+  onFimChange: (v: string) => void
+}) {
   const [detalhando, setDetalhando] = useState<ComissaoFuncionario | null>(null)
 
   const periodoValido = !!inicio && !!fim && inicio <= fim
@@ -81,10 +104,10 @@ function Apuracao() {
       <Card padding="sm" className="mb-4 flex flex-wrap items-end gap-3">
         <Filter size={16} className="text-gray-400 mb-2" />
         <Field label="De">
-          <input type="date" value={inicio} onChange={e => setInicio(e.target.value)} className={dateClass} />
+          <input type="date" value={inicio} onChange={e => onInicioChange(e.target.value)} className={dateClass} />
         </Field>
         <Field label="Até">
-          <input type="date" value={fim} onChange={e => setFim(e.target.value)} className={dateClass} />
+          <input type="date" value={fim} onChange={e => onFimChange(e.target.value)} className={dateClass} />
         </Field>
         {!periodoValido && (
           <p className="text-xs text-danger-600 mb-2">A data inicial não pode ser depois da data final.</p>
@@ -318,7 +341,7 @@ function Percentuais() {
                           onClick={() => salvar.mutate({ id: u.id, percentual: Number(rascunho!.replace(',', '.')) })}
                           title="Salvar percentual"
                         >
-                          <Save size={14} />
+                          Salvar
                         </Button>
                       </div>
                     ) : (
