@@ -10,6 +10,7 @@ import ModalPagamento from './components/ModalPagamento'
 import NovaComandaModal from './components/NovaComandaModal'
 import { formatBRL } from '@/shared/utils/mask'
 import { CurrencyInput } from '@/shared/components/ui'
+import FaixaAmbiente from '@/shared/components/ui/FaixaAmbiente'
 
 // NOTA DE DESIGN: o PDV usa de propósito um tema escuro em tela cheia
 // ("console de caixa"), diferente do tema claro do back-office (financeiro,
@@ -111,6 +112,7 @@ export default function PDVPage() {
 
   return (
     <div className="h-screen flex flex-col bg-gray-950 text-white select-none overflow-hidden">
+      <FaixaAmbiente />
 
       {/* ── Topbar ── */}
       <header className="flex items-center justify-between px-6 py-3 bg-gray-900 border-b border-gray-800">
