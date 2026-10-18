@@ -46,15 +46,14 @@ const nav = [
   { label: 'Perfis',   href: '/acesso/perfis',   icon: ShieldCheck, modulo: 'PERFIS' },
   { label: 'Auditoria', href: '/acesso/auditoria', icon: ShieldAlert, modulo: 'AUDITORIA' },
   { label: 'Maquininhas', href: '/acesso/maquininhas', icon: CreditCard, modulo: 'MAQUININHAS' },
-  // Sem Modulo correspondente no backend de propósito — só super admin
-  // provisiona/ativa empresas, e o filtro abaixo já dá bypass pra ele
-  // (isSuperAdmin ||) antes mesmo de chamar podeVer.
-  { label: 'Empresas', href: '/acesso/empresas', icon: Building2, modulo: 'TENANTS' },
+  // Sem Modulo no backend de propósito: só o super admin da EMPRESA PRINCIPAL
+  // gerencia empresas (o SUPER_ADMIN de cada empresa cliente não vê este item).
+  { label: 'Empresas', href: '/acesso/empresas', icon: Building2, somentePlataforma: true },
 ]
 
 export default function Sidebar() {
   const navigate = useNavigate()
-  const { podeVer, isSuperAdmin } = usePermissao()
+  const { podeVer, isSuperAdmin, isAdministradorPlataforma } = usePermissao()
 
   const podeVerBalanca = isSuperAdmin || podeVer('CARGA_BALANCA')
 
@@ -75,9 +74,11 @@ export default function Sidebar() {
 
   // Filtra os itens pelo que o perfil pode VER, e depois remove separadores
   // que ficaram sem nenhum item visível embaixo (evita título "solto").
-  const itensVisiveis = nav.filter(item =>
-    'separator' in item || item.sempreVisivel || isSuperAdmin || podeVer(item.modulo!)
-  )
+  const itensVisiveis = nav.filter(item => {
+    if ('separator' in item || item.sempreVisivel) return true
+    if (item.somentePlataforma) return isAdministradorPlataforma
+    return isSuperAdmin || podeVer(item.modulo!)
+  })
   const navFiltrado = itensVisiveis.filter((item, i) => {
     if (!('separator' in item)) return true
     const proximo = itensVisiveis[i + 1]

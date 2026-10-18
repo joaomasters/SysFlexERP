@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Lock, Power, PowerOff, Building2 } from 'lucide-react'
+import { Plus, Lock, Power, PowerOff, Building2, Eraser, AlertTriangle } from 'lucide-react'
 import { api } from '@/shared/api/axios'
 import { usePermissao } from '@/shared/hooks/usePermissao'
 import toast from 'react-hot-toast'
@@ -12,24 +12,14 @@ import {
 
 export default function TenantsPage() {
   const qc = useQueryClient()
-  const { isSuperAdmin } = usePermissao()
+  const { isAdministradorPlataforma } = usePermissao()
   const [showNovo, setShowNovo] = useState(false)
-  const [novoNome, setNovoNome] = useState('')
+  const [limpando, setLimpando] = useState<Tenant | null>(null)
 
   const { data: tenants = [], isLoading } = useQuery<Tenant[]>({
     queryKey: ['tenants'],
     queryFn: () => api.get('/admin/tenants').then(r => r.data),
-    enabled: isSuperAdmin,
-  })
-
-  const provisionar = useMutation({
-    mutationFn: () => api.post<Tenant>('/admin/tenants', { nome: novoNome.trim() }),
-    onSuccess: ({ data }) => {
-      toast.success(`Empresa criada! Código de acesso: ${data.codigo}`)
-      qc.invalidateQueries({ queryKey: ['tenants'] })
-      setNovoNome('')
-      setShowNovo(false)
-    },
+    enabled: isAdministradorPlataforma,
   })
 
   const ativar = useMutation({
@@ -48,7 +38,7 @@ export default function TenantsPage() {
     },
   })
 
-  if (!isSuperAdmin) {
+  if (!isAdministradorPlataforma) {
     return (
       <div className="p-6">
         <div className="bg-warning-50 border border-warning-100 rounded-xl p-5 max-w-lg">
@@ -56,7 +46,8 @@ export default function TenantsPage() {
             <Lock size={16} /> Acesso restrito
           </p>
           <p className="text-sm text-warning-600 mt-1">
-            Apenas o SUPER_ADMIN pode gerenciar as empresas que usam o sistema.
+            Apenas o super administrador da empresa principal gerencia as empresas que usam o sistema.
+            Se você é esse administrador, saia e entre de novo para atualizar sua sessão.
           </p>
         </div>
       </div>
@@ -92,84 +83,204 @@ export default function TenantsPage() {
               </tr>
             </THead>
             <TBody>
-              {tenants.map(t => (
-                <TR key={t.id}>
-                  <TD className="font-mono font-semibold text-gray-700">{t.codigo}</TD>
-                  <TD className="font-medium text-gray-900">
-                    {t.nome}
-                    {t.schemaName === 'public' && (
-                      <span className="text-gray-400 font-normal"> — este negócio (produção)</span>
-                    )}
-                  </TD>
-                  <TD>
-                    <StatusBadge tone={t.ativo ? 'success' : 'neutral'}>
-                      {t.ativo ? 'Ativa' : 'Inativa'}
-                    </StatusBadge>
-                  </TD>
-                  <TD align="right">
-                    {t.ativo ? (
-                      <Button
-                        variant="outline-danger"
-                        size="sm"
-                        disabled={t.schemaName === 'public'}
-                        loading={desativar.isPending}
-                        onClick={() => desativar.mutate(t.id)}
-                      >
-                        <PowerOff size={13} /> Desativar
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="success"
-                        size="sm"
-                        loading={ativar.isPending}
-                        onClick={() => ativar.mutate(t.id)}
-                      >
-                        <Power size={13} /> Ativar
-                      </Button>
-                    )}
-                  </TD>
-                </TR>
-              ))}
+              {tenants.map(t => {
+                const principal = t.schemaName === 'public'
+                return (
+                  <TR key={t.id}>
+                    <TD className="font-mono font-semibold text-gray-700">{t.codigo}</TD>
+                    <TD className="font-medium text-gray-900">
+                      {t.nome}
+                      {principal && <span className="text-gray-400 font-normal"> — empresa principal</span>}
+                    </TD>
+                    <TD>
+                      <StatusBadge tone={t.ativo ? 'success' : 'neutral'}>
+                        {t.ativo ? 'Ativa' : 'Inativa'}
+                      </StatusBadge>
+                    </TD>
+                    <TD align="right">
+                      <div className="flex justify-end gap-2">
+                        {!principal && (
+                          <Button variant="outline-danger" size="sm" onClick={() => setLimpando(t)}>
+                            <Eraser size={13} /> Limpar dados
+                          </Button>
+                        )}
+                        {t.ativo ? (
+                          <Button
+                            variant="outline-danger"
+                            size="sm"
+                            disabled={principal}
+                            loading={desativar.isPending && desativar.variables === t.id}
+                            onClick={() => desativar.mutate(t.id)}
+                          >
+                            <PowerOff size={13} /> Desativar
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="success"
+                            size="sm"
+                            loading={ativar.isPending && ativar.variables === t.id}
+                            onClick={() => ativar.mutate(t.id)}
+                          >
+                            <Power size={13} /> Ativar
+                          </Button>
+                        )}
+                      </div>
+                    </TD>
+                  </TR>
+                )
+              })}
             </TBody>
           </Table>
         )}
       </Card>
 
-      {showNovo && (
-        <Modal
-          title="Nova Empresa"
-          onClose={() => setShowNovo(false)}
-          footer={
-            <>
-              <Button variant="secondary" fullWidth onClick={() => setShowNovo(false)}>
-                Cancelar
-              </Button>
-              <Button
-                variant="primary"
-                fullWidth
-                disabled={!novoNome.trim()}
-                loading={provisionar.isPending}
-                onClick={() => provisionar.mutate()}
-              >
-                Criar
-              </Button>
-            </>
-          }
-        >
-          <Field label="Nome da empresa *" hint="O código de acesso é gerado automaticamente (ex: 002).">
-            <input
-              value={novoNome}
-              onChange={e => setNovoNome(e.target.value)}
-              placeholder="Ex: Padaria da Maria"
-              className={baseInputClass}
-              autoFocus
-            />
-          </Field>
-          <p className="text-xs text-gray-400">
-            A empresa nasce <strong>inativa</strong> — ative na lista quando quiser liberar o acesso.
-          </p>
-        </Modal>
-      )}
+      {showNovo && <NovaEmpresaModal onClose={() => setShowNovo(false)} />}
+      {limpando && <LimparDadosModal empresa={limpando} onClose={() => setLimpando(null)} />}
     </div>
+  )
+}
+
+// ─── Nova empresa ───────────────────────────────────────────────────────────
+
+function NovaEmpresaModal({ onClose }: { onClose: () => void }) {
+  const qc = useQueryClient()
+  const [nome, setNome] = useState('')
+  const [adminNome, setAdminNome] = useState('')
+  const [adminLogin, setAdminLogin] = useState('')
+  const [adminSenha, setAdminSenha] = useState('')
+
+  const provisionar = useMutation({
+    mutationFn: () => api.post<Tenant>('/admin/tenants', {
+      nome: nome.trim(), adminNome: adminNome.trim(), adminLogin: adminLogin.trim(), adminSenha,
+    }),
+    onSuccess: ({ data }) => {
+      toast.success(`Empresa criada! Código de acesso: ${data.codigo}`, { duration: 8000 })
+      qc.invalidateQueries({ queryKey: ['tenants'] })
+      onClose()
+    },
+  })
+
+  const valido = nome.trim() && adminNome.trim() && adminLogin.trim() && adminSenha.length >= 6
+
+  return (
+    <Modal
+      title="Nova Empresa"
+      maxWidth="md"
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="secondary" fullWidth onClick={onClose}>Cancelar</Button>
+          <Button variant="primary" fullWidth disabled={!valido} loading={provisionar.isPending} onClick={() => provisionar.mutate()}>
+            Criar
+          </Button>
+        </>
+      }
+    >
+      <Field label="Nome da empresa *" hint="O código de acesso é gerado automaticamente (ex: 004).">
+        <input value={nome} onChange={e => setNome(e.target.value)} placeholder="Ex: Padaria da Maria"
+               className={baseInputClass} autoFocus />
+      </Field>
+
+      <div className="border-t pt-4">
+        <p className="text-sm font-medium text-gray-700 mb-3">Administrador da empresa</p>
+        <div className="space-y-3">
+          <Field label="Nome *">
+            <input value={adminNome} onChange={e => setAdminNome(e.target.value)} className={baseInputClass} />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Login *">
+              <input value={adminLogin} onChange={e => setAdminLogin(e.target.value)} autoComplete="off"
+                     className={baseInputClass} />
+            </Field>
+            <Field label="Senha *" hint="Mínimo 6 caracteres">
+              <input type="password" value={adminSenha} onChange={e => setAdminSenha(e.target.value)}
+                     autoComplete="new-password" className={baseInputClass} />
+            </Field>
+          </div>
+        </div>
+      </div>
+
+      <p className="text-xs text-gray-500">
+        A empresa nasce <strong>vazia</strong> (sem produtos, vendas ou clientes de outras empresas) e{' '}
+        <strong>inativa</strong> — ative na lista quando quiser liberar o acesso. Passe ao cliente o código,
+        o login e a senha.
+      </p>
+    </Modal>
+  )
+}
+
+// ─── Limpar dados de uma empresa ────────────────────────────────────────────
+
+function LimparDadosModal({ empresa, onClose }: { empresa: Tenant; onClose: () => void }) {
+  const [confirmacao, setConfirmacao] = useState('')
+
+  const { data: contagem, isLoading } = useQuery<Record<string, number>>({
+    queryKey: ['tenant-dados', empresa.id],
+    queryFn: () => api.get(`/admin/tenants/${empresa.id}/dados`).then(r => r.data),
+  })
+
+  const limpar = useMutation({
+    mutationFn: () => api.post<Record<string, number>>(`/admin/tenants/${empresa.id}/limpar-dados`,
+      { confirmacaoCodigo: confirmacao.trim() }),
+    onSuccess: ({ data }) => {
+      const total = Object.values(data).reduce((s, n) => s + n, 0)
+      toast.success(`Dados de "${empresa.nome}" apagados (${total} registros).`)
+      onClose()
+    },
+  })
+
+  const linhas = Object.entries(contagem ?? {})
+  const total = linhas.reduce((s, [, n]) => s + n, 0)
+
+  return (
+    <Modal
+      title={`Limpar dados — ${empresa.nome}`}
+      maxWidth="md"
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="secondary" fullWidth onClick={onClose}>Cancelar</Button>
+          <Button
+            variant="danger"
+            fullWidth
+            disabled={confirmacao.trim() !== empresa.codigo || total === 0}
+            loading={limpar.isPending}
+            onClick={() => limpar.mutate()}
+          >
+            Apagar definitivamente
+          </Button>
+        </>
+      }
+    >
+      <div className="bg-danger-50 border border-danger-100 rounded-lg p-3 flex gap-2 text-sm text-danger-700">
+        <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+        <p>
+          Apaga <strong>todos</strong> os produtos, vendas, clientes, contas, caixas, estoque e relatórios desta
+          empresa. <strong>Não tem como desfazer.</strong> Usuários, perfis e permissões são mantidos.
+        </p>
+      </div>
+
+      {isLoading ? (
+        <p className="text-sm text-gray-500">Contando registros...</p>
+      ) : total === 0 ? (
+        <p className="text-sm text-gray-500">Esta empresa não tem dados para apagar.</p>
+      ) : (
+        <div className="max-h-48 overflow-y-auto border rounded-lg divide-y text-sm">
+          {linhas.map(([tabela, n]) => (
+            <div key={tabela} className="flex justify-between px-3 py-1.5">
+              <span className="font-mono text-xs text-gray-600">{tabela}</span>
+              <span className="tabular-nums text-gray-900">{n}</span>
+            </div>
+          ))}
+          <div className="flex justify-between px-3 py-1.5 bg-gray-50 font-medium">
+            <span>Total</span><span className="tabular-nums">{total}</span>
+          </div>
+        </div>
+      )}
+
+      <Field label={`Para confirmar, digite o código da empresa (${empresa.codigo})`}>
+        <input value={confirmacao} onChange={e => setConfirmacao(e.target.value)} className={baseInputClass} />
+      </Field>
+    </Modal>
   )
 }
