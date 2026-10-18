@@ -2,6 +2,8 @@ import { useState } from 'react'
 import axios from 'axios'
 import { useNavigate } from 'react-router-dom'
 import { setSessao } from '../../shared/auth'
+import { API_BASE_URL } from '../../shared/api/ambiente'
+import FaixaAmbiente from '../../shared/components/ui/FaixaAmbiente'
 import { Building2, Lock, User } from 'lucide-react'
 import logo from '../../assets/sysflex-logo.png'
 
@@ -22,7 +24,7 @@ export default function LoginPage() {
     setError('')
     try {
       const res = await axios.post(
-        '/api/auth/login',
+        `${API_BASE_URL}/auth/login`,
         { username, password },
         { headers: { 'X-Tenant-Codigo': codigoEmpresa.trim() } }
       )
@@ -36,6 +38,8 @@ export default function LoginPage() {
   }
 
   return (
+    <>
+    <FaixaAmbiente />
     <div className="min-h-screen bg-aco-900 flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
@@ -120,5 +124,6 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+    </>
   )
 }

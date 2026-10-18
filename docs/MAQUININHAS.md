@@ -121,7 +121,7 @@ Content-Type: application/json
 Requisitos do agente:
 
 - **Tempo:** o PDV espera até **120 segundos** pela resposta.
-- **CORS:** o agente deve responder `Access-Control-Allow-Origin` com a origem do SysFlex (ex.: `https://sis-meet-house.vercel.app`) e aceitar o preflight `OPTIONS` com `Content-Type`.
+- **CORS:** o agente deve responder `Access-Control-Allow-Origin` com a origem do SysFlex (`https://sysflexerp.vercel.app` em produção e `https://sysflexerpdev.vercel.app` no desenvolvimento) e aceitar o preflight `OPTIONS` com `Content-Type`.
 - **Rede privada (Chrome):** como o site é HTTPS público chamando `localhost`, o Chrome envia um preflight com `Access-Control-Request-Private-Network: true`. O agente deve responder `Access-Control-Allow-Private-Network: true`.
 - **Idempotência:** se o mesmo `reference` chegar duas vezes, o agente deve devolver o resultado da primeira vez em vez de cobrar de novo.
 
