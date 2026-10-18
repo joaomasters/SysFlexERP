@@ -20,7 +20,8 @@ public enum Modulo {
     PERFIS("Perfis"),
     CLIENTES("Clientes"),
     AUDITORIA("Auditoria"),
-    COMISSOES("Comissões");
+    COMISSOES("Comissões"),
+    MAQUININHAS("Maquininhas de Cartão");
 
     private final String rotulo;
 

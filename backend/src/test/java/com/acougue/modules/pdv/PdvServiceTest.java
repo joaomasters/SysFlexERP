@@ -4,6 +4,7 @@ import com.acougue.entity.*;
 import com.acougue.exception.BusinessException;
 import com.acougue.modules.balanca.EanBalancaParser;
 import com.acougue.modules.estoque.EstoqueService;
+import com.acougue.modules.pagamento.TransacaoTerminalService;
 import com.acougue.modules.pdv.dto.*;
 import com.acougue.repository.*;
 import jakarta.persistence.EntityNotFoundException;
@@ -39,6 +40,7 @@ class PdvServiceTest {
     @Mock EanBalancaParser           eanParser;
     @Mock ApplicationEventPublisher  eventPublisher;
     @Mock CaixaService               caixaService;
+    @Mock TransacaoTerminalService   transacaoTerminalService;
 
     @InjectMocks PdvService service;
 
@@ -290,6 +292,71 @@ class PdvServiceTest {
 
         verify(estoqueService).saida(eq(picanha), eq(new BigDecimal("1.000")),
                 eq("SAIDA_VENDA"), eq("VENDA#1"), eq(10L));
+    }
+
+    @Test
+    @DisplayName("fecharVenda: cartão de maquininha copia NSU/autorização da transação aprovada, não da tela")
+    void fecharVenda_cartaoIntegrado_usaDadosDaTransacao() {
+        Venda venda = Venda.builder()
+                .id(1L).status("ABERTA").caixa(caixaAberto).operadorId(10L)
+                .total(new BigDecimal("50.00")).desconto(BigDecimal.ZERO).build();
+
+        PagamentoDTO pag = new PagamentoDTO();
+        pag.setFormaPagamento("CREDITO");
+        pag.setValor(new BigDecimal("50.00"));
+        pag.setTransacaoTerminalId(7L);
+        pag.setNsu("FORJADO");
+
+        FecharVendaDTO dto = new FecharVendaDTO();
+        dto.setVendaId(1L);
+        dto.setPagamentos(List.of(pag));
+
+        TransacaoTerminal transacao = TransacaoTerminal.builder()
+                .id(7L).vendaId(1L).tipo("CREDITO").parcelas(3).valor(new BigDecimal("50.00"))
+                .status(StatusTransacaoTerminal.APROVADA).provedor(ProvedorPagamento.MERCADO_PAGO)
+                .nsu("123456").autorizacao("A1B2C3").bandeira("visa").build();
+
+        when(vendaRepo.findById(1L)).thenReturn(Optional.of(venda));
+        when(transacaoTerminalService.validarParaPagamento(7L, 1L, "CREDITO", new BigDecimal("50.00")))
+                .thenReturn(transacao);
+        when(itensRepo.findByVendaId(1L)).thenReturn(List.of());
+        when(vendaRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.fecharVenda(dto);
+
+        org.mockito.ArgumentCaptor<PagamentoVenda> salvo = org.mockito.ArgumentCaptor.forClass(PagamentoVenda.class);
+        verify(pagRepo).save(salvo.capture());
+        assertThat(salvo.getValue().getNsu()).isEqualTo("123456");
+        assertThat(salvo.getValue().getAutorizacao()).isEqualTo("A1B2C3");
+        assertThat(salvo.getValue().getParcelas()).isEqualTo(3);
+        assertThat(salvo.getValue().getTransacaoTerminalId()).isEqualTo(7L);
+        assertThat(salvo.getValue().getProvedor()).isEqualTo("MERCADO_PAGO");
+    }
+
+    @Test
+    @DisplayName("fecharVenda: transação de cartão inválida impede o fechamento")
+    void fecharVenda_cartaoIntegrado_transacaoInvalida() {
+        Venda venda = Venda.builder()
+                .id(1L).status("ABERTA").caixa(caixaAberto)
+                .total(new BigDecimal("50.00")).desconto(BigDecimal.ZERO).build();
+
+        PagamentoDTO pag = new PagamentoDTO();
+        pag.setFormaPagamento("DEBITO");
+        pag.setValor(new BigDecimal("50.00"));
+        pag.setTransacaoTerminalId(7L);
+
+        FecharVendaDTO dto = new FecharVendaDTO();
+        dto.setVendaId(1L);
+        dto.setPagamentos(List.of(pag));
+
+        when(vendaRepo.findById(1L)).thenReturn(Optional.of(venda));
+        when(transacaoTerminalService.validarParaPagamento(any(), any(), any(), any()))
+                .thenThrow(new BusinessException("não está aprovada"));
+
+        assertThatThrownBy(() -> service.fecharVenda(dto))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("não está aprovada");
+        verify(pagRepo, never()).save(any());
     }
 
     

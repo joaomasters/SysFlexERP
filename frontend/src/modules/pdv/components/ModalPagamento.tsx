@@ -1,20 +1,17 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import {
   X, Banknote, CreditCard, Smartphone, BookOpen, FileCheck,
-  CheckCircle, XCircle, Loader2, Trash2, AlertTriangle, Copy, RefreshCw,
+  CheckCircle, Loader2, Trash2, Copy,
 } from 'lucide-react'
 import { api } from '@/shared/api/axios'
 import toast from 'react-hot-toast'
 import type { PagamentoDTO } from '@/types/venda'
 import { formatBRL } from '@/shared/utils/mask'
 import { CurrencyInput } from '@/shared/components/ui'
-
-// ─── URL do agente Stone instalado localmente ───────────────────────────────
-const STONE_AGENT_URL = 'http://localhost:12345'
+import PainelCartao from './PainelCartao'
 
 // ─── tipos internos ──────────────────────────────────────────────────────────
 type Metodo  = 'DINHEIRO' | 'DEBITO' | 'CREDITO' | 'PIX' | 'CHEQUE' | 'FIADO'
-type StoneStatus = 'idle' | 'aguardando' | 'aprovado' | 'negado' | 'erro_agente'
 type PixStatus   = 'idle' | 'gerando' | 'aguardando' | 'aprovado' | 'erro'
 
 interface Props {
@@ -50,10 +47,10 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
   const [chequeNum,   setChequeNum]   = useState('')
   const [chequeTit,   setChequeTit]   = useState('')
 
-  // ── Stone (Débito / Crédito) ──────────────────────────────────────────────
-  const [stoneSt,     setStoneSt]     = useState<StoneStatus>('idle')
-  const [stoneMsg,    setStoneMsg]    = useState('')
-  const [parcelas,    setParcelas]    = useState(1)
+  // ── Cartão (Débito / Crédito) — estado vive no PainelCartao ───────────────
+  const [cartaoOcupado, setCartaoOcupado] = useState(false)
+  // Pagamento de maquininha já aprovado que o operador pediu para remover
+  const [confirmandoRemocao, setConfirmandoRemocao] = useState<number | null>(null)
 
   // ── PIX ───────────────────────────────────────────────────────────────────
   const [pixSt,       setPixSt]       = useState<PixStatus>('idle')
@@ -70,8 +67,6 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
   // Preenche valor com o restante quando muda de método
   useEffect(() => {
     setValor(restante > 0 ? restante : 0)
-    setStoneSt('idle')
-    setStoneMsg('')
     setPixSt('idle')
     stopPixPoll()
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -86,6 +81,13 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
   }
 
   function removePagamento(i: number) {
+    // Cartão aprovado em maquininha integrada: o dinheiro já foi cobrado do
+    // cliente — remover daqui não estorna. Pede confirmação explícita.
+    if (pagamentos[i]?.transacaoTerminalId && confirmandoRemocao !== i) {
+      setConfirmandoRemocao(i)
+      return
+    }
+    setConfirmandoRemocao(null)
     setPagamentos((prev: PagamentoDTO[]) => prev.filter((_: PagamentoDTO, idx: number) => idx !== i))
   }
 
@@ -111,52 +113,10 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
     setChequeTit('')
   }
 
-  // ── Stone ─────────────────────────────────────────────────────────────────
-  async function iniciarStone() {
-    const v = valor
-    if (!v) return
-
-    setStoneSt('aguardando')
-    setStoneMsg('Aguardando cartão na maquininha...')
-
-    try {
-      const resp = await fetch(`${STONE_AGENT_URL}/transaction`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          amount:       Math.round(v * 100),           // centavos
-          type:         metodo === 'DEBITO' ? 'DEBIT' : 'CREDIT',
-          installments: metodo === 'CREDITO' ? parcelas : 1,
-        }),
-        signal: AbortSignal.timeout(90_000),           // 90s timeout
-      })
-
-      if (!resp.ok) throw new Error(`Terminal retornou ${resp.status}`)
-
-      const data = await resp.json()
-
-      if (data.status === 'APPROVED' || data.approved === true) {
-        setStoneSt('aprovado')
-        setStoneMsg(`Aprovado • NSU: ${data.nsu ?? '-'} • Auth: ${data.authorizationCode ?? '-'}`)
-        addPagamento(metodo, v, {
-          stoneNsu:  data.nsu       ?? '',
-          stoneAuth: data.authorizationCode ?? '',
-        })
-      } else {
-        setStoneSt('negado')
-        setStoneMsg(data.message ?? 'Transação negada pelo banco')
-      }
-
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Erro desconhecido'
-      if (msg.toLowerCase().includes('fetch') || msg.toLowerCase().includes('connect')) {
-        setStoneSt('erro_agente')
-        setStoneMsg('Agente Stone não encontrado. Verifique se o Stone TEF está instalado e rodando na porta 12345.')
-      } else {
-        setStoneSt('negado')
-        setStoneMsg(msg)
-      }
-    }
+  // ── Cartão ────────────────────────────────────────────────────────────────
+  function cartaoAprovado(p: PagamentoDTO) {
+    setPagamentos((prev: PagamentoDTO[]) => [...prev, p])
+    setValor(0)
   }
 
   // ── PIX ───────────────────────────────────────────────────────────────────
@@ -194,7 +154,7 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
           if (st.status === 'APROVADO') {
             stopPixPoll()
             setPixSt('aprovado')
-            addPagamento('PIX', v, { pixMpId: data.mpPaymentId })
+            addPagamento('PIX', v, { referenciaExterna: String(data.mpPaymentId) })
             toast.success('PIX confirmado! ✓')
           } else if (st.status === 'EXPIRADO') {
             stopPixPoll()
@@ -233,7 +193,12 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
         {/* ── Header ─────────────────────────────────────────────────────── */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700 shrink-0">
           <h2 className="text-lg font-bold">Pagamento</h2>
-          <button onClick={onCancelar} className="p-1 hover:text-red-400 transition-colors">
+          <button
+            onClick={onCancelar}
+            disabled={cartaoOcupado}
+            title={cartaoOcupado ? 'Finalize ou cancele a cobrança no cartão primeiro' : undefined}
+            className="p-1 hover:text-red-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          >
             <X size={20} />
           </button>
         </div>
@@ -262,17 +227,39 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
           {pagamentos.length > 0 && (
             <div className="space-y-1">
               {pagamentos.map((p, i) => (
-                <div key={i} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2 text-sm">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle size={14} className="text-emerald-400 shrink-0" />
-                    <span className="text-gray-300">{p.formaPagamento}</span>
+                <div key={i} className="bg-gray-800 rounded-lg px-3 py-2 text-sm">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle size={14} className="text-emerald-400 shrink-0" />
+                      <span className="text-gray-300">{p.formaPagamento}</span>
+                      {p.parcelas && p.parcelas > 1 && <span className="text-xs text-gray-500">{p.parcelas}x</span>}
+                      {(p.bandeira || p.nsu) && (
+                        <span className="text-xs text-gray-500">{[p.bandeira, p.nsu && `NSU ${p.nsu}`].filter(Boolean).join(' · ')}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="tabular-nums font-medium">{brl(p.valor)}</span>
+                      <button onClick={() => removePagamento(i)} className="text-gray-600 hover:text-red-400">
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="tabular-nums font-medium">{brl(p.valor)}</span>
-                    <button onClick={() => removePagamento(i)} className="text-gray-600 hover:text-red-400">
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
+                  {confirmandoRemocao === i && (
+                    <div className="mt-2 pt-2 border-t border-gray-700 text-xs space-y-1.5">
+                      <p className="text-amber-400">
+                        Este cartão já foi APROVADO na maquininha. Remover daqui não devolve o dinheiro:
+                        faça o cancelamento/estorno na própria maquininha.
+                      </p>
+                      <div className="flex gap-3">
+                        <button onClick={() => removePagamento(i)} className="text-red-400 hover:text-red-300 font-medium">
+                          Já estornei, remover
+                        </button>
+                        <button onClick={() => setConfirmandoRemocao(null)} className="text-gray-400 hover:text-white">
+                          Manter
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -289,7 +276,9 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
                     <button
                       key={m.value}
                       onClick={() => setMetodo(m.value)}
+                      disabled={cartaoOcupado && !ativo}
                       className={`flex flex-col items-center gap-1.5 py-3 rounded-xl text-xs font-medium transition-all
+                        disabled:opacity-40 disabled:cursor-not-allowed
                         ${ativo ? m.cor + ' text-white shadow-lg scale-105' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
                     >
                       <Icon size={20} />
@@ -326,101 +315,17 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
                 </div>
               )}
 
-              {/* ── Painel Stone (Débito / Crédito) ────────────────────── */}
+              {/* ── Painel Cartão (Débito / Crédito) ───────────────────── */}
               {(metodo === 'DEBITO' || metodo === 'CREDITO') && (
-                <div className="space-y-3">
-                  <div className="flex gap-2">
-                    <CurrencyInput
-                      value={valor}
-                      onChange={setValor}
-                      disabled={stoneSt === 'aguardando'}
-                      dark
-                      className="flex-1 [&_input]:text-lg [&_input]:font-bold"
-                    />
-                    {metodo === 'CREDITO' && (
-                      <select
-                        value={parcelas}
-                        onChange={e => setParcelas(parseInt(e.target.value))}
-                        disabled={stoneSt === 'aguardando'}
-                        className="bg-gray-800 border border-gray-600 rounded-lg px-3 text-sm"
-                      >
-                        {[1,2,3,4,5,6,7,8,9,10,11,12].map(n => (
-                          <option key={n} value={n}>{n}x</option>
-                        ))}
-                      </select>
-                    )}
-                  </div>
-
-                  {/* Status Stone */}
-                  {stoneSt === 'idle' && (
-                    <button
-                      onClick={iniciarStone}
-                      disabled={!valor}
-                      className="w-full py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold transition-colors disabled:opacity-50"
-                    >
-                      Enviar para Maquininha
-                    </button>
-                  )}
-
-                  {stoneSt === 'aguardando' && (
-                    <div className="bg-blue-900/30 border border-blue-700 rounded-xl p-4 text-center space-y-2">
-                      <Loader2 size={32} className="mx-auto text-blue-400 animate-spin" />
-                      <p className="text-sm font-medium text-blue-300">Aguardando maquininha...</p>
-                      <p className="text-xs text-gray-400">{stoneMsg}</p>
-                    </div>
-                  )}
-
-                  {stoneSt === 'aprovado' && (
-                    <div className="bg-emerald-900/30 border border-emerald-700 rounded-xl p-4 flex items-center gap-3">
-                      <CheckCircle size={28} className="text-emerald-400 shrink-0" />
-                      <div>
-                        <p className="font-bold text-emerald-400">Aprovado!</p>
-                        <p className="text-xs text-gray-400">{stoneMsg}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {stoneSt === 'negado' && (
-                    <div className="bg-red-900/30 border border-red-700 rounded-xl p-4 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <XCircle size={20} className="text-red-400 shrink-0" />
-                        <p className="text-red-400 font-medium">Transação negada</p>
-                      </div>
-                      <p className="text-xs text-gray-400">{stoneMsg}</p>
-                      <button
-                        onClick={() => setStoneSt('idle')}
-                        className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300"
-                      >
-                        <RefreshCw size={12} /> Tentar novamente
-                      </button>
-                    </div>
-                  )}
-
-                  {stoneSt === 'erro_agente' && (
-                    <div className="bg-amber-900/20 border border-amber-700 rounded-xl p-4 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <AlertTriangle size={18} className="text-amber-400 shrink-0" />
-                        <p className="text-amber-400 font-medium text-sm">Agente Stone não encontrado</p>
-                      </div>
-                      <p className="text-xs text-gray-400">{stoneMsg}</p>
-                      <div className="flex gap-2 pt-1">
-                        <button
-                          onClick={() => setStoneSt('idle')}
-                          className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300"
-                        >
-                          <RefreshCw size={12} /> Tentar novamente
-                        </button>
-                        <span className="text-gray-600">·</span>
-                        <button
-                          onClick={() => { setStoneSt('aprovado'); addPagamento(metodo, valor) }}
-                          className="text-xs text-gray-400 hover:text-white"
-                        >
-                          Registrar manualmente
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <PainelCartao
+                  key={metodo}
+                  metodo={metodo}
+                  valor={valor}
+                  setValor={setValor}
+                  vendaId={vendaId}
+                  onAprovado={cartaoAprovado}
+                  onOcupado={setCartaoOcupado}
+                />
               )}
 
               {/* ── Painel PIX ─────────────────────────────────────────── */}
@@ -571,7 +476,8 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
         <div className="px-6 py-4 border-t border-gray-700 flex gap-3 shrink-0">
           <button
             onClick={onCancelar}
-            className="flex-1 py-3 rounded-xl bg-gray-700 hover:bg-gray-600 text-sm font-medium transition-colors"
+            disabled={cartaoOcupado}
+            className="flex-1 py-3 rounded-xl bg-gray-700 hover:bg-gray-600 text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Cancelar
           </button>

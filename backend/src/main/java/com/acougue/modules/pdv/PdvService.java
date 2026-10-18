@@ -5,6 +5,7 @@ import com.acougue.exception.BusinessException;
 import com.acougue.modules.balanca.EanBalancaParser;
 import com.acougue.modules.balanca.dto.EanParseResult;
 import com.acougue.modules.estoque.EstoqueService;
+import com.acougue.modules.pagamento.TransacaoTerminalService;
 import com.acougue.modules.pdv.dto.*;
 import com.acougue.repository.*;
 import jakarta.persistence.EntityNotFoundException;
@@ -32,6 +33,7 @@ public class PdvService {
     private final EstoqueService estoqueService;
     private final EanBalancaParser         eanParser;
     private final CaixaService             caixaService;
+    private final TransacaoTerminalService transacaoTerminalService;
 
     // ── Caixa ──────────────────────────────────────────────────
 
@@ -176,7 +178,26 @@ public class PdvService {
                     .valor(pag.getValor())
                     .nsu(pag.getNsu())
                     .autorizacao(pag.getAutorizacao())
+                    .parcelas(pag.getParcelas())
+                    .bandeira(pag.getBandeira())
+                    .referenciaExterna(pag.getReferenciaExterna())
+                    .chequeBanco(pag.getChequeBanco())
+                    .chequeNumero(pag.getChequeNumero())
+                    .chequeTitular(pag.getChequeTitular())
                     .build();
+
+            // Cartão de maquininha integrada: o comprovante vem da transação
+            // aprovada, nunca do que a tela mandou.
+            if (pag.getTransacaoTerminalId() != null) {
+                TransacaoTerminal t = transacaoTerminalService.validarParaPagamento(
+                        pag.getTransacaoTerminalId(), venda.getId(), pag.getFormaPagamento(), pag.getValor());
+                pagVenda.setTransacaoTerminalId(t.getId());
+                pagVenda.setNsu(t.getNsu());
+                pagVenda.setAutorizacao(t.getAutorizacao());
+                pagVenda.setBandeira(t.getBandeira());
+                pagVenda.setParcelas(t.getParcelas());
+                pagVenda.setProvedor(t.getProvedor().name());
+            }
             pagRepo.save(pagVenda);
 
             if ("FIADO".equals(pag.getFormaPagamento())) {

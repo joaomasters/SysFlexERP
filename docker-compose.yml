@@ -37,6 +37,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-acougue@2025}
       SPRING_PROFILES_ACTIVE:     prod
       ACOUGUE_CORS_ALLOWED_ORIGINS: ${CORS_ORIGINS:-http://localhost,http://localhost:80}
+      PAGAMENTO_CRIPTO_CHAVE:     ${PAGAMENTO_CRIPTO_CHAVE:-}
+      MP_ACCESS_TOKEN:            ${MP_ACCESS_TOKEN:-}
     ports:
       - "8080:8080"       # remove em produção se usar só pelo nginx
     healthcheck:

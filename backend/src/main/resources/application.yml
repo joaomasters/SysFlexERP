@@ -68,10 +68,15 @@ kafka:
   security:
     protocol: ${KAFKA_SECURITY_PROTOCOL:SASL_SSL}
 pagamento:
+  # Chave que cifra as credenciais das adquirentes salvas no banco (tela
+  # Maquininhas). Qualquer texto longo e aleatório; NÃO troque depois de
+  # cadastrar credenciais (elas ficariam ilegíveis). Gere com:
+  #   openssl rand -base64 32
+  cripto-chave: ${PAGAMENTO_CRIPTO_CHAVE:}
   pix:
+    # Fallback do PIX quando a empresa não cadastrou o Access Token do
+    # Mercado Pago na tela Maquininhas (comportamento anterior).
     mp-access-token: ${MP_ACCESS_TOKEN:}
-  stone:
-    agent-url: ${STONE_AGENT_URL:http://localhost:12345}
 
 balanca:
   scheduler:
