@@ -5,6 +5,7 @@ import com.acougue.entity.Caixa;
 import com.acougue.entity.Modulo;
 import com.acougue.modules.pdv.dto.FechamentoCaixaDetalhadoDTO;
 import com.acougue.modules.pdv.dto.SangriaDTO;
+import com.acougue.security.ContextoUsuario;
 import com.acougue.security.Acao;
 import com.acougue.security.ExigirPermissao;
 import lombok.RequiredArgsConstructor;
@@ -22,8 +23,9 @@ public class CaixaController {
 
     @ExigirPermissao(modulo = Modulo.PDV, acao = Acao.VER)
     @GetMapping("/aberto")
-    public ResponseEntity<Caixa> caixaAberto(@RequestParam Long operadorId) {
-        return ResponseEntity.ok(caixaService.buscarCaixaAbertoDoOperador(operadorId));
+    public ResponseEntity<Caixa> caixaAberto(@RequestParam(required = false) Long operadorId) {
+        // O operador é SEMPRE quem está logado; o parâmetro antigo é ignorado
+        return ResponseEntity.ok(caixaService.buscarCaixaAbertoDoOperador(ContextoUsuario.atual().getUsuarioId()));
     }
 
     @ExigirPermissao(modulo = Modulo.PDV, acao = Acao.VER)
@@ -38,6 +40,7 @@ public class CaixaController {
             @PathVariable Long id,
             @RequestBody SangriaDTO dto) {
         dto.setTipo("SANGRIA");
+        dto.setOperadorId(ContextoUsuario.atual().getUsuarioId()); // nunca do corpo da requisição
         return ResponseEntity.ok(caixaService.registrarMovimento(id, dto));
     }
 
@@ -47,6 +50,7 @@ public class CaixaController {
             @PathVariable Long id,
             @RequestBody SangriaDTO dto) {
         dto.setTipo("SUPRIMENTO");
+        dto.setOperadorId(ContextoUsuario.atual().getUsuarioId()); // nunca do corpo da requisição
         return ResponseEntity.ok(caixaService.registrarMovimento(id, dto));
     }
 

@@ -1,6 +1,7 @@
 package com.acougue.config;
 
 import com.acougue.security.UsuarioAutenticado;
+import com.acougue.security.ValidadorSessao;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -18,9 +19,11 @@ import java.util.List;
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
+    private final ValidadorSessao validadorSessao;
 
-    public JwtAuthFilter(JwtUtil jwtUtil) {
+    public JwtAuthFilter(JwtUtil jwtUtil, ValidadorSessao validadorSessao) {
         this.jwtUtil = jwtUtil;
+        this.validadorSessao = validadorSessao;
     }
 
     @Override
@@ -30,13 +33,17 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         if (header != null && header.startsWith("Bearer ")) {
             String token = header.substring(7);
             if (jwtUtil.isValid(token)) {
+                UsuarioAutenticado usuario = null;
                 try {
-                    UsuarioAutenticado usuario = jwtUtil.extractUsuarioAutenticado(token);
+                    usuario = jwtUtil.extractUsuarioAutenticado(token);
+                } catch (Exception ignored) {
+                    // token antigo — segue sem autenticar, cai no 401
+                }
+                // Usuário ou empresa desativados depois do login perdem o acesso (ver ValidadorSessao)
+                if (usuario != null && validadorSessao.sessaoAtiva(usuario)) {
                     UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
                             usuario, null, List.of(new SimpleGrantedAuthority("ROLE_USUARIO")));
                     SecurityContextHolder.getContext().setAuthentication(auth);
-                } catch (Exception ignored) {
-                    // token antigo — segue sem autenticar, cai no 401
                 }
             }
         }

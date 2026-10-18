@@ -5,6 +5,7 @@ import com.acougue.entity.PerfilPermissao;
 import com.acougue.entity.Usuario;
 import com.acougue.repository.PerfilPermissaoRepository;
 import com.acougue.repository.UsuarioRepository;
+import com.acougue.security.LimitadorTentativasLogin;
 import com.acougue.tenant.TenantContext;
 import com.acougue.tenant.TenantRepository;
 import org.springframework.http.HttpStatus;
@@ -24,15 +25,20 @@ public class AuthController {
     private final PerfilPermissaoRepository permissaoRepo;
     private final PasswordEncoder passwordEncoder;
     private final TenantRepository tenantRepository;
+    private final LimitadorTentativasLogin limitador;
+    /** Hash BCrypt de uma senha aleatória descartada — só para igualar o tempo de resposta. */
+    private final String hashFalso;
 
     public AuthController(JwtUtil jwtUtil, UsuarioRepository usuarioRepo,
                           PerfilPermissaoRepository permissaoRepo, PasswordEncoder passwordEncoder,
-                          TenantRepository tenantRepository) {
+                          TenantRepository tenantRepository, LimitadorTentativasLogin limitador) {
         this.jwtUtil = jwtUtil;
         this.usuarioRepo = usuarioRepo;
         this.permissaoRepo = permissaoRepo;
         this.passwordEncoder = passwordEncoder;
         this.tenantRepository = tenantRepository;
+        this.limitador = limitador;
+        this.hashFalso = passwordEncoder.encode(java.util.UUID.randomUUID().toString());
     }
 
     /*
@@ -52,24 +58,35 @@ public class AuthController {
         String login = body.get("username");
         String senha = body.get("password");
 
+        long minutosBloqueado = limitador.minutosBloqueado(codigoEmpresa, login);
+        if (minutosBloqueado > 0) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of("message",
+                    "Muitas tentativas incorretas. Tente novamente em " + minutosBloqueado + " minuto(s)."));
+        }
+
         if (codigoEmpresa == null || codigoEmpresa.isBlank()
                 || tenantRepository.findByCodigo(codigoEmpresa.trim()).filter(t -> t.ativo()).isEmpty()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("message", "Usuário ou senha inválidos"));
         }
 
-        Usuario usuario = usuarioRepo.findByLogin(login).orElse(null);
+        Usuario usuario = login == null ? null : usuarioRepo.findByLogin(login).orElse(null);
 
         /*
         Mesma mensagem de erro tanto para usuário não existe, quanto para
         senha errada — evitando que alguém descubra por tentativa quais
-        logins existem no sistema.
+        logins existem no sistema. O BCrypt roda nos DOIS casos (com um hash
+        falso quando o usuário não existe): senão a resposta de "login
+        inexistente" volta bem mais rápido e o tempo entrega quais existem.
          */
-        if (usuario == null || !Boolean.TRUE.equals(usuario.getAtivo())
-                || !passwordEncoder.matches(senha, usuario.getSenhaHash())) {
+        boolean senhaConfere = passwordEncoder.matches(senha == null ? "" : senha,
+                usuario != null ? usuario.getSenhaHash() : hashFalso);
+        if (usuario == null || !Boolean.TRUE.equals(usuario.getAtivo()) || !senhaConfere) {
+            limitador.registrarFalha(codigoEmpresa, login);
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("message", "Usuário ou senha inválidos"));
         }
+        limitador.registrarSucesso(codigoEmpresa, login);
 
         List<PerfilPermissao> permissoes = permissaoRepo.findByPerfilId(usuario.getPerfil().getId());
         String token = jwtUtil.generateToken(usuario, permissoes, TenantContext.get());

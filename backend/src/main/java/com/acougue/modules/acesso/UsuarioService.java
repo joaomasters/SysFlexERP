@@ -85,11 +85,18 @@ public class UsuarioService {
     public Usuario trocarSenha(Long id, TrocarSenhaDTO dto) {
         // Editar senha de outra pessoa exige EDITAR; trocar a própria senha é sempre permitido.
         UsuarioAutenticado atual = ContextoUsuario.atual();
-        if (!atual.getUsuarioId().equals(id)) {
+        boolean propriaSenha = atual.getUsuarioId().equals(id);
+        if (!propriaSenha) {
             ContextoUsuario.exigirPermissao(Modulo.USUARIOS, Acao.EDITAR);
         }
 
-        Usuario usuario = buscarPorId(id);
+        // buscarPorId exige permissão de VER usuários — quem troca a própria senha pode não ter
+        Usuario usuario = usuarioRepo.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado: " + id));
+        if (propriaSenha && (dto.getSenhaAtual() == null
+                || !passwordEncoder.matches(dto.getSenhaAtual(), usuario.getSenhaHash()))) {
+            throw new BusinessException("Senha atual incorreta.");
+        }
         usuario.setSenhaHash(passwordEncoder.encode(dto.getNovaSenha()));
         return usuarioRepo.save(usuario);
     }

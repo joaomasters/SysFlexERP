@@ -15,6 +15,8 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -55,10 +57,39 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errors);
     }
 
+    /*
+     Erro inesperado: o detalhe técnico (SQL, nome de tabela/constraint, stack)
+     vai SÓ para o log do servidor. Antes ia na resposta — e entregava a
+     estrutura do banco para quem estivesse sondando a API. O usuário recebe
+     um código para o suporte localizar o erro no log.
+     */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneric(Exception ex) {
+        String codigo = java.util.UUID.randomUUID().toString().substring(0, 8);
+        log.error("Erro interno [{}]", codigo, ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(new ErrorResponse("Erro interno: " + ex.getMessage(), 500));
+                .body(new ErrorResponse("Erro interno inesperado. Se persistir, informe ao suporte o código " + codigo + ".", 500));
+    }
+
+    // Rota inexistente: 404 (antes virava 500 "No static resource ...")
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    public ResponseEntity<ErrorResponse> handleRotaInexistente(Exception ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse("Recurso não encontrado.", 404));
+    }
+
+    // Corpo da requisição ilegível (JSON malformado, tipo errado): 400 sem expor detalhes do parser
+    @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleCorpoInvalido(Exception ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse("Dados enviados em formato inválido.", 400));
+    }
+
+    // Violação de regra do banco (valor fora da lista, duplicado...): 422 com mensagem neutra
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleIntegridade(org.springframework.dao.DataIntegrityViolationException ex) {
+        log.warn("Violação de integridade: {}", ex.getMostSpecificCause() == null ? ex.getMessage() : ex.getMostSpecificCause().getMessage());
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                .body(new ErrorResponse("Os dados informados não são válidos ou já existem no cadastro.", 422));
     }
 
     public record ErrorResponse(String message, int status, LocalDateTime timestamp) {

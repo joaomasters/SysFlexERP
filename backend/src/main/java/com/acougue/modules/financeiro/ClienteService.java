@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -37,6 +38,8 @@ public class ClienteService {
     public Cliente criar(Cliente cliente, Long usuarioId) {
         cliente.setId(null); // garante criação, nunca sobrescreve por engano
         cliente.setCriadoPorId(usuarioId); // autoria vem do token, nunca do corpo da requisição
+        // Saldo de fiado só nasce das vendas/faturamento — nunca informado no cadastro
+        cliente.setSaldoFiadoAtual(BigDecimal.ZERO);
         return clienteRepo.save(cliente);
     }
 

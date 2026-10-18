@@ -21,7 +21,9 @@ import java.util.Map;
 @RestController
 @RequestMapping("/demo/kafka")
 @RequiredArgsConstructor
-@ConditionalOnProperty(name = "kafka.enabled", havingValue = "true")
+// Só existe com Kafka ligado E demo.kafka.enabled=true (DEMO_KAFKA): estas rotas publicam eventos
+// falsos de venda/PIX e não podem ficar abertas em produção.
+@ConditionalOnProperty(name = {"kafka.enabled", "demo.kafka.enabled"}, havingValue = "true")
 public class KafkaDemoController {
 
     private final KafkaTemplate<String, Object> kafkaTemplate;

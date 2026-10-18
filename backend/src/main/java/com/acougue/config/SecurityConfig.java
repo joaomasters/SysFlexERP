@@ -1,6 +1,7 @@
 package com.acougue.config;
 
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.MediaType;
@@ -59,10 +60,20 @@ public class SecurityConfig {
         };
     }
 
+    /*
+     Só os endereços do próprio SysFlex podem chamar a API pelo navegador
+     (lista em seguranca.cors.origens / CORS_ORIGENS). Antes era "*": qualquer
+     site aberto no navegador de um operador podia disparar chamadas à API.
+     */
+    @Value("${seguranca.cors.origens:}")
+    private String origensPermitidas;
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.addAllowedOriginPattern("*");
+        for (String origem : origensPermitidas.split(",")) {
+            if (!origem.isBlank()) config.addAllowedOriginPattern(origem.trim());
+        }
         config.addAllowedMethod("*");
         config.addAllowedHeader("*");
         config.setMaxAge(3600L);

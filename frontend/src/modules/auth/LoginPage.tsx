@@ -30,8 +30,12 @@ export default function LoginPage() {
       )
       setSessao(res.data)
       navigate('/inicio')
-    } catch {
-      setError('Código da empresa, usuário ou senha incorretos')
+    } catch (e: unknown) {
+      const resp = (e as { response?: { status?: number; data?: { message?: string } } }).response
+      // 429 = login bloqueado temporariamente por excesso de tentativas
+      setError(resp?.status === 429 && resp.data?.message
+        ? resp.data.message
+        : 'Código da empresa, usuário ou senha incorretos')
     } finally {
       setLoading(false)
     }

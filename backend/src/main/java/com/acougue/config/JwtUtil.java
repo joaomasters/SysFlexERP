@@ -6,8 +6,10 @@ import com.acougue.entity.Usuario;
 import com.acougue.security.UsuarioAutenticado;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
 import java.util.HashMap;
@@ -17,9 +19,26 @@ import java.util.Map;
 @Component
 public class JwtUtil {
 
-    private static final String SECRET = "acougue-erp-jwt-secret-key-2024-min-256bits!!";
-    private static final long EXPIRATION_MS = 24L * 60 * 60 * 1000; // 24h
-    private final Key key = Keys.hmacShaKeyFor(SECRET.getBytes());
+    private static final long EXPIRATION_MS = 12L * 60 * 60 * 1000; // 12h — um turno de trabalho
+    private static final int TAMANHO_MINIMO_SEGREDO = 32;
+
+    private final Key key;
+
+    /*
+     O segredo que assina os tokens vem SEMPRE de fora do código (JWT_SECRET).
+     Antes ele era uma constante aqui — e como o repositório é público,
+     qualquer pessoa podia forjar um token de super admin e entrar em todas
+     as empresas sem senha. Sem segredo (ou curto demais) a aplicação NÃO
+     sobe: melhor falhar no deploy do que rodar com uma chave conhecida.
+     Trocar o segredo derruba todas as sessões (todos fazem login de novo).
+     */
+    public JwtUtil(@Value("${seguranca.jwt.segredo:}") String segredo) {
+        if (segredo == null || segredo.getBytes(StandardCharsets.UTF_8).length < TAMANHO_MINIMO_SEGREDO) {
+            throw new IllegalStateException("Variável de ambiente JWT_SECRET ausente ou curta demais (mínimo "
+                    + TAMANHO_MINIMO_SEGREDO + " caracteres). Gere uma com: openssl rand -base64 48");
+        }
+        this.key = Keys.hmacShaKeyFor(segredo.getBytes(StandardCharsets.UTF_8));
+    }
 
     /**
      Gera o token carregando identidade completa: usuário, perfil e a
