@@ -14,6 +14,8 @@ export interface SessaoUsuario {
   nome: string
   perfil: string
   superAdmin: boolean
+  /** Super admin da empresa principal — único que gerencia empresas. Ausente em sessões antigas (= false). */
+  administradorPlataforma?: boolean
   permissoes: PermissaoModulo[]
 }
 

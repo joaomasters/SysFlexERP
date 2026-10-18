@@ -3,6 +3,7 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 import { Plus, Pencil, Lock, KeyRound, AlertTriangle, Plug, Copy, Smartphone, BookOpen } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { api } from '@/shared/api/axios'
+import { urlPublicaApi } from '@/shared/api/ambiente'
 import { usePermissao } from '@/shared/hooks/usePermissao'
 import {
   PageHeader, Card, Button, StatusBadge,
@@ -68,7 +69,7 @@ export default function MaquininhasPage() {
   }
 
   const criptoAusente = provedores.length > 0 && !provedores[0].criptoConfigurada
-  const urlCompleta = (caminho?: string) => (caminho ? window.location.origin + caminho : '')
+  const urlCompleta = (caminho?: string) => (caminho ? urlPublicaApi(caminho) : '')
   const copiar = (texto: string) =>
     navigator.clipboard.writeText(texto).then(() => toast.success('Copiado!'))
 
