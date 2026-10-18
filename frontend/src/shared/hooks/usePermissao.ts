@@ -44,6 +44,8 @@ export function usePermissao() {
     podeEditar,
     podeExcluir,
     isSuperAdmin: sessao?.superAdmin ?? false,
+    /** Gerencia as empresas da plataforma (espelha TenantAdminController no backend). */
+    isAdministradorPlataforma: sessao?.administradorPlataforma ?? false,
     perfil: sessao?.perfil ?? null,
     nome: sessao?.nome ?? null,
   }

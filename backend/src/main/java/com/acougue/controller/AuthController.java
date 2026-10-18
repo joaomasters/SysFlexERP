@@ -92,6 +92,8 @@ public class AuthController {
                 "nome",       usuario.getNome(),
                 "perfil",     usuario.getPerfil().getNome(),
                 "superAdmin", usuario.getPerfil().isSuperAdmin(),
+                // Super admin da empresa principal: único que gerencia empresas (ver TenantAdminController)
+                "administradorPlataforma", usuario.getPerfil().isSuperAdmin() && "public".equals(TenantContext.get()),
                 "permissoes", permissoesResposta
         ));
     }

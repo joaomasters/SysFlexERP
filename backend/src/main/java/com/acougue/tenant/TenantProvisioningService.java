@@ -2,6 +2,7 @@ package com.acougue.tenant;
 
 import org.flywaydb.core.Flyway;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import javax.sql.DataSource;
@@ -25,16 +26,31 @@ public class TenantProvisioningService {
     private final DataSource dataSource;
     private final JdbcTemplate jdbc;
     private final TenantRepository tenantRepository;
+    private final DadosIniciaisEmpresaService dadosIniciais;
+    private final PasswordEncoder passwordEncoder;
 
-    public TenantProvisioningService(DataSource dataSource, JdbcTemplate jdbc, TenantRepository tenantRepository) {
+    public TenantProvisioningService(DataSource dataSource, JdbcTemplate jdbc, TenantRepository tenantRepository,
+                                     DadosIniciaisEmpresaService dadosIniciais, PasswordEncoder passwordEncoder) {
         this.dataSource = dataSource;
         this.jdbc = jdbc;
         this.tenantRepository = tenantRepository;
+        this.dadosIniciais = dadosIniciais;
+        this.passwordEncoder = passwordEncoder;
     }
 
-    public Tenant provisionar(String nome) {
+    /**
+     * @param adminSenha senha em claro do primeiro administrador da empresa
+     *                   (vira BCrypt aqui; nunca é gravada nem logada em claro)
+     */
+    public Tenant provisionar(String nome, String adminNome, String adminLogin, String adminSenha) {
         if (nome == null || nome.isBlank()) {
             throw new IllegalArgumentException("Nome da empresa é obrigatório.");
+        }
+        if (adminNome == null || adminNome.isBlank() || adminLogin == null || adminLogin.isBlank()) {
+            throw new IllegalArgumentException("Informe nome e login do administrador da empresa.");
+        }
+        if (adminSenha == null || adminSenha.length() < 6) {
+            throw new IllegalArgumentException("A senha do administrador precisa ter pelo menos 6 caracteres.");
         }
 
         String slug = slugUnico(nome.trim());
@@ -53,6 +69,11 @@ public class TenantProvisioningService {
                 .baselineOnMigrate(true)
                 .load()
                 .migrate();
+
+        // As migrations trazem o seed de demonstração (V3) e o usuário teste/teste (V9):
+        // a empresa nova começa vazia, só com o administrador informado.
+        dadosIniciais.prepararEmpresaNova(schemaName, adminNome.trim(), adminLogin.trim(),
+                passwordEncoder.encode(adminSenha));
 
         String codigo = proximoCodigo();
         tenantRepository.insertInativo(codigo, slug, nome.trim(), schemaName);
