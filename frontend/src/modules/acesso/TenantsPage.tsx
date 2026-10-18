@@ -160,7 +160,7 @@ function NovaEmpresaModal({ onClose }: { onClose: () => void }) {
     },
   })
 
-  const valido = nome.trim() && adminNome.trim() && adminLogin.trim() && adminSenha.length >= 6
+  const valido = nome.trim() && adminNome.trim() && adminLogin.trim() && adminSenha.length >= 8
 
   return (
     <Modal
@@ -192,7 +192,7 @@ function NovaEmpresaModal({ onClose }: { onClose: () => void }) {
               <input value={adminLogin} onChange={e => setAdminLogin(e.target.value)} autoComplete="off"
                      className={baseInputClass} />
             </Field>
-            <Field label="Senha *" hint="Mínimo 6 caracteres">
+            <Field label="Senha *" hint="Mínimo 8 caracteres">
               <input type="password" value={adminSenha} onChange={e => setAdminSenha(e.target.value)}
                      autoComplete="new-password" className={baseInputClass} />
             </Field>

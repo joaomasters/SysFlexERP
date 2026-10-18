@@ -49,8 +49,8 @@ public class TenantProvisioningService {
         if (adminNome == null || adminNome.isBlank() || adminLogin == null || adminLogin.isBlank()) {
             throw new IllegalArgumentException("Informe nome e login do administrador da empresa.");
         }
-        if (adminSenha == null || adminSenha.length() < 6) {
-            throw new IllegalArgumentException("A senha do administrador precisa ter pelo menos 6 caracteres.");
+        if (adminSenha == null || adminSenha.length() < 8) {
+            throw new IllegalArgumentException("A senha do administrador precisa ter pelo menos 8 caracteres.");
         }
 
         String slug = slugUnico(nome.trim());

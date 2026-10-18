@@ -60,6 +60,9 @@ public class ProdutoService {
 
     @Transactional
     public Produto salvar(Produto produto, Long usuarioId) {
+        // Cadastro SEMPRE cria: com um "id" no corpo, o save() sobrescrevia um produto
+        // existente — quem só tinha permissão de criar alterava preço/estoque de outros.
+        produto.setId(null);
         produto.setCriadoPorId(usuarioId); // autoria vem do token, nunca do corpo da requisição
         validarValidadePadrao(produto.getValidadePadraoDias());
         if (produto.getCodigoInterno() == null || produto.getCodigoInterno().isBlank()) {
