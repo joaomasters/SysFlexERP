@@ -14,7 +14,7 @@ public class CriarUsuarioDTO {
     private String login;
 
     @NotBlank(message = "Senha é obrigatória")
-    @Size(min = 4, message = "Senha deve ter ao menos 4 caracteres")
+    @Size(min = 8, max = 72, message = "Senha deve ter entre 8 e 72 caracteres")
     private String senha;
 
     @NotNull(message = "Perfil é obrigatório")

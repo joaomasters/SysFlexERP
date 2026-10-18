@@ -13,7 +13,7 @@ import {
 
 export default function UsuariosPage() {
   const qc = useQueryClient()
-  const { podeVer, podeCriar, podeEditar, podeExcluir } = usePermissao()
+  const { podeVer, podeCriar, podeEditar, podeExcluir, sessao } = usePermissao()
   const verComissao = podeVer('COMISSOES')
 
   const [showNovo, setShowNovo]   = useState(false)
@@ -23,6 +23,7 @@ export default function UsuariosPage() {
   const [perfilId, setPerfilId]   = useState('')
   const [trocandoSenhaId, setTrocandoSenhaId] = useState<number | null>(null)
   const [novaSenha, setNovaSenha] = useState('')
+  const [senhaAtual, setSenhaAtual] = useState('')
   const [confirmando, setConfirmando] = useState<Usuario | null>(null)
 
   const { data: usuarios = [] } = useQuery<Usuario[]>({
@@ -66,11 +67,12 @@ export default function UsuariosPage() {
   })
 
   const trocarSenha = useMutation({
-    mutationFn: (id: number) => api.put(`/usuarios/${id}/senha`, { novaSenha }),
+    mutationFn: (id: number) => api.put(`/usuarios/${id}/senha`, { novaSenha, senhaAtual: senhaAtual || undefined }),
     onSuccess: () => {
       toast.success('Senha alterada.')
       setTrocandoSenhaId(null)
       setNovaSenha('')
+      setSenhaAtual('')
     },
   })
 
@@ -111,7 +113,7 @@ export default function UsuariosPage() {
           <Field label="Login *">
             <input value={login} onChange={e => setLogin(e.target.value)} className={baseInputClass} />
           </Field>
-          <Field label="Senha *">
+          <Field label="Senha * (mín. 8)">
             <input type="password" value={senha} onChange={e => setSenha(e.target.value)} className={baseInputClass} />
           </Field>
           <Field label="Perfil *">
@@ -122,7 +124,7 @@ export default function UsuariosPage() {
           </Field>
           <Button
             variant="success"
-            disabled={!nome || !login || !senha || !perfilId}
+            disabled={!nome || !login || senha.length < 8 || !perfilId}
             loading={criar.isPending}
             onClick={() => criar.mutate()}
           >
@@ -201,12 +203,12 @@ export default function UsuariosPage() {
       {trocandoSenhaId !== null && (
         <Modal
           title="Trocar senha"
-          onClose={() => { setTrocandoSenhaId(null); setNovaSenha('') }}
+          onClose={() => { setTrocandoSenhaId(null); setNovaSenha(''); setSenhaAtual('') }}
           footer={
             <Button
               variant="primary"
               fullWidth
-              disabled={novaSenha.length < 4}
+              disabled={novaSenha.length < 8 || (trocandoSenhaId === sessao?.usuarioId && !senhaAtual)}
               loading={trocarSenha.isPending}
               onClick={() => trocarSenha.mutate(trocandoSenhaId)}
             >
@@ -214,12 +216,25 @@ export default function UsuariosPage() {
             </Button>
           }
         >
+          {/* Trocar a PRÓPRIA senha exige a atual (o backend confere) */}
+          {trocandoSenhaId === sessao?.usuarioId && (
+            <input
+              type="password"
+              autoFocus
+              value={senhaAtual}
+              onChange={e => setSenhaAtual(e.target.value)}
+              placeholder="Senha atual"
+              autoComplete="current-password"
+              className={baseInputClass}
+            />
+          )}
           <input
             type="password"
-            autoFocus
+            autoFocus={trocandoSenhaId !== sessao?.usuarioId}
             value={novaSenha}
             onChange={e => setNovaSenha(e.target.value)}
-            placeholder="Nova senha (mín. 4 caracteres)"
+            placeholder="Nova senha (mín. 8 caracteres)"
+            autoComplete="new-password"
             className={baseInputClass}
           />
         </Modal>

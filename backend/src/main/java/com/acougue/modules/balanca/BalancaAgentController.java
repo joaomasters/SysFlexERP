@@ -1,6 +1,9 @@
 package com.acougue.modules.balanca;
 
 import com.acougue.entity.CargaAgendada;
+import com.acougue.entity.Modulo;
+import com.acougue.security.Acao;
+import com.acougue.security.ExigirPermissao;
 import com.acougue.repository.CargaAgendadaRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +24,7 @@ public class BalancaAgentController {
     private final CargaAgendadaRepository cargaAgendadaRepo;
     private final BalancaSchedulerService  schedulerService;
 
+    @ExigirPermissao(modulo = Modulo.CARGA_BALANCA, acao = Acao.VER)
     @GetMapping("/carga-pendente")
     public ResponseEntity<Map<String, Object>> cargaPendente() {
         Optional<CargaAgendada> pendente =
@@ -42,6 +46,7 @@ public class BalancaAgentController {
         ));
     }
 
+    @ExigirPermissao(modulo = Modulo.CARGA_BALANCA, acao = Acao.EDITAR)
     @PostMapping("/confirmar/{id}")
     public ResponseEntity<Void> confirmar(@PathVariable Long id) {
         return cargaAgendadaRepo.findById(id).map(c -> {
@@ -53,6 +58,7 @@ public class BalancaAgentController {
         }).orElse(ResponseEntity.notFound().build());
     }
 
+    @ExigirPermissao(modulo = Modulo.CARGA_BALANCA, acao = Acao.EDITAR)
     @PostMapping("/erro/{id}")
     public ResponseEntity<Void> registrarErro(
             @PathVariable Long id,
@@ -66,6 +72,7 @@ public class BalancaAgentController {
         }).orElse(ResponseEntity.notFound().build());
     }
 
+    @ExigirPermissao(modulo = Modulo.CARGA_BALANCA, acao = Acao.EDITAR)
     @PostMapping("/forcar-carga")
     public ResponseEntity<Map<String, Object>> forcarCarga() {
         CargaAgendada carga = schedulerService.gerarCargaManual();
@@ -80,6 +87,7 @@ public class BalancaAgentController {
         ));
     }
 
+    @ExigirPermissao(modulo = Modulo.CARGA_BALANCA, acao = Acao.VER)
     @GetMapping("/historico")
     public ResponseEntity<List<CargaAgendada>> historico() {
         return ResponseEntity.ok(cargaAgendadaRepo.findTop20ByOrderByCriadoEmDesc());

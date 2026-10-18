@@ -5,6 +5,7 @@ import com.acougue.entity.Modulo;
 import com.acougue.entity.Venda;
 import com.acougue.modules.pdv.dto.*;
 import com.acougue.security.Acao;
+import com.acougue.security.ContextoUsuario;
 import com.acougue.security.ExigirPermissao;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -26,9 +27,10 @@ public class PdvController {
     @ExigirPermissao(modulo = Modulo.PDV, acao = Acao.CRIAR)
     @PostMapping("/caixa/abrir")
     public ResponseEntity<Caixa> abrirCaixa(
-            @RequestParam Long operadorId,
+            @RequestParam(required = false) Long operadorId,
             @RequestParam BigDecimal valorAbertura) {
-        return ResponseEntity.ok(pdvService.abrirCaixa(operadorId, valorAbertura));
+        // Abre o caixa para quem está logado — o operadorId enviado pela tela é ignorado
+        return ResponseEntity.ok(pdvService.abrirCaixa(ContextoUsuario.atual().getUsuarioId(), valorAbertura));
     }
 
     @ExigirPermissao(modulo = Modulo.PDV, acao = Acao.CRIAR)
@@ -44,6 +46,8 @@ public class PdvController {
     @ExigirPermissao(modulo = Modulo.PDV, acao = Acao.CRIAR)
     @PostMapping("/vendas/abrir")
     public ResponseEntity<Venda> abrirVenda(@RequestBody @Valid AbrirVendaDTO dto) {
+        // O vendedor (e portanto a comissão) é quem está logado, nunca o informado pela tela
+        dto.setOperadorId(ContextoUsuario.atual().getUsuarioId());
         return ResponseEntity.ok(pdvService.abrirVenda(dto));
     }
 
