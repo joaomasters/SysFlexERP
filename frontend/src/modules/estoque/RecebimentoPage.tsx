@@ -313,7 +313,7 @@ export default function RecebimentoPage() {
         <Modal
           title="Nova Entrada de Mercadoria"
           onClose={resetForm}
-          maxWidth="lg"
+          maxWidth="xl"
           footer={
             <>
               <Button variant="secondary" fullWidth onClick={resetForm}>Cancelar</Button>
@@ -377,9 +377,9 @@ export default function RecebimentoPage() {
               {itens.map((item, idx) => {
                 const produtoSel = produtos.find(p => p.id === item.produtoId)
                 return (
-                  <div key={idx} className="grid grid-cols-12 gap-2 items-end bg-gray-50 border border-gray-100 rounded-lg p-3">
-                    <div className="col-span-4">
-                      {idx === 0 && <label className="text-xs text-gray-500 block mb-1">Produto</label>}
+                  <div key={idx} className="grid grid-cols-6 sm:grid-cols-12 gap-2 items-end bg-gray-50 border border-gray-100 rounded-lg p-3">
+                    <div className="col-span-6 sm:col-span-4">
+                      <label className={`text-xs text-gray-500 block mb-1 ${idx === 0 ? '' : 'sm:hidden'}`}>Produto</label>
                       <select
                         value={item.produtoId}
                         onChange={e => updateItem(idx, 'produtoId', parseInt(e.target.value))}
@@ -391,8 +391,8 @@ export default function RecebimentoPage() {
                         ))}
                       </select>
                     </div>
-                    <div className="col-span-3">
-                      {idx === 0 && <label className="text-xs text-gray-500 block mb-1">Quantidade</label>}
+                    <div className="col-span-3 sm:col-span-3">
+                      <label className={`text-xs text-gray-500 block mb-1 ${idx === 0 ? '' : 'sm:hidden'}`}>Quantidade</label>
                       <WeightInput
                         value={item.quantidade}
                         onChange={v => updateItem(idx, 'quantidade', v)}
@@ -400,16 +400,16 @@ export default function RecebimentoPage() {
                         size="sm"
                       />
                     </div>
-                    <div className="col-span-2">
-                      {idx === 0 && <label className="text-xs text-gray-500 block mb-1">Custo/un</label>}
+                    <div className="col-span-3 sm:col-span-2">
+                      <label className={`text-xs text-gray-500 block mb-1 ${idx === 0 ? '' : 'sm:hidden'}`}>Custo/un</label>
                       <CurrencyInput
                         value={item.custoUnitario}
                         onChange={v => updateItem(idx, 'custoUnitario', v)}
                         size="sm"
                       />
                     </div>
-                    <div className="col-span-2">
-                      {idx === 0 && <label className="text-xs text-gray-500 block mb-1">Validade</label>}
+                    <div className="col-span-5 sm:col-span-2">
+                      <label className={`text-xs text-gray-500 block mb-1 ${idx === 0 ? '' : 'sm:hidden'}`}>Validade</label>
                       <input
                         type="date"
                         value={item.dataValidade}
