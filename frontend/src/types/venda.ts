@@ -74,11 +74,13 @@ export interface PagamentoDTO {
   valor: number
   nsu?: string
   autorizacao?: string
-  // Stone TEF
-  stoneNsu?: string
-  stoneAuth?: string
-  // PIX
-  pixMpId?: string
+  // Cartão
+  parcelas?: number
+  bandeira?: string
+  /** Cobrança feita em maquininha integrada — o backend valida que está APROVADA */
+  transacaoTerminalId?: number
+  // PIX: id do pagamento no Mercado Pago
+  referenciaExterna?: string
   // Cheque
   chequeBanco?: string
   chequeNumero?: string

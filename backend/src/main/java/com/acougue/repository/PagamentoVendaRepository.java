@@ -15,6 +15,8 @@ public interface PagamentoVendaRepository extends JpaRepository<PagamentoVenda, 
 
     List<PagamentoVenda> findByVendaId(Long vendaId);
 
+    boolean existsByTransacaoTerminalId(Long transacaoTerminalId);
+
     @Query("SELECT p.formaPagamento, COALESCE(SUM(p.valor), 0) FROM PagamentoVenda p " +
            "WHERE p.dataPagamento BETWEEN :inicio AND :fim " +
            "GROUP BY p.formaPagamento")

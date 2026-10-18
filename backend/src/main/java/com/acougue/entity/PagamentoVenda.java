@@ -27,11 +27,38 @@ public class PagamentoVenda {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal valor;
 
-    @Column(length = 20)
+    @Column(length = 50)
     private String nsu;
 
-    @Column(length = 20)
+    @Column(length = 50)
     private String autorizacao;
+
+    // ── Cartão ──────────────────────────────────────────────────
+    private Integer parcelas;
+
+    @Column(length = 30)
+    private String bandeira;
+
+    @Column(length = 20)
+    private String provedor;
+
+    /** Preenchido quando o cartão passou por uma maquininha integrada (ver TransacaoTerminal). */
+    @Column(name = "transacao_terminal_id", unique = true)
+    private Long transacaoTerminalId;
+
+    /** Id do pagamento no provedor (ex: PIX no Mercado Pago). */
+    @Column(name = "referencia_externa", length = 100)
+    private String referenciaExterna;
+
+    // ── Cheque ──────────────────────────────────────────────────
+    @Column(name = "cheque_banco", length = 60)
+    private String chequeBanco;
+
+    @Column(name = "cheque_numero", length = 30)
+    private String chequeNumero;
+
+    @Column(name = "cheque_titular", length = 150)
+    private String chequeTitular;
 
     @Column(name = "data_pagamento")
     @CreationTimestamp

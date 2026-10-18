@@ -14,10 +14,10 @@ spring:
 kafka:
   enabled: false
 pagamento:
+  # Só para desenvolvimento local — em produção use a variável PAGAMENTO_CRIPTO_CHAVE
+  cripto-chave: dev-local-chave-nao-usar-em-producao
   pix:
     mp-access-token: ""
-  stone:
-    agent-url: http://localhost:12345
 acougue:
   cors:
     allowed-origins: http://localhost:5173,http://localhost:3000

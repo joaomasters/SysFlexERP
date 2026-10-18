@@ -38,6 +38,7 @@ public class SecurityConfig {
                         .requestMatchers("/auth/login").permitAll()
                         .requestMatchers("/actuator/health").permitAll()        // healthcheck do Docker
                         .requestMatchers("/pagamento/pix/webhook").permitAll()  // MP não envia token
+                        .requestMatchers("/pagamento/webhook/**").permitAll()   // adquirentes não enviam token (ver WebhookPagamentoController)
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);

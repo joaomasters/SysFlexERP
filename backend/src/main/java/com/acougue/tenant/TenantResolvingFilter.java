@@ -28,6 +28,7 @@ import java.io.IOException;
 public class TenantResolvingFilter extends OncePerRequestFilter {
 
     public static final String HEADER_TENANT_CODIGO = "X-Tenant-Codigo";
+    public static final String PARAM_TENANT_WEBHOOK = "tenant";
 
     // Schema garantidamente inexistente — nunca cai em public por engano
     // quando o código informado está errado (ver AuthController, que é
@@ -73,6 +74,15 @@ public class TenantResolvingFilter extends OncePerRequestFilter {
         // sem consumir o InputStream, e o OSIV já abre sessão antes do
         // AuthController rodar.
         String codigo = req.getHeader(HEADER_TENANT_CODIGO);
+
+        // Webhooks de adquirentes (Mercado Pago, Stone) não mandam header
+        // customizado: a empresa vem no ?tenant=<código> da URL cadastrada no
+        // painel de cada adquirente. Só nesses caminhos — getParameter() aqui
+        // não consome o corpo JSON (só leria corpo form-urlencoded).
+        if ((codigo == null || codigo.isBlank()) && ehWebhookPagamento(req)) {
+            codigo = req.getParameter(PARAM_TENANT_WEBHOOK);
+        }
+
         if (codigo != null && !codigo.isBlank()) {
             return tenantRepository.findByCodigo(codigo.trim())
                     .filter(Tenant::ativo)
@@ -81,9 +91,14 @@ public class TenantResolvingFilter extends OncePerRequestFilter {
         }
 
         // Nenhum código: endpoints que não envolvem tenant (healthcheck,
-        // webhook do PIX) continuam resolvendo pro schema public. O
+        // webhook sem ?tenant=) continuam resolvendo pro schema public. O
         // /auth/login em si EXIGE o código — quem barra isso com um 401
         // limpo é o AuthController, não este filtro.
         return "public";
+    }
+
+    private static boolean ehWebhookPagamento(HttpServletRequest req) {
+        String caminho = req.getRequestURI().substring(req.getContextPath().length());
+        return caminho.startsWith("/pagamento/webhook/") || caminho.equals("/pagamento/pix/webhook");
     }
 }

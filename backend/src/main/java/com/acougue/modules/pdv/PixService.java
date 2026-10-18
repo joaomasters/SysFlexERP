@@ -3,6 +3,7 @@ package com.acougue.modules.pdv;
 import com.acougue.entity.PagamentoPix;
 import com.acougue.exception.BusinessException;
 import com.acougue.modules.messaging.events.PixConfirmadoEvent;
+import com.acougue.modules.pagamento.CredenciaisPagamentoService;
 import com.acougue.modules.messaging.producers.PixEventProducer;
 import com.acougue.repository.PagamentoPixRepository;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -30,17 +31,27 @@ public class PixService {
 
     private final PagamentoPixRepository pixRepo;
     private final ObjectMapper objectMapper;
+    private final CredenciaisPagamentoService credenciais;
 
-    
+
     @Autowired(required = false)
     private PixEventProducer pixEventProducer;
 
-    
+    /**
+     * Token da empresa atual cadastrado em Maquininhas → Mercado Pago; sem ele,
+     * o MP_ACCESS_TOKEN global do ambiente (comportamento anterior). Vazio = PIX não configurado.
+     */
+    private String tokenMercadoPago() {
+        return credenciais.tokenMercadoPago()
+                .orElse(mpAccessToken == null ? "" : mpAccessToken);
+    }
+
     public PixChargeResponse criarCobranca(BigDecimal valor, Long vendaId) {
-        if (mpAccessToken == null || mpAccessToken.isBlank()) {
+        String mpAccessToken = tokenMercadoPago();
+        if (mpAccessToken.isBlank()) {
             throw new BusinessException(
-                "Integração PIX não configurada. " +
-                "Adicione a variável de ambiente MP_ACCESS_TOKEN no Railway.");
+                "Integração PIX não configurada. Cadastre o Access Token do Mercado Pago " +
+                "em Maquininhas → Credenciais (ou a variável MP_ACCESS_TOKEN no servidor).");
         }
 
         try {
@@ -92,7 +103,13 @@ public class PixService {
 
     
     public Map<String, String> verificarStatus(String mpPaymentId) {
-        if (mpAccessToken == null || mpAccessToken.isBlank()) {
+        String mpAccessToken;
+        try {
+            mpAccessToken = tokenMercadoPago();
+        } catch (BusinessException e) {
+            return Map.of("status", "ERRO", "message", e.getMessage());
+        }
+        if (mpAccessToken.isBlank()) {
             return Map.of("status", "ERRO", "message", "PIX não configurado");
         }
 

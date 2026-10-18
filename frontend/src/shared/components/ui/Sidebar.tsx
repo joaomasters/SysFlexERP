@@ -45,6 +45,7 @@ const nav = [
   { label: 'Usuários', href: '/acesso/usuarios', icon: Users,       modulo: 'USUARIOS' },
   { label: 'Perfis',   href: '/acesso/perfis',   icon: ShieldCheck, modulo: 'PERFIS' },
   { label: 'Auditoria', href: '/acesso/auditoria', icon: ShieldAlert, modulo: 'AUDITORIA' },
+  { label: 'Maquininhas', href: '/acesso/maquininhas', icon: CreditCard, modulo: 'MAQUININHAS' },
   // Sem Modulo correspondente no backend de propósito — só super admin
   // provisiona/ativa empresas, e o filtro abaixo já dá bypass pra ele
   // (isSuperAdmin ||) antes mesmo de chamar podeVer.
