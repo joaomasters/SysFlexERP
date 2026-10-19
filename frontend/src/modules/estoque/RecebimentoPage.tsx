@@ -57,6 +57,9 @@ export default function RecebimentoPage() {
   const [observacao, setObservacao]   = useState('')
   const [xmlNf, setXmlNf]             = useState('')
   const [itens, setItens]             = useState<RecItem[]>([{ produtoId: 0, quantidade: 0, custoUnitario: 0, dataValidade: '' }])
+  // Só mostra os erros depois da primeira tentativa de registrar — evita o
+  // formulário abrir já todo vermelho.
+  const [tentouSalvar, setTentouSalvar] = useState(false)
 
   const { data: produtos = [] } = useQuery<Produto[]>({
     queryKey: ['produtos'],
@@ -109,6 +112,7 @@ export default function RecebimentoPage() {
     setFornecedor(''); setNumeroNf(''); setSerieNf('1')
     setChaveNf(''); setDataEmissao(''); setValorTotal(0)
     setObservacao(''); setXmlNf('')
+    setTentouSalvar(false)
     setItens([{ produtoId: 0, quantidade: 0, custoUnitario: 0, dataValidade: '' }])
   }
 
@@ -141,7 +145,37 @@ export default function RecebimentoPage() {
     e.target.value = ''
   }
 
-  const canSave = fornecedor.trim() !== '' && itens.some(i => i.produtoId > 0 && i.quantidade > 0)
+  // Todos os campos da entrada são obrigatórios.
+  const erros = {
+    fornecedor:  fornecedor.trim() ? '' : 'Informe o fornecedor.',
+    numeroNf:    numeroNf.trim() ? '' : 'Informe o número da NF.',
+    serieNf:     serieNf.trim() ? '' : 'Informe a série.',
+    chaveNf:     /^\d{44}$/.test(chaveNf) ? '' : `A chave deve ter 44 dígitos (${chaveNf.length}/44).`,
+    dataEmissao: dataEmissao ? '' : 'Informe a data de emissão.',
+    valorTotal:  valorTotal > 0 ? '' : 'Informe o valor total da NF.',
+    xmlNf:       xmlNf ? '' : 'Anexe o XML da NF.',
+    observacao:  observacao.trim() ? '' : 'Informe a observação.',
+  }
+  const errosItens = itens.map(i => ({
+    produto:    i.produtoId <= 0,
+    quantidade: i.quantidade <= 0,
+    custo:      i.custoUnitario <= 0,
+    validade:   !i.dataValidade,
+  }))
+  const itensInvalidos = errosItens.some(e => e.produto || e.quantidade || e.custo || e.validade)
+  const formInvalido = Object.values(erros).some(Boolean) || itensInvalidos
+
+  const mostrar = (msg: string) => (tentouSalvar && msg ? msg : undefined)
+  const campoErro = (msg: string) => (tentouSalvar && msg ? '!border-danger-500' : '')
+
+  function tentarRegistrar() {
+    setTentouSalvar(true)
+    if (formInvalido) {
+      toast.error('Preencha todos os campos obrigatórios.')
+      return
+    }
+    registrar.mutate()
+  }
 
   const rec = recebimentos.find(r => r.id === xmlViewId)
 
@@ -313,44 +347,46 @@ export default function RecebimentoPage() {
         <Modal
           title="Nova Entrada de Mercadoria"
           onClose={resetForm}
-          maxWidth="lg"
+          maxWidth="xl"
           footer={
             <>
               <Button variant="secondary" fullWidth onClick={resetForm}>Cancelar</Button>
-              <Button variant="primary" fullWidth disabled={!canSave} loading={registrar.isPending} onClick={() => registrar.mutate()}>
+              <Button variant="primary" fullWidth loading={registrar.isPending} onClick={tentarRegistrar}>
                 Registrar Entrada
               </Button>
             </>
           }
         >
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Fornecedor *" className="col-span-2">
+            <Field label="Fornecedor *" className="col-span-2" error={mostrar(erros.fornecedor)}>
               <input value={fornecedor} onChange={e => setFornecedor(e.target.value)}
-                className={baseInputClass} placeholder="Nome do fornecedor" />
+                className={`${baseInputClass} ${campoErro(erros.fornecedor)}`} placeholder="Nome do fornecedor" />
             </Field>
-            <Field label="Número NF">
+            <Field label="Número NF *" error={mostrar(erros.numeroNf)}>
               <input value={numeroNf} onChange={e => setNumeroNf(e.target.value)}
-                className={baseInputClass} placeholder="000001" />
+                className={`${baseInputClass} ${campoErro(erros.numeroNf)}`} placeholder="000001" />
             </Field>
-            <Field label="Série">
+            <Field label="Série *" error={mostrar(erros.serieNf)}>
               <input value={serieNf} onChange={e => setSerieNf(e.target.value)}
-                className={baseInputClass} placeholder="1" />
+                className={`${baseInputClass} ${campoErro(erros.serieNf)}`} placeholder="1" />
             </Field>
-            <Field label="Chave de Acesso (44 dígitos)" className="col-span-2">
-              <input value={chaveNf} onChange={e => setChaveNf(e.target.value)}
-                className={`${baseInputClass} font-mono`}
+            <Field label="Chave de Acesso (44 dígitos) *" className="col-span-2" error={mostrar(erros.chaveNf)}>
+              <input value={chaveNf} onChange={e => setChaveNf(e.target.value.replace(/\D/g, ''))}
+                inputMode="numeric"
+                className={`${baseInputClass} font-mono ${campoErro(erros.chaveNf)}`}
                 placeholder="00000000000000000000000000000000000000000000" maxLength={44} />
             </Field>
-            <Field label="Data de Emissão">
+            <Field label="Data de Emissão *" error={mostrar(erros.dataEmissao)}>
               <input type="date" value={dataEmissao} onChange={e => setDataEmissao(e.target.value)}
-                className={baseInputClass} />
+                className={`${baseInputClass} ${campoErro(erros.dataEmissao)}`} />
             </Field>
-            <Field label="Valor Total NF">
-              <CurrencyInput value={valorTotal} onChange={setValorTotal} />
+            <Field label="Valor Total NF *" error={mostrar(erros.valorTotal)}>
+              <CurrencyInput value={valorTotal} onChange={setValorTotal}
+                className={tentouSalvar && erros.valorTotal ? '[&_input]:!border-danger-500' : ''} />
             </Field>
-            <Field label="XML da NF" className="col-span-2">
+            <Field label="XML da NF *" className="col-span-2" error={mostrar(erros.xmlNf)}>
               <div className="flex items-center gap-2">
-                <label className="flex items-center gap-2 px-3 py-2 border border-dashed border-gray-300 rounded-lg text-sm text-gray-500 cursor-pointer hover:bg-gray-50 flex-1">
+                <label className={`flex items-center gap-2 px-3 py-2 border border-dashed rounded-lg text-sm text-gray-500 cursor-pointer hover:bg-gray-50 flex-1 ${tentouSalvar && erros.xmlNf ? 'border-danger-500' : 'border-gray-300'}`}>
                   <Upload size={14} />
                   {xmlNf ? '✓ XML carregado' : 'Selecionar arquivo .xml'}
                   <input ref={fileRef} type="file" accept=".xml" className="hidden" onChange={e => handleXmlFile(e)} />
@@ -360,8 +396,9 @@ export default function RecebimentoPage() {
                 )}
               </div>
             </Field>
-            <Field label="Observação" className="col-span-2">
-              <input value={observacao} onChange={e => setObservacao(e.target.value)} className={baseInputClass} />
+            <Field label="Observação *" className="col-span-2" error={mostrar(erros.observacao)}>
+              <input value={observacao} onChange={e => setObservacao(e.target.value)}
+                className={`${baseInputClass} ${campoErro(erros.observacao)}`} />
             </Field>
           </div>
 
@@ -376,14 +413,16 @@ export default function RecebimentoPage() {
             <div className="space-y-2">
               {itens.map((item, idx) => {
                 const produtoSel = produtos.find(p => p.id === item.produtoId)
+                const ei = errosItens[idx]
+                const bad = (v: boolean) => (tentouSalvar && v ? '!border-danger-500' : '')
                 return (
-                  <div key={idx} className="grid grid-cols-12 gap-2 items-end bg-gray-50 border border-gray-100 rounded-lg p-3">
-                    <div className="col-span-4">
-                      {idx === 0 && <label className="text-xs text-gray-500 block mb-1">Produto</label>}
+                  <div key={idx} className="grid grid-cols-6 sm:grid-cols-12 gap-2 items-end bg-gray-50 border border-gray-100 rounded-lg p-3">
+                    <div className="col-span-6 sm:col-span-4">
+                      <label className={`text-xs text-gray-500 block mb-1 ${idx === 0 ? '' : 'sm:hidden'}`}>Produto *</label>
                       <select
                         value={item.produtoId}
                         onChange={e => updateItem(idx, 'produtoId', parseInt(e.target.value))}
-                        className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white"
+                        className={`w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white ${bad(ei.produto)}`}
                       >
                         <option value={0}>Selecione...</option>
                         {produtos.map(p => (
@@ -391,31 +430,33 @@ export default function RecebimentoPage() {
                         ))}
                       </select>
                     </div>
-                    <div className="col-span-3">
-                      {idx === 0 && <label className="text-xs text-gray-500 block mb-1">Quantidade</label>}
+                    <div className="col-span-3 sm:col-span-3">
+                      <label className={`text-xs text-gray-500 block mb-1 ${idx === 0 ? '' : 'sm:hidden'}`}>Quantidade *</label>
                       <WeightInput
                         value={item.quantidade}
                         onChange={v => updateItem(idx, 'quantidade', v)}
                         unit={(produtoSel?.unidadeMedida ?? 'kg').toLowerCase()}
                         size="sm"
+                        className={tentouSalvar && ei.quantidade ? '[&_input]:!border-danger-500' : ''}
                       />
                     </div>
-                    <div className="col-span-2">
-                      {idx === 0 && <label className="text-xs text-gray-500 block mb-1">Custo/un</label>}
+                    <div className="col-span-3 sm:col-span-2">
+                      <label className={`text-xs text-gray-500 block mb-1 ${idx === 0 ? '' : 'sm:hidden'}`}>Custo/un *</label>
                       <CurrencyInput
                         value={item.custoUnitario}
                         onChange={v => updateItem(idx, 'custoUnitario', v)}
                         size="sm"
+                        className={tentouSalvar && ei.custo ? '[&_input]:!border-danger-500' : ''}
                       />
                     </div>
-                    <div className="col-span-2">
-                      {idx === 0 && <label className="text-xs text-gray-500 block mb-1">Validade</label>}
+                    <div className="col-span-5 sm:col-span-2">
+                      <label className={`text-xs text-gray-500 block mb-1 ${idx === 0 ? '' : 'sm:hidden'}`}>Validade *</label>
                       <input
                         type="date"
                         value={item.dataValidade}
                         onChange={e => updateItem(idx, 'dataValidade', e.target.value)}
-                        title="Validade do lote recebido (opcional)"
-                        className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white"
+                        title="Validade do lote recebido"
+                        className={`w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white ${bad(ei.validade)}`}
                       />
                     </div>
                     <div className="col-span-1 flex justify-center">
@@ -429,6 +470,11 @@ export default function RecebimentoPage() {
                 )
               })}
             </div>
+            {tentouSalvar && itensInvalidos && (
+              <p className="text-danger-600 text-xs mt-2">
+                Preencha produto, quantidade, custo e validade em todos os itens (ou remova os itens em branco).
+              </p>
+            )}
           </div>
         </Modal>
       )}

@@ -19,15 +19,15 @@ const maxWidthClasses = { sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-lg', xl: 'm
 export default function Modal({ title, onClose, children, maxWidth = 'sm', footer }: ModalProps) {
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className={`bg-white rounded-2xl w-full ${maxWidthClasses[maxWidth]} shadow-xl`}>
-        <div className="flex items-center justify-between px-6 py-4 border-b">
+      <div className={`bg-white rounded-2xl w-full ${maxWidthClasses[maxWidth]} shadow-xl max-h-full flex flex-col`}>
+        <div className="flex items-center justify-between px-6 py-4 border-b shrink-0">
           <h2 className="font-bold text-gray-900">{title}</h2>
           <button onClick={onClose} aria-label="Fechar">
             <X size={20} className="text-gray-400 hover:text-gray-600" />
           </button>
         </div>
-        <div className="px-6 py-5 space-y-4">{children}</div>
-        {footer && <div className="flex gap-3 px-6 pb-6">{footer}</div>}
+        <div className="px-6 py-5 space-y-4 overflow-y-auto min-h-0 flex-1">{children}</div>
+        {footer && <div className="flex gap-3 px-6 pb-6 pt-2 shrink-0">{footer}</div>}
       </div>
     </div>
   )
