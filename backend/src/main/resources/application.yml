@@ -85,6 +85,9 @@ demo:
   kafka:
     # Rotas /demo/kafka (publicam eventos falsos). Nunca ligar em produção.
     enabled: ${DEMO_KAFKA:false}
+recebimento:
+  # Dias para cancelar uma entrada de mercadoria (7 = prazo adotado no Paraná)
+  prazo-cancelamento-dias: ${RECEBIMENTO_PRAZO_CANCELAMENTO_DIAS:7}
 pagamento:
   # Chave que cifra as credenciais das adquirentes salvas no banco (tela
   # Maquininhas). Qualquer texto longo e aleatório; NÃO troque depois de
