@@ -1,6 +1,5 @@
 package com.acougue.tenant;
 
-import org.flywaydb.core.Flyway;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -60,15 +59,8 @@ public class TenantProvisioningService {
         // mas deixar explícito não custa nada e documenta a intenção.
         jdbc.execute("CREATE SCHEMA IF NOT EXISTS " + schemaName);
 
-        Flyway.configure()
-                .dataSource(dataSource)
-                .schemas(schemaName)
-                .defaultSchema(schemaName)
-                .createSchemas(true)
-                .locations("classpath:db/migration")
-                .baselineOnMigrate(true)
-                .load()
-                .migrate();
+        // Mesma configuração usada no boot para manter todas as empresas atualizadas
+        MigradorSchemasEmpresas.migrar(dataSource, schemaName);
 
         // As migrations trazem o seed de demonstração (V3) e o usuário teste/teste (V9):
         // a empresa nova começa vazia, só com o administrador informado.
