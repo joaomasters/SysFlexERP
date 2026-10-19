@@ -24,6 +24,9 @@ public interface LoteEstoqueRepository extends JpaRepository<LoteEstoque, Long> 
             "ORDER BY l.dataValidade ASC, l.id ASC")
     List<LoteEstoque> findDisponiveisParaBaixa(@Param("produtoId") Long produtoId);
 
+    /** Lotes criados por um documento de entrada (cancelamento de recebimento), mais recentes primeiro. */
+    List<LoteEstoque> findByProdutoIdAndDocumentoRefOrderByIdDesc(Long produtoId, String documentoRef);
+
     /** Todos os lotes com saldo, do que vence primeiro para o que vence depois (consulta/alertas). */
     @Query("SELECT l FROM LoteEstoque l JOIN FETCH l.produto p " +
             "WHERE l.quantidadeAtual > 0 " +

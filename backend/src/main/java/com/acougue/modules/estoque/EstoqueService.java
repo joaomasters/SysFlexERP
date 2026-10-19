@@ -66,6 +66,77 @@ public class EstoqueService {
         registrar(produto, quantidade, produto.getPrecoCusto(), tipoMov, docRef, usuarioId);
     }
 
+    /**
+     * Desfaz uma entrada (cancelamento de recebimento): tira a quantidade do
+     * estoque, recalcula o custo médio sem ela, remove o saldo do lote que a
+     * entrada criou e registra a movimentação de estorno.
+     *
+     * @param docRefsEntrada documentos possíveis da entrada original, em ordem de preferência
+     *                       (para achar o lote dela)
+     */
+    @Transactional
+    public void estornarEntrada(Produto produto, BigDecimal quantidade, BigDecimal custoUnitario,
+                                List<String> docRefsEntrada, String docRef, Long usuarioId) {
+        if (produto.getEstoqueAtual().compareTo(quantidade) < 0) {
+            throw new BusinessException(String.format(
+                    "'%s' já teve saída depois da entrada (estoque atual %.3f, entrada %.3f). "
+                            + "Não dá para cancelar automaticamente — ajuste pelo inventário.",
+                    produto.getNome(), produto.getEstoqueAtual(), quantidade));
+        }
+        reverterCustoMedio(produto, quantidade, custoUnitario);
+        produto.setEstoqueAtual(produto.getEstoqueAtual().subtract(quantidade).setScale(4, RoundingMode.HALF_UP));
+        produtoRepo.save(produto);
+        estornarLote(produto, quantidade, docRefsEntrada);
+        registrar(produto, quantidade, custoUnitario, "SAIDA_ESTORNO_RECEBIMENTO", docRef, usuarioId);
+    }
+
+    /**
+     * Tira o saldo do lote criado pela entrada (mesmo documento, mais recente primeiro).
+     * Se a entrada não criou lote (sem validade), não há o que tirar. No fim garante
+     * a regra da V20: soma dos lotes nunca maior que o estoque do produto.
+     */
+    private void estornarLote(Produto produto, BigDecimal quantidade, List<String> docRefsEntrada) {
+        BigDecimal restante = quantidade;
+        for (String ref : docRefsEntrada) {
+            for (LoteEstoque lote : loteRepo.findByProdutoIdAndDocumentoRefOrderByIdDesc(produto.getId(), ref)) {
+                if (restante.signum() <= 0) break;
+                BigDecimal tirar = lote.getQuantidadeAtual().min(restante);
+                if (tirar.signum() <= 0) continue;
+                lote.setQuantidadeAtual(lote.getQuantidadeAtual().subtract(tirar).setScale(4, RoundingMode.HALF_UP));
+                loteRepo.save(lote);
+                restante = restante.subtract(tirar);
+            }
+        }
+        // Segurança: se ainda sobrar lote além do estoque, corta dos que vencem por último
+        BigDecimal somaLotes = BigDecimal.ZERO;
+        List<LoteEstoque> lotes = loteRepo.findDisponiveisParaBaixa(produto.getId());
+        for (LoteEstoque l : lotes) somaLotes = somaLotes.add(l.getQuantidadeAtual());
+        BigDecimal excesso = somaLotes.subtract(produto.getEstoqueAtual());
+        for (int i = lotes.size() - 1; i >= 0 && excesso.signum() > 0; i--) {
+            LoteEstoque l = lotes.get(i);
+            BigDecimal tirar = l.getQuantidadeAtual().min(excesso);
+            l.setQuantidadeAtual(l.getQuantidadeAtual().subtract(tirar).setScale(4, RoundingMode.HALF_UP));
+            loteRepo.save(l);
+            excesso = excesso.subtract(tirar);
+        }
+    }
+
+    /** Inverso de atualizarCustoMedio: tira do custo médio o peso da entrada cancelada. */
+    static BigDecimal custoMedioSemEntrada(BigDecimal estoque, BigDecimal custoMedio, BigDecimal qtd, BigDecimal custoEntrada) {
+        BigDecimal estoqueRestante = estoque.subtract(qtd);
+        if (custoEntrada == null || custoEntrada.signum() <= 0 || estoqueRestante.signum() <= 0) {
+            return custoMedio; // sem custo informado, ou estoque zerou: mantém o último custo conhecido
+        }
+        BigDecimal valorRestante = estoque.multiply(custoMedio).subtract(qtd.multiply(custoEntrada));
+        if (valorRestante.signum() <= 0) return custoMedio;
+        return valorRestante.divide(estoqueRestante, 4, RoundingMode.HALF_UP);
+    }
+
+    private void reverterCustoMedio(Produto produto, BigDecimal qtd, BigDecimal custoEntrada) {
+        BigDecimal custoAtual = produto.getPrecoCusto() != null ? produto.getPrecoCusto() : BigDecimal.ZERO;
+        produto.setPrecoCusto(custoMedioSemEntrada(produto.getEstoqueAtual(), custoAtual, qtd, custoEntrada));
+    }
+
     public List<Produto> listarEstoqueAbaixoMinimo() {
         return produtoRepo.findEstoqueAbaixoMinimo();
     }
