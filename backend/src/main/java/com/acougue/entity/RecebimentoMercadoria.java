@@ -63,6 +63,22 @@ public class RecebimentoMercadoria {
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private String usuarioNome;
 
+    // ── Cancelamento (ver RecebimentoService#cancelar) ────────────
+    @Column(name = "cancelado_em")
+    private LocalDateTime canceladoEm;
+
+    @JsonIgnore
+    @Column(name = "cancelado_por_id")
+    private Long canceladoPorId;
+
+    @Column(name = "motivo_cancelamento", columnDefinition = "TEXT")
+    private String motivoCancelamento;
+
+    /** Até quando a entrada pode ser cancelada (preenchido pelo service; null se já cancelada). */
+    @Transient
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private LocalDateTime cancelavelAte;
+
     @OneToMany(mappedBy = "recebimento", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<RecebimentoItem> itens = new ArrayList<>();

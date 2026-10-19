@@ -68,6 +68,18 @@ public class RecebimentoController {
         return ResponseEntity.ok(recebimentoService.registrar(dto, ContextoUsuario.atual().getUsuarioId()));
     }
 
+    /**
+     * Cancela a entrada (até 7 dias) e estorna o estoque. Corpo: { "motivo": "..." }.
+     * Permissão de EXCLUIR: desfaz movimentação de estoque, é ação de administrador.
+     */
+    @ExigirPermissao(modulo = Modulo.RECEBIMENTO, acao = Acao.EXCLUIR)
+    @PostMapping("/{id}/cancelar")
+    public ResponseEntity<RecebimentoMercadoria> cancelar(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        RecebimentoMercadoria rec = recebimentoService.cancelar(id, body.get("motivo"), ContextoUsuario.atual().getUsuarioId());
+        identificacao.preencherItem(rec, RecebimentoMercadoria::getUsuarioId, RecebimentoMercadoria::setUsuarioNome);
+        return ResponseEntity.ok(rec);
+    }
+
     @ExigirPermissao(modulo = Modulo.RECEBIMENTO, acao = Acao.EDITAR)
     @PutMapping("/{id}/xml")
     public ResponseEntity<RecebimentoMercadoria> uploadXml(

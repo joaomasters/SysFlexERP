@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, FileText, X, ChevronDown, ChevronUp, Upload, Filter } from 'lucide-react'
+import { Plus, FileText, X, ChevronDown, ChevronUp, Upload, Filter, Ban, AlertTriangle } from 'lucide-react'
 import { api } from '@/shared/api/axios'
 import toast from 'react-hot-toast'
 import { formatBRL, formatWeightDisplay } from '@/shared/utils/mask'
@@ -23,7 +23,11 @@ interface Recebimento {
   xmlNf: string | null
   observacao: string | null
   usuarioNome?: string   // só vem para administradores
-  itens: { id: number; produto: { nome: string; unidadeMedida: string }; quantidade: number; custoUnitario: number; custoTotal: number; dataValidade?: string | null }[]
+  canceladoEm?: string | null
+  motivoCancelamento?: string | null
+  /** Até quando pode ser cancelada (vem do servidor; ausente se já cancelada) */
+  cancelavelAte?: string | null
+  itens: { id: number; produto: { id: number; nome: string; unidadeMedida: string }; quantidade: number; custoUnitario: number; custoTotal: number; dataValidade?: string | null }[]
 }
 
 const brl = (v?: number) => formatBRL(v ?? 0)
@@ -35,7 +39,8 @@ const trintaDiasAtras = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOStr
 export default function RecebimentoPage() {
   const qc = useQueryClient()
   const fileRef = useRef<HTMLInputElement>(null)
-  const { podeVerIdentificacao } = usePermissao()
+  const { podeVerIdentificacao, podeExcluir } = usePermissao()
+  const [cancelando, setCancelando] = useState<Recebimento | null>(null)
 
   const [showForm, setShowForm]       = useState(false)
   const [expandId, setExpandId]       = useState<number | null>(null)
@@ -106,6 +111,20 @@ export default function RecebimentoPage() {
       qc.invalidateQueries({ queryKey: ['recebimentos'] })
     },
   })
+
+  // Cancelamento (até 7 dias): estorna o estoque. Opcionalmente reabre o formulário
+  // com os mesmos itens para lançar de novo já com a validade.
+  function relancar(r: Recebimento) {
+    setFornecedor(r.fornecedor ?? ''); setNumeroNf(r.numeroNf ?? ''); setSerieNf(r.serieNf ?? '1')
+    setChaveNf(r.chaveNf ?? ''); setDataEmissao(r.dataEmissao ?? ''); setValorTotal(r.valorTotal ?? 0)
+    setObservacao(r.observacao ?? ''); setXmlNf(r.xmlNf ?? '')
+    setTentouSalvar(false)
+    setItens(r.itens.map(it => ({
+      produtoId: it.produto.id, quantidade: it.quantidade, custoUnitario: it.custoUnitario,
+      dataValidade: it.dataValidade ?? '',
+    })))
+    setShowForm(true)
+  }
 
   function resetForm() {
     setShowForm(false)
@@ -221,7 +240,7 @@ export default function RecebimentoPage() {
       <div className="space-y-2">
         {isLoading && <p className="text-gray-400 text-sm">Carregando...</p>}
         {recebimentos.map(r => (
-          <div key={r.id} className="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">
+          <div key={r.id} className={`bg-white rounded-xl shadow border border-gray-100 overflow-hidden ${r.status === 'CANCELADO' ? 'opacity-70' : ''}`}>
             <div
               className="flex items-center gap-4 px-5 py-4 cursor-pointer hover:bg-gray-50"
               onClick={() => setExpandId(expandId === r.id ? null : r.id)}
@@ -229,7 +248,12 @@ export default function RecebimentoPage() {
               <div className={`flex-1 grid gap-4 ${podeVerIdentificacao ? 'grid-cols-5' : 'grid-cols-4'}`}>
                 <div>
                   <p className="text-xs text-gray-400 font-medium">Fornecedor</p>
-                  <p className="font-semibold text-gray-800 text-sm">{r.fornecedor}</p>
+                  <p className="font-semibold text-gray-800 text-sm flex items-center gap-2">
+                    {r.fornecedor}
+                    {r.status === 'CANCELADO' && (
+                      <span className="text-[10px] font-semibold uppercase bg-red-100 text-red-700 px-1.5 py-0.5 rounded">Cancelada</span>
+                    )}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-400 font-medium">NF</p>
@@ -294,7 +318,9 @@ export default function RecebimentoPage() {
                         <td className="py-2 text-right tabular-nums">{brl(it.custoUnitario)}</td>
                         <td className="py-2 text-right font-medium tabular-nums">{brl(it.custoTotal)}</td>
                         <td className="py-2 text-right tabular-nums text-gray-600">
-                          {it.dataValidade ? new Date(it.dataValidade + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}
+                          {it.dataValidade
+                            ? new Date(it.dataValidade + 'T00:00:00').toLocaleDateString('pt-BR')
+                            : <span className="text-amber-600 font-medium">sem validade</span>}
                         </td>
                       </tr>
                     ))}
@@ -303,6 +329,22 @@ export default function RecebimentoPage() {
                 {r.observacao && (
                   <p className="text-xs text-gray-500 mt-3">Obs: {r.observacao}</p>
                 )}
+                {r.status === 'CANCELADO' ? (
+                  <div className="mt-3 text-xs bg-red-50 border border-red-100 text-red-700 rounded-lg px-3 py-2">
+                    Entrada cancelada em {r.canceladoEm ? new Date(r.canceladoEm).toLocaleString('pt-BR') : '—'} — estoque estornado.
+                    {r.motivoCancelamento && <> Motivo: <span className="font-medium">{r.motivoCancelamento}</span></>}
+                  </div>
+                ) : r.cancelavelAte && podeExcluir('RECEBIMENTO') && new Date(r.cancelavelAte) > new Date() ? (
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-xs text-gray-500">
+                      Pode ser cancelada até {new Date(r.cancelavelAte).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      {' '}({Math.max(0, Math.ceil((new Date(r.cancelavelAte).getTime() - Date.now()) / 86_400_000))} dia(s) restante(s)).
+                    </p>
+                    <Button variant="outline-danger" size="sm" onClick={() => setCancelando(r)}>
+                      <Ban size={13} /> Cancelar entrada
+                    </Button>
+                  </div>
+                ) : null}
               </div>
             )}
           </div>
@@ -314,6 +356,20 @@ export default function RecebimentoPage() {
           </div>
         )}
       </div>
+
+      {cancelando && (
+        <CancelarEntradaModal
+          recebimento={cancelando}
+          onClose={() => setCancelando(null)}
+          onCancelada={(relancarDepois) => {
+            const r = cancelando
+            setCancelando(null)
+            qc.invalidateQueries({ queryKey: ['recebimentos'] })
+            qc.invalidateQueries({ queryKey: ['produtos'] })
+            if (relancarDepois) relancar(r)
+          }}
+        />
+      )}
 
       {/* Modal XML Viewer — visual de "console" propositalmente diferente dos
           demais modais, por ser um leitor de dado bruto (XML da NF-e). */}
@@ -479,5 +535,56 @@ export default function RecebimentoPage() {
         </Modal>
       )}
     </div>
+  )
+}
+// ─── Cancelar entrada ───────────────────────────────────────────────────────
+
+function CancelarEntradaModal({ recebimento: r, onClose, onCancelada }: {
+  recebimento: Recebimento
+  onClose: () => void
+  onCancelada: (relancar: boolean) => void
+}) {
+  const semValidade = r.itens.some(it => !it.dataValidade)
+  const [motivo, setMotivo] = useState(semValidade ? 'Entrada lançada sem data de validade' : '')
+  const [relancar, setRelancar] = useState(true)
+
+  const cancelar = useMutation({
+    mutationFn: () => api.post(`/estoque/recebimentos/${r.id}/cancelar`, { motivo: motivo.trim() }),
+    onSuccess: () => {
+      toast.success(relancar ? 'Entrada cancelada. Complete a nova entrada e registre.' : 'Entrada cancelada e estoque estornado.')
+      onCancelada(relancar)
+    },
+  })
+
+  return (
+    <Modal
+      title="Cancelar entrada de mercadoria"
+      maxWidth="md"
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="secondary" fullWidth onClick={onClose}>Voltar</Button>
+          <Button variant="danger" fullWidth disabled={motivo.trim().length < 5} loading={cancelar.isPending}
+                  onClick={() => cancelar.mutate()}>
+            Cancelar entrada
+          </Button>
+        </>
+      }
+    >
+      <div className="bg-red-50 border border-red-100 rounded-lg p-3 flex gap-2 text-sm text-red-700">
+        <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+        <p>
+          A quantidade de <strong>{r.itens.length} item(ns)</strong> de <strong>{r.fornecedor}</strong>
+          {r.numeroNf ? ` (NF ${r.numeroNf})` : ''} sai do estoque. A entrada fica registrada como cancelada.
+        </p>
+      </div>
+      <Field label="Motivo *">
+        <textarea rows={2} value={motivo} onChange={e => setMotivo(e.target.value)} className={baseInputClass} />
+      </Field>
+      <label className="flex items-start gap-2 text-sm text-gray-700">
+        <input type="checkbox" checked={relancar} onChange={e => setRelancar(e.target.checked)} className="mt-1" />
+        <span>Abrir uma nova entrada com os mesmos itens para corrigir (ex.: preencher a validade)</span>
+      </label>
+    </Modal>
   )
 }
