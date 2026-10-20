@@ -33,6 +33,18 @@ interface NotaFiscal {
 const brl = (v?: number) => formatBRL(v ?? 0)
 const qtd3 = formatWeightDisplay
 
+// Naturezas da operação disponíveis no cadastro da NF de saída. O backend
+// grava o texto livre, então para incluir um novo tipo basta acrescentar aqui.
+const NATUREZAS_OPERACAO = [
+  'VENDA DE MERCADORIAS',
+  'VENDA DE MERCADORIA ADQUIRIDA DE TERCEIROS',
+  'DEVOLUÇÃO DE COMPRA',
+  'DEVOLUÇÃO DE VENDA',
+  'TRANSFERÊNCIA DE MERCADORIAS',
+  'REMESSA EM BONIFICAÇÃO, DOAÇÃO OU BRINDE',
+  'SIMPLES REMESSA',
+]
+
 // PENDENTE = aguardando emissão (atenção); EMITIDA = concluída; CANCELADA = negativa.
 const statusTom: Record<string, BadgeTone> = {
   PENDENTE:  'warning',
@@ -68,6 +80,8 @@ export default function NotaFiscalPage() {
   const [natureza, setNatureza]       = useState('VENDA DE MERCADORIAS')
   const [observacao, setObservacao]   = useState('')
   const [itens, setItens]             = useState<NfItem[]>([{ produtoId: null, descricao: '', quantidade: 0, valorUnitario: 0 }])
+  // Só mostra os erros depois da primeira tentativa de criar a NF.
+  const [tentouSalvar, setTentouSalvar] = useState(false)
 
   const { data: produtos = [] } = useQuery<Produto[]>({
     queryKey: ['produtos'],
@@ -91,12 +105,12 @@ export default function NotaFiscalPage() {
 
   const criar = useMutation({
     mutationFn: () => api.post('/fiscal/notas', {
-      clienteId: clienteId ? parseInt(clienteId) : null,
-      numeroNf: numeroNf || null,
-      serieNf,
+      clienteId: parseInt(clienteId),
+      numeroNf: numeroNf.trim(),
+      serieNf: serieNf.trim(),
       naturezaOperacao: natureza,
-      observacao: observacao || null,
-      itens: itens.filter(i => i.quantidade && i.valorUnitario).map(i => ({
+      observacao: observacao.trim(),
+      itens: itens.map(i => ({
         produtoId: i.produtoId,
         descricao: i.descricao || null,
         quantidade: i.quantidade,
@@ -133,6 +147,7 @@ export default function NotaFiscalPage() {
     setShowForm(false)
     setClienteId(''); setNumeroNf(''); setSerieNf('1')
     setNatureza('VENDA DE MERCADORIAS'); setObservacao('')
+    setTentouSalvar(false)
     setItens([{ produtoId: null, descricao: '', quantidade: 0, valorUnitario: 0 }])
   }
 
@@ -207,7 +222,34 @@ export default function NotaFiscalPage() {
   }
 
   const totalForm = itens.reduce((s, i) => s + i.quantidade * i.valorUnitario, 0)
-  const canSave = itens.some(i => i.quantidade > 0 && i.valorUnitario > 0)
+
+  // Todos os campos da NF são obrigatórios.
+  const erros = {
+    cliente:    clienteId ? '' : 'Selecione o cliente.',
+    numeroNf:   numeroNf.trim() ? '' : 'Informe o número da NF.',
+    serieNf:    serieNf.trim() ? '' : 'Informe a série.',
+    natureza:   natureza ? '' : 'Selecione a natureza da operação.',
+    observacao: observacao.trim() ? '' : 'Informe a observação.',
+  }
+  const errosItens = itens.map(i => ({
+    produto:    i.produtoId === null && !i.descricao.trim(), // "Outro" exige descrição
+    quantidade: i.quantidade <= 0,
+    valor:      i.valorUnitario <= 0,
+  }))
+  const itensInvalidos = errosItens.some(e => e.produto || e.quantidade || e.valor)
+  const formInvalido = Object.values(erros).some(Boolean) || itensInvalidos
+
+  const mostrar = (msg: string) => (tentouSalvar && msg ? msg : undefined)
+  const campoErro = (msg: string) => (tentouSalvar && msg ? '!border-danger-500' : '')
+
+  function tentarCriar() {
+    setTentouSalvar(true)
+    if (formInvalido) {
+      toast.error('Preencha todos os campos obrigatórios.')
+      return
+    }
+    criar.mutate()
+  }
   const nfXml = notas.find(n => n.id === xmlViewId)
 
   return (
@@ -217,7 +259,7 @@ export default function NotaFiscalPage() {
         subtitle="Emissão de Nota fiscal"
         actions={
           <Button variant="primary" onClick={() => setShowForm(true)}>
-            <Plus size={16} /> Nova NF
+            Nova NF
           </Button>
         }
       />
@@ -409,95 +451,121 @@ export default function NotaFiscalPage() {
         <Modal
           title="Nova Nota Fiscal de Saída"
           onClose={resetForm}
-          maxWidth="lg"
+          maxWidth="xl"
           footer={
             <>
               <Button variant="secondary" fullWidth onClick={resetForm}>Cancelar</Button>
-              <Button variant="primary" fullWidth disabled={!canSave} loading={criar.isPending} onClick={() => criar.mutate()}>
+              <Button variant="primary" fullWidth loading={criar.isPending} onClick={tentarCriar}>
                 Criar NF
               </Button>
             </>
           }
         >
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Cliente" className="col-span-2">
-              <select value={clienteId} onChange={e => setClienteId(e.target.value)} className={baseInputClass}>
-                <option value="">Sem cliente (consumidor final)</option>
+            <Field label="Cliente *" className="col-span-2" error={mostrar(erros.cliente)}>
+              <select value={clienteId} onChange={e => setClienteId(e.target.value)}
+                className={`${baseInputClass} ${campoErro(erros.cliente)}`}>
+                <option value="">Selecione o cliente...</option>
                 {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
               </select>
             </Field>
-            <Field label="Número NF">
-              <input value={numeroNf} onChange={e => setNumeroNf(e.target.value)} className={baseInputClass} placeholder="000001" />
+            <Field label="Número NF *" error={mostrar(erros.numeroNf)}>
+              <input value={numeroNf} onChange={e => setNumeroNf(e.target.value)}
+                className={`${baseInputClass} ${campoErro(erros.numeroNf)}`} placeholder="000001" />
             </Field>
-            <Field label="Série">
-              <input value={serieNf} onChange={e => setSerieNf(e.target.value)} className={baseInputClass} placeholder="1" />
+            <Field label="Série *" error={mostrar(erros.serieNf)}>
+              <input value={serieNf} onChange={e => setSerieNf(e.target.value)}
+                className={`${baseInputClass} ${campoErro(erros.serieNf)}`} placeholder="1" />
             </Field>
-            <Field label="Natureza da Operação" className="col-span-2">
-              <input value={natureza} onChange={e => setNatureza(e.target.value)} className={baseInputClass} />
+            <Field label="Natureza da Operação *" className="col-span-2" error={mostrar(erros.natureza)}>
+              <select value={natureza} onChange={e => setNatureza(e.target.value)}
+                className={`${baseInputClass} ${campoErro(erros.natureza)}`}>
+                <option value="">Selecione...</option>
+                {NATUREZAS_OPERACAO.map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
             </Field>
-            <Field label="Observação" className="col-span-2">
-              <input value={observacao} onChange={e => setObservacao(e.target.value)} className={baseInputClass} />
+            <Field label="Observação *" className="col-span-2" error={mostrar(erros.observacao)}>
+              <input value={observacao} onChange={e => setObservacao(e.target.value)}
+                className={`${baseInputClass} ${campoErro(erros.observacao)}`} />
             </Field>
           </div>
 
           {/* Itens */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Itens</label>
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Itens *</label>
               <button onClick={addItem} className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 font-medium">
                 <Plus size={12} /> Adicionar
               </button>
             </div>
             <div className="space-y-2">
-              {itens.map((item, idx) => (
-                <div key={idx} className="grid grid-cols-12 gap-2 items-end bg-gray-50 border border-gray-100 rounded-lg p-3">
-                  <div className="col-span-4">
-                    {idx === 0 && <label className="text-xs text-gray-500 block mb-1">Produto</label>}
-                    <select
-                      value={item.produtoId ?? ''}
-                      onChange={e => updateItem(idx, 'produtoId', e.target.value ? parseInt(e.target.value) : null)}
-                      className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white"
-                    >
-                      <option value="">Outro</option>
-                      {produtos.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
-                    </select>
+              {itens.map((item, idx) => {
+                const ei = errosItens[idx]
+                const bad = (v: boolean) => (tentouSalvar && v ? '!border-danger-500' : '')
+                const lbl = 'text-xs text-gray-500 block mb-1'
+                const campo = 'w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white'
+                return (
+                  <div key={idx} className="bg-gray-50 border border-gray-100 rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-semibold text-gray-500">Item {idx + 1}</span>
+                      {itens.length > 1 && (
+                        <button onClick={() => removeItem(idx)}
+                          className="flex items-center gap-1 text-xs text-danger-600 hover:text-danger-700 font-medium">
+                          <X size={12} /> Remover
+                        </button>
+                      )}
+                    </div>
+                    {/* Duas colunas iguais: o que está em cima alinha com o que está embaixo */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-2">
+                      <div>
+                        <label className={lbl}>Produto *</label>
+                        <select
+                          value={item.produtoId ?? ''}
+                          onChange={e => updateItem(idx, 'produtoId', e.target.value ? parseInt(e.target.value) : null)}
+                          className={`${campo} ${bad(ei.produto)}`}
+                        >
+                          <option value="">Outro (informar descrição)</option>
+                          {produtos.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className={lbl}>Descrição {item.produtoId === null ? '*' : ''}</label>
+                        <input
+                          value={item.descricao}
+                          onChange={e => updateItem(idx, 'descricao', e.target.value)}
+                          placeholder="Descrição do item"
+                          className={`${campo} ${bad(ei.produto)}`}
+                        />
+                      </div>
+                      <div>
+                        <label className={lbl}>Qtd *</label>
+                        <WeightInput
+                          value={item.quantidade}
+                          onChange={v => updateItem(idx, 'quantidade', v)}
+                          size="sm"
+                          unit=""
+                          className={tentouSalvar && ei.quantidade ? '[&_input]:!border-danger-500' : ''}
+                        />
+                      </div>
+                      <div>
+                        <label className={lbl}>R$/un *</label>
+                        <CurrencyInput
+                          value={item.valorUnitario}
+                          onChange={v => updateItem(idx, 'valorUnitario', v)}
+                          size="sm"
+                          className={tentouSalvar && ei.valor ? '[&_input]:!border-danger-500' : ''}
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div className="col-span-3">
-                    {idx === 0 && <label className="text-xs text-gray-500 block mb-1">Descrição</label>}
-                    <input
-                      value={item.descricao}
-                      onChange={e => updateItem(idx, 'descricao', e.target.value)}
-                      placeholder="Descrição"
-                      className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    {idx === 0 && <label className="text-xs text-gray-500 block mb-1">Qtd</label>}
-                    <WeightInput
-                      value={item.quantidade}
-                      onChange={v => updateItem(idx, 'quantidade', v)}
-                      size="sm"
-                      unit=""
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    {idx === 0 && <label className="text-xs text-gray-500 block mb-1">R$/un</label>}
-                    <CurrencyInput
-                      value={item.valorUnitario}
-                      onChange={v => updateItem(idx, 'valorUnitario', v)}
-                      size="sm"
-                    />
-                  </div>
-                  <div className="col-span-1 flex justify-center">
-                    {itens.length > 1 && (
-                      <button onClick={() => removeItem(idx)} className="text-danger-400 hover:text-danger-600">
-                        <X size={14} />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
+            {tentouSalvar && itensInvalidos && (
+              <p className="text-danger-600 text-xs mt-2">
+                Em todos os itens, informe o produto (ou a descrição), a quantidade e o valor unitário — ou remova os itens em branco.
+              </p>
+            )}
             {totalForm > 0 && (
               <p className="text-right text-sm font-semibold text-gray-700 mt-2 tabular-nums">
                 Total: {brl(totalForm)}

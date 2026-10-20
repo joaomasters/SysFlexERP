@@ -44,6 +44,50 @@ type FormState = {
   limiteCredito: number
 }
 
+// ── Máscaras e validação do cadastro ─────────────────────────────────
+const soDigitos = (v: string) => v.replace(/\D/g, '')
+
+function formatarCpfCnpj(v: string, tipo: 'PF' | 'PJ'): string {
+  const d = soDigitos(v).slice(0, tipo === 'PF' ? 11 : 14)
+  if (tipo === 'PF') {
+    return d
+      .replace(/^(\d{3})(\d)/, '$1.$2')
+      .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
+      .replace(/\.(\d{3})(\d)/, '.$1-$2')
+  }
+  return d
+    .replace(/^(\d{2})(\d)/, '$1.$2')
+    .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+    .replace(/\.(\d{3})(\d)/, '.$1/$2')
+    .replace(/(\d{4})(\d)/, '$1-$2')
+}
+
+function formatarTelefone(v: string): string {
+  const d = soDigitos(v).slice(0, 11)
+  if (d.length <= 2) return d.length ? `(${d}` : ''
+  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`
+  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`
+}
+
+/** Erros do formulário. Cadastro novo exige tudo, exceto e-mail; a edição de
+ *  cliente já existente só exige o nome (clientes antigos podem não ter
+ *  telefone/endereço e não devem ficar impedidos de ser editados). */
+function validarCliente(f: FormState) {
+  const novo = !f.id
+  const nDoc = f.tipoPessoa === 'PF' ? 11 : 14
+  const tel = soDigitos(f.telefone).length
+  return {
+    nome:          f.nome.trim() ? '' : 'Informe o nome.',
+    cpfCnpj:       !novo || soDigitos(f.cpfCnpj).length === nDoc
+                     ? '' : `${f.tipoPessoa === 'PF' ? 'CPF' : 'CNPJ'} deve ter ${nDoc} dígitos.`,
+    telefone:      !novo || tel === 10 || tel === 11 ? '' : 'Informe o telefone com DDD.',
+    email:         !f.email.trim() || /^\S+@\S+\.\S+$/.test(f.email.trim()) ? '' : 'E-mail inválido.',
+    endereco:      !novo || f.endereco.trim() ? '' : 'Informe o endereço.',
+    limiteCredito: !novo || f.limiteCredito > 0 ? '' : 'Informe o limite de crédito.',
+  }
+}
+
 const formVazio: FormState = {
   nome: '', cpfCnpj: '', tipoPessoa: 'PF', telefone: '', email: '',
   endereco: '', tipoCliente: 'VAREJO', limiteCredito: 0,
@@ -56,6 +100,8 @@ export default function ClientesPage() {
   const [form, setForm] = useState<FormState | null>(null)
   const [mostrarInativos, setMostrarInativos] = useState(false)
   const [confirmando, setConfirmando] = useState<Cliente | null>(null)
+  // Só mostra os erros depois da primeira tentativa de salvar.
+  const [tentouSalvar, setTentouSalvar] = useState(false)
 
   const { data: clientes = [], isLoading } = useQuery<Cliente[]>({
     queryKey: ['clientes', busca],
@@ -104,7 +150,7 @@ export default function ClientesPage() {
     },
   })
 
-  const abrirEdicao = (c: Cliente) => setForm({
+  const abrirEdicao = (c: Cliente) => { setTentouSalvar(false); setForm({
     id: c.id,
     nome: c.nome,
     cpfCnpj: c.cpfCnpj ?? '',
@@ -114,7 +160,21 @@ export default function ClientesPage() {
     endereco: c.endereco ?? '',
     tipoCliente: c.tipoCliente,
     limiteCredito: c.limiteCredito ?? 0,
-  })
+  }) }
+
+  const erros = form ? validarCliente(form) : null
+  const novo = !!form && !form.id
+  const mostrar = (msg?: string) => (tentouSalvar && msg ? msg : undefined)
+  const campoErro = (msg?: string) => (tentouSalvar && msg ? '!border-danger-500' : '')
+
+  function tentarSalvar(f: FormState) {
+    setTentouSalvar(true)
+    if (Object.values(validarCliente(f)).some(Boolean)) {
+      toast.error('Preencha todos os campos obrigatórios.')
+      return
+    }
+    salvar.mutate(f)
+  }
 
   return (
     <div className="p-6">
@@ -122,8 +182,8 @@ export default function ClientesPage() {
         title="Clientes"
         subtitle="Cadastro de clientes"
         actions={
-          <Button variant="primary" onClick={() => setForm({ ...formVazio })}>
-            <Plus size={18} /> Novo Cliente
+          <Button variant="primary" onClick={() => { setTentouSalvar(false); setForm({ ...formVazio }) }}>
+            Novo Cliente
           </Button>
         }
       />
@@ -179,17 +239,17 @@ export default function ClientesPage() {
                   <TD className="text-gray-500 text-xs">{c.criadoPorNome ?? '—'}</TD>
                 )}
                 <TD>
-                  <div className="flex items-center justify-end gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => abrirEdicao(c)} title="Editar">
-                      <Pencil size={15} />
+                  <div className="flex items-center justify-end gap-2 whitespace-nowrap">
+                    <Button variant="secondary" size="sm" onClick={() => abrirEdicao(c)}>
+                      Editar 
                     </Button>
                     {c.ativo ? (
-                      <Button variant="ghost" size="sm" className="hover:!text-danger-600" onClick={() => setConfirmando(c)} title="Inativar">
-                        <Ban size={15} />
+                      <Button variant="outline-danger" size="sm" onClick={() => setConfirmando(c)}>
+                        Inativar
                       </Button>
                     ) : (
-                      <Button variant="ghost" size="sm" className="hover:!text-success-600" onClick={() => reativar.mutate(c.id)} title="Reativar">
-                        <RotateCcw size={15} />
+                      <Button variant="success" size="sm" onClick={() => reativar.mutate(c.id)}>
+                        <RotateCcw size={14} /> Reativar
                       </Button>
                     )}
                   </div>
@@ -207,64 +267,71 @@ export default function ClientesPage() {
       {form && (
         <Modal
           title={form.id ? 'Editar Cliente' : 'Novo Cliente'}
-          onClose={() => setForm(null)}
+          onClose={() => { setForm(null); setTentouSalvar(false) }}
           maxWidth="lg"
           footer={
             <>
-              <Button variant="secondary" fullWidth onClick={() => setForm(null)}>Cancelar</Button>
+              <Button variant="secondary" fullWidth onClick={() => { setForm(null); setTentouSalvar(false) }}>Cancelar</Button>
               <Button
                 variant="primary"
                 fullWidth
                 loading={salvar.isPending}
-                disabled={!form.nome.trim()}
-                onClick={() => salvar.mutate(form)}
+                onClick={() => tentarSalvar(form)}
               >
                 Salvar
               </Button>
             </>
           }
         >
-          <Field label="Nome *">
+          <Field label="Nome *" error={mostrar(erros?.nome)}>
             <input
               type="text" value={form.nome} autoFocus
               onChange={e => setForm({ ...form, nome: e.target.value })}
-              className={baseInputClass}
+              className={`${baseInputClass} ${campoErro(erros?.nome)}`}
             />
           </Field>
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Tipo de Pessoa">
-              <select value={form.tipoPessoa} onChange={e => setForm({ ...form, tipoPessoa: e.target.value as 'PF' | 'PJ' })}
+            <Field label={novo ? 'Tipo de Pessoa *' : 'Tipo de Pessoa'}>
+              <select value={form.tipoPessoa}
+                onChange={e => {
+                  const tipo = e.target.value as 'PF' | 'PJ'
+                  setForm({ ...form, tipoPessoa: tipo, cpfCnpj: formatarCpfCnpj(form.cpfCnpj, tipo) })
+                }}
                 className={baseInputClass}>
                 <option value="PF">Pessoa Física</option>
                 <option value="PJ">Pessoa Jurídica</option>
               </select>
             </Field>
-            <Field label="CPF/CNPJ">
-              <input type="text" value={form.cpfCnpj} onChange={e => setForm({ ...form, cpfCnpj: e.target.value })}
-                className={baseInputClass} />
+            <Field label={`${form.tipoPessoa === 'PF' ? 'CPF' : 'CNPJ'}${novo ? ' *' : ''}`} error={mostrar(erros?.cpfCnpj)}>
+              <input type="text" inputMode="numeric" value={form.cpfCnpj}
+                onChange={e => setForm({ ...form, cpfCnpj: formatarCpfCnpj(e.target.value, form.tipoPessoa) })}
+                placeholder={form.tipoPessoa === 'PF' ? '000.000.000-00' : '00.000.000/0000-00'}
+                className={`${baseInputClass} ${campoErro(erros?.cpfCnpj)}`} />
             </Field>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Telefone">
-              <input type="text" value={form.telefone} onChange={e => setForm({ ...form, telefone: e.target.value })}
-                className={baseInputClass} />
+            <Field label={novo ? 'Telefone *' : 'Telefone'} error={mostrar(erros?.telefone)}>
+              <input type="text" inputMode="tel" value={form.telefone}
+                onChange={e => setForm({ ...form, telefone: formatarTelefone(e.target.value) })}
+                placeholder="(00) 00000-0000"
+                className={`${baseInputClass} ${campoErro(erros?.telefone)}`} />
             </Field>
-            <Field label="E-mail">
+            <Field label="E-mail (opcional)" error={mostrar(erros?.email)}>
               <input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })}
-                className={baseInputClass} />
+                className={`${baseInputClass} ${campoErro(erros?.email)}`} />
             </Field>
           </div>
 
-          <Field label="Endereço">
+          <Field label={novo ? 'Endereço *' : 'Endereço'} error={mostrar(erros?.endereco)}>
             <textarea value={form.endereco} onChange={e => setForm({ ...form, endereco: e.target.value })}
-              rows={2} className={baseInputClass} />
+              rows={2} className={`${baseInputClass} ${campoErro(erros?.endereco)}`} />
           </Field>
 
           <div className="grid grid-cols-2 gap-3">
             <Field
-              label="Tipo de Cliente"
+              label={novo ? 'Tipo de Cliente *' : 'Tipo de Cliente'}
               hint="Só clientes Atacado/Restaurante/Conveniado/Fiado aparecem pra Faturamento e compra a prazo."
             >
               <select value={form.tipoCliente} onChange={e => setForm({ ...form, tipoCliente: e.target.value as Cliente['tipoCliente'] })}
@@ -276,8 +343,9 @@ export default function ClientesPage() {
                 <option value="FIADO">Fiado</option>
               </select>
             </Field>
-            <Field label="Limite de Crédito">
-              <CurrencyInput value={form.limiteCredito} onChange={v => setForm({ ...form, limiteCredito: v })} />
+            <Field label={novo ? 'Limite de Crédito *' : 'Limite de Crédito'} error={mostrar(erros?.limiteCredito)}>
+              <CurrencyInput value={form.limiteCredito} onChange={v => setForm({ ...form, limiteCredito: v })}
+                className={tentouSalvar && erros?.limiteCredito ? '[&_input]:!border-danger-500' : ''} />
             </Field>
           </div>
         </Modal>

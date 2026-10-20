@@ -6,11 +6,11 @@ interface ModalProps {
   onClose: () => void
   children: ReactNode
   /** Largura máxima do modal. Padrão 'sm' (formulários curtos, confirmações). */
-  maxWidth?: 'sm' | 'md' | 'lg' | 'xl'
+  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl'
   footer?: ReactNode
 }
 
-const maxWidthClasses = { sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-lg', xl: 'max-w-2xl' }
+const maxWidthClasses = { sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-lg', xl: 'max-w-2xl', '2xl': 'max-w-3xl' }
 
 /**
  * Modal padrão do sistema — overlay escuro + card branco arredondado.
