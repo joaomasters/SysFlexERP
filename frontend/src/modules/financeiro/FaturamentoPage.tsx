@@ -60,7 +60,7 @@ export default function FaturamentoPage() {
         subtitle="Fechamento de contas"
         actions={
           <Button variant="primary" onClick={() => setShowForm(true)}>
-            <Plus size={16} /> Gerar Fechamento
+            Gerar Fechamento
           </Button>
         }
       />

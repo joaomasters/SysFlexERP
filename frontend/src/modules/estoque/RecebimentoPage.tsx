@@ -172,8 +172,6 @@ export default function RecebimentoPage() {
     chaveNf:     /^\d{44}$/.test(chaveNf) ? '' : `A chave deve ter 44 dígitos (${chaveNf.length}/44).`,
     dataEmissao: dataEmissao ? '' : 'Informe a data de emissão.',
     valorTotal:  valorTotal > 0 ? '' : 'Informe o valor total da NF.',
-    xmlNf:       xmlNf ? '' : 'Anexe o XML da NF.',
-    observacao:  observacao.trim() ? '' : 'Informe a observação.',
   }
   const errosItens = itens.map(i => ({
     produto:    i.produtoId <= 0,
@@ -205,7 +203,7 @@ export default function RecebimentoPage() {
         subtitle="Entrada de Nota fiscal"
         actions={
           <Button variant="primary" onClick={() => setShowForm(true)}>
-            <Plus size={16} /> Nova Entrada
+            Nova Entrada
           </Button>
         }
       />
@@ -403,7 +401,7 @@ export default function RecebimentoPage() {
         <Modal
           title="Nova Entrada de Mercadoria"
           onClose={resetForm}
-          maxWidth="xl"
+          maxWidth="2xl"
           footer={
             <>
               <Button variant="secondary" fullWidth onClick={resetForm}>Cancelar</Button>
@@ -440,9 +438,9 @@ export default function RecebimentoPage() {
               <CurrencyInput value={valorTotal} onChange={setValorTotal}
                 className={tentouSalvar && erros.valorTotal ? '[&_input]:!border-danger-500' : ''} />
             </Field>
-            <Field label="XML da NF *" className="col-span-2" error={mostrar(erros.xmlNf)}>
+            <Field label="XML da NF (opcional)" className="col-span-2">
               <div className="flex items-center gap-2">
-                <label className={`flex items-center gap-2 px-3 py-2 border border-dashed rounded-lg text-sm text-gray-500 cursor-pointer hover:bg-gray-50 flex-1 ${tentouSalvar && erros.xmlNf ? 'border-danger-500' : 'border-gray-300'}`}>
+                <label className={`flex items-center gap-2 px-3 py-2 border border-dashed rounded-lg text-sm text-gray-500 cursor-pointer hover:bg-gray-50 flex-1 border-gray-300`}>
                   <Upload size={14} />
                   {xmlNf ? '✓ XML carregado' : 'Selecionar arquivo .xml'}
                   <input ref={fileRef} type="file" accept=".xml" className="hidden" onChange={e => handleXmlFile(e)} />
@@ -452,9 +450,9 @@ export default function RecebimentoPage() {
                 )}
               </div>
             </Field>
-            <Field label="Observação *" className="col-span-2" error={mostrar(erros.observacao)}>
+            <Field label="Observação (opcional)" className="col-span-2">
               <input value={observacao} onChange={e => setObservacao(e.target.value)}
-                className={`${baseInputClass} ${campoErro(erros.observacao)}`} />
+                className={baseInputClass} />
             </Field>
           </div>
 
@@ -473,7 +471,7 @@ export default function RecebimentoPage() {
                 const bad = (v: boolean) => (tentouSalvar && v ? '!border-danger-500' : '')
                 return (
                   <div key={idx} className="grid grid-cols-6 sm:grid-cols-12 gap-2 items-end bg-gray-50 border border-gray-100 rounded-lg p-3">
-                    <div className="col-span-6 sm:col-span-4">
+                    <div className="col-span-6 sm:col-span-3">
                       <label className={`text-xs text-gray-500 block mb-1 ${idx === 0 ? '' : 'sm:hidden'}`}>Produto *</label>
                       <select
                         value={item.produtoId}
@@ -505,14 +503,14 @@ export default function RecebimentoPage() {
                         className={tentouSalvar && ei.custo ? '[&_input]:!border-danger-500' : ''}
                       />
                     </div>
-                    <div className="col-span-5 sm:col-span-2">
+                    <div className="col-span-5 sm:col-span-3">
                       <label className={`text-xs text-gray-500 block mb-1 ${idx === 0 ? '' : 'sm:hidden'}`}>Validade *</label>
                       <input
                         type="date"
                         value={item.dataValidade}
                         onChange={e => updateItem(idx, 'dataValidade', e.target.value)}
                         title="Validade do lote recebido"
-                        className={`w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white ${bad(ei.validade)}`}
+                        className={`w-full min-w-[9rem] border border-gray-300 rounded px-2 py-1.5 text-sm bg-white ${bad(ei.validade)}`}
                       />
                     </div>
                     <div className="col-span-1 flex justify-center">
@@ -568,7 +566,7 @@ function CancelarEntradaModal({ recebimento: r, onClose, onCancelada }: {
                   onClick={() => cancelar.mutate()}>
             Cancelar entrada
           </Button>
-        </>
+        </> 
       }
     >
       <div className="bg-red-50 border border-red-100 rounded-lg p-3 flex gap-2 text-sm text-red-700">

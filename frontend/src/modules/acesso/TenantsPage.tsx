@@ -59,10 +59,9 @@ export default function TenantsPage() {
       <PageHeader
         title="Empresas"
         subtitle="Cada empresa roda isolada, com seus próprios produtos, vendas e usuários"
-        icon={<Building2 size={22} className="text-gray-400" />}
         actions={
           <Button variant="primary" onClick={() => setShowNovo(true)}>
-            <Plus size={16} /> Nova Empresa
+            Nova Empresa
           </Button>
         }
       />
@@ -101,7 +100,7 @@ export default function TenantsPage() {
                       <div className="flex justify-end gap-2">
                         {!principal && (
                           <Button variant="outline-danger" size="sm" onClick={() => setLimpando(t)}>
-                            <Eraser size={13} /> Limpar dados
+                            Limpar dados
                           </Button>
                         )}
                         {t.ativo ? (
@@ -112,7 +111,7 @@ export default function TenantsPage() {
                             loading={desativar.isPending && desativar.variables === t.id}
                             onClick={() => desativar.mutate(t.id)}
                           >
-                            <PowerOff size={13} /> Desativar
+                            Desativar
                           </Button>
                         ) : (
                           <Button

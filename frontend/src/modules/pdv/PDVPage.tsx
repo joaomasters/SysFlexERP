@@ -116,7 +116,7 @@ export default function PDVPage() {
 
       {/* ── Topbar ── */}
       <header className="flex items-center justify-between px-6 py-3 bg-gray-900 border-b border-gray-800">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3">bold
           <span className="font-bold text-lg">PDV</span>
           {nomeOperador && (
             <span className="flex items-center gap-1.5 text-xs bg-gray-800 text-gray-300 px-2.5 py-1 rounded-full">
@@ -140,7 +140,7 @@ export default function PDVPage() {
               onClick={handleAbrirFechamento}
               className="flex items-center gap-1.5 text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 px-2.5 py-1.5 rounded-lg"
             >
-              <Lock size={12} /> Fechar Caixa
+              Fechar Caixa
             </button>
           )}
           {scanLoading
@@ -190,7 +190,7 @@ export default function PDVPage() {
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium
                      bg-talho-600 hover:bg-talho-400 transition-colors shrink-0"
         >
-          <Plus size={14} /> Nova Comanda
+          Nova Comanda
         </button>
 
         {comandas.length === 0 && (
@@ -312,7 +312,7 @@ export default function PDVPage() {
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-sm p-6 space-y-4">
             <h2 className="text-lg font-bold flex items-center gap-2">
-              <Lock size={18} /> Fechar Caixa
+              Fechar Caixa
             </h2>
             <div className="space-y-1.5 text-sm">
               {[

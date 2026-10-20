@@ -291,7 +291,6 @@ export default function SangriaPage() {
             loading={registrar.isPending}
             onClick={() => registrar.mutate()}
           >
-            <Plus size={16} />
             Registrar {tipo === 'SANGRIA' ? 'Sangria' : 'Suprimento'}
           </Button>
         </Card>

@@ -321,7 +321,7 @@ export default function FichasDesossaPage() {
         subtitle="Configure os cortes e percentuais de rendimento de cada peça"
         actions={
           <Button variant="primary" onClick={() => { setEditFicha(null); setShowForm(true) }}>
-            <Plus size={16} /> Nova Ficha
+            Nova Ficha
           </Button>
         }
       />

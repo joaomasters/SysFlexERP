@@ -81,7 +81,7 @@ export default function MaquininhasPage() {
         actions={
           podeCriar('MAQUININHAS') && (
             <Button variant="primary" onClick={() => setEditandoTerminal({})}>
-              <Plus size={16} /> Nova maquininha
+              Nova maquininha
             </Button>
           )
         }

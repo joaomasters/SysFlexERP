@@ -123,7 +123,7 @@ export default function PerfisPage() {
         subtitle="Defina o que cada perfil pode ver e fazer em cada módulo"
         actions={
           <Button variant="primary" onClick={() => setShowNovo(v => !v)}>
-            <Plus size={16} /> Novo Perfil
+            Novo Perfil
           </Button>
         }
       />
