@@ -50,7 +50,7 @@ export default function ProdutosPage() {
         subtitle="Cadastro e gestão de estoque"
         actions={
           <Button variant="primary" onClick={() => setForm({})}>
-            <Plus size={16} /> Novo Produto
+            Novo Produto
           </Button>
         }
       />

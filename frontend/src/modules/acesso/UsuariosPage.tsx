@@ -7,7 +7,7 @@ import { formatPercent } from '@/shared/utils/mask'
 import toast from 'react-hot-toast'
 import type { Usuario, Perfil } from '@/types/acesso'
 import {
-  PageHeader, Card, Modal, Button, StatusBadge, Field, baseInputClass, ConfirmDialog,
+  PageHeader, Card, Modal, Button, StatusBadge, Field, PasswordInput, baseInputClass, ConfirmDialog,
   Table, THead, TH, TBody, TR, TD, EmptyState,
 } from '@/shared/components/ui'
 
@@ -99,7 +99,7 @@ export default function UsuariosPage() {
         actions={
           podeCriar('USUARIOS') && (
             <Button variant="primary" onClick={() => setShowNovo(v => !v)}>
-              <Plus size={16} /> Novo Usuário
+              Novo Usuário
             </Button>
           )
         }
@@ -114,7 +114,7 @@ export default function UsuariosPage() {
             <input value={login} onChange={e => setLogin(e.target.value)} className={baseInputClass} />
           </Field>
           <Field label="Senha * (mín. 8)">
-            <input type="password" value={senha} onChange={e => setSenha(e.target.value)} className={baseInputClass} />
+            <PasswordInput value={senha} onChange={e => setSenha(e.target.value)} autoComplete="new-password" />
           </Field>
           <Field label="Perfil *">
             <select value={perfilId} onChange={e => setPerfilId(e.target.value)} className={baseInputClass}>
@@ -172,21 +172,22 @@ export default function UsuariosPage() {
                   <StatusBadge tone={u.ativo ? 'success' : 'neutral'}>{u.ativo ? 'Ativo' : 'Inativo'}</StatusBadge>
                 </TD>
                 <TD align="right">
-                  <div className="flex items-center justify-end gap-1">
+                  <div className="flex items-center justify-end gap-2 whitespace-nowrap">
                     {podeEditar('USUARIOS') && (
-                      <Button variant="ghost" size="sm" className="hover:!text-info-600" onClick={() => setTrocandoSenhaId(u.id)} title="Trocar senha">
-                        <KeyRound size={15} />
+                      <Button variant="secondary" size="sm" onClick={() => setTrocandoSenhaId(u.id)}>
+                        Trocar senha
                       </Button>
                     )}
                     {podeExcluir('USUARIOS') && (
-                      <Button
-                        variant="ghost" size="sm"
-                        className="hover:!text-danger-600"
-                        onClick={() => u.ativo ? setConfirmando(u) : alterarStatus.mutate({ id: u.id, ativo: true })}
-                        title={u.ativo ? 'Desativar' : 'Reativar'}
-                      >
-                        <Power size={15} />
-                      </Button>
+                      u.ativo ? (
+                        <Button variant="outline-danger" size="sm" onClick={() => setConfirmando(u)}>
+                          Desativar
+                        </Button>
+                      ) : (
+                        <Button variant="success" size="sm" onClick={() => alterarStatus.mutate({ id: u.id, ativo: true })}>
+                          <Power size={14} /> Reativar
+                        </Button>
+                      )
                     )}
                   </div>
                 </TD>
@@ -218,24 +219,20 @@ export default function UsuariosPage() {
         >
           {/* Trocar a PRÓPRIA senha exige a atual (o backend confere) */}
           {trocandoSenhaId === sessao?.usuarioId && (
-            <input
-              type="password"
+            <PasswordInput
               autoFocus
               value={senhaAtual}
               onChange={e => setSenhaAtual(e.target.value)}
               placeholder="Senha atual"
               autoComplete="current-password"
-              className={baseInputClass}
             />
           )}
-          <input
-            type="password"
+          <PasswordInput
             autoFocus={trocandoSenhaId !== sessao?.usuarioId}
             value={novaSenha}
             onChange={e => setNovaSenha(e.target.value)}
             placeholder="Nova senha (mín. 8 caracteres)"
             autoComplete="new-password"
-            className={baseInputClass}
           />
         </Modal>
       )}

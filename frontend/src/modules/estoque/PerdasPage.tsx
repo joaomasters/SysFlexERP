@@ -87,7 +87,7 @@ export default function PerdasPage() {
         subtitle="Vencimentos, avarias, furtos e quebras"
         actions={
           <Button variant="primary" onClick={() => setShowForm(true)}>
-            <Plus size={16} /> Lançar Perda
+            Lançar Perda
           </Button>
         }
       />
