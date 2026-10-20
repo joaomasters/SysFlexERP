@@ -3,9 +3,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, FileText, X, ChevronDown, ChevronUp, Upload, Filter, Ban, AlertTriangle } from 'lucide-react'
 import { api } from '@/shared/api/axios'
 import toast from 'react-hot-toast'
-import { formatBRL, formatWeightDisplay } from '@/shared/utils/mask'
+import { formatBRL, formatQuantidade, casasDaUnidade } from '@/shared/utils/mask'
 import { PageHeader, Card, Modal, Button, CurrencyInput, WeightInput, Field, baseInputClass } from '@/shared/components/ui'
 import { usePermissao } from '@/shared/hooks/usePermissao'
+import { limiteValidadeISO, validadeAcimaDoLimite, formatarDataValidade, MAX_ANOS_VALIDADE } from './validadeUtils'
 
 interface Produto { id: number; nome: string; unidadeMedida: string }
 interface RecItem { produtoId: number; quantidade: number; custoUnitario: number; dataValidade: string }
@@ -31,7 +32,6 @@ interface Recebimento {
 }
 
 const brl = (v?: number) => formatBRL(v ?? 0)
-const kg3 = formatWeightDisplay
 
 const hoje = new Date().toISOString().slice(0, 10)
 const trintaDiasAtras = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
@@ -173,13 +173,17 @@ export default function RecebimentoPage() {
     dataEmissao: dataEmissao ? '' : 'Informe a data de emissão.',
     valorTotal:  valorTotal > 0 ? '' : 'Informe o valor total da NF.',
   }
+  // Validade não pode passar de 3 anos da data de entrada (hoje): barra datas digitadas por engano.
+  const limiteValidade = limiteValidadeISO()
   const errosItens = itens.map(i => ({
     produto:    i.produtoId <= 0,
     quantidade: i.quantidade <= 0,
     custo:      i.custoUnitario <= 0,
     validade:   !i.dataValidade,
+    validadeAlta: validadeAcimaDoLimite(i.dataValidade, limiteValidade),
   }))
-  const itensInvalidos = errosItens.some(e => e.produto || e.quantidade || e.custo || e.validade)
+  const itensInvalidos = errosItens.some(e => e.produto || e.quantidade || e.custo || e.validade || e.validadeAlta)
+  const validadeAlta = errosItens.some(e => e.validadeAlta)
   const formInvalido = Object.values(erros).some(Boolean) || itensInvalidos
 
   const mostrar = (msg: string) => (tentouSalvar && msg ? msg : undefined)
@@ -312,7 +316,7 @@ export default function RecebimentoPage() {
                     {r.itens.map(it => (
                       <tr key={it.id} className="border-t border-gray-200">
                         <td className="py-2 font-medium">{it.produto.nome}</td>
-                        <td className="py-2 text-right tabular-nums">{kg3(it.quantidade)} {it.produto.unidadeMedida}</td>
+                        <td className="py-2 text-right tabular-nums">{formatQuantidade(it.quantidade, it.produto.unidadeMedida)} {it.produto.unidadeMedida}</td>
                         <td className="py-2 text-right tabular-nums">{brl(it.custoUnitario)}</td>
                         <td className="py-2 text-right font-medium tabular-nums">{brl(it.custoTotal)}</td>
                         <td className="py-2 text-right tabular-nums text-gray-600">
@@ -490,6 +494,7 @@ export default function RecebimentoPage() {
                         value={item.quantidade}
                         onChange={v => updateItem(idx, 'quantidade', v)}
                         unit={(produtoSel?.unidadeMedida ?? 'kg').toLowerCase()}
+                        decimals={casasDaUnidade(produtoSel?.unidadeMedida)}
                         size="sm"
                         className={tentouSalvar && ei.quantidade ? '[&_input]:!border-danger-500' : ''}
                       />
@@ -510,7 +515,8 @@ export default function RecebimentoPage() {
                         value={item.dataValidade}
                         onChange={e => updateItem(idx, 'dataValidade', e.target.value)}
                         title="Validade do lote recebido"
-                        className={`w-full min-w-[9rem] border border-gray-300 rounded px-2 py-1.5 text-sm bg-white ${bad(ei.validade)}`}
+                        max={limiteValidade}
+                        className={`w-full min-w-[9rem] border border-gray-300 rounded px-2 py-1.5 text-sm bg-white ${ei.validadeAlta ? '!border-danger-500' : bad(ei.validade)}`}
                       />
                     </div>
                     <div className="col-span-1 flex justify-center">
@@ -527,6 +533,12 @@ export default function RecebimentoPage() {
             {tentouSalvar && itensInvalidos && (
               <p className="text-danger-600 text-xs mt-2">
                 Preencha produto, quantidade, custo e validade em todos os itens (ou remova os itens em branco).
+              </p>
+            )}
+            {validadeAlta && (
+              <p className="text-danger-600 text-xs mt-1">
+                A validade não pode passar de {MAX_ANOS_VALIDADE} anos da data de entrada
+                (limite: {formatarDataValidade(limiteValidade)}). Confira o ano digitado.
               </p>
             )}
           </div>
@@ -566,7 +578,7 @@ function CancelarEntradaModal({ recebimento: r, onClose, onCancelada }: {
                   onClick={() => cancelar.mutate()}>
             Cancelar entrada
           </Button>
-        </> 
+        </>
       }
     >
       <div className="bg-red-50 border border-red-100 rounded-lg p-3 flex gap-2 text-sm text-red-700">

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { X, Printer, Search } from 'lucide-react'
 import { api } from '@/shared/api/axios'
-import { formatWeightDisplay } from '@/shared/utils/mask'
+import { formatQuantidade } from '@/shared/utils/mask'
 import { Button, baseInputClass } from '@/shared/components/ui'
 import { situacaoRotulo, textoPrazo, formatarDataValidade } from '../validadeUtils'
 import type { LoteValidade, SituacaoValidade } from '@/types/validade'
@@ -14,7 +14,7 @@ interface Props {
   onClose: () => void
 }
 
-const qtd = (v: number) => formatWeightDisplay(v, 3)
+const qtd = formatQuantidade
 
 const rotuloFiltro: Record<FiltroSituacao, string> = {
   TODOS: 'todos os lotes',
@@ -161,7 +161,7 @@ export default function RelatorioValidadeModal({ onClose }: Props) {
                 {linhas.map(l => (
                   <tr key={l.loteId} className="border-b border-gray-100">
                     <td className="py-2 pr-3 font-medium text-gray-800">{l.produtoNome}</td>
-                    <td className="py-2 pr-3 text-right tabular-nums text-gray-700">{qtd(l.quantidadeAtual)} {l.unidadeMedida}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums text-gray-700">{qtd(l.quantidadeAtual, l.unidadeMedida)} {l.unidadeMedida}</td>
                     <td className="py-2 pr-3 text-gray-600">{formatarDataValidade(l.dataValidade)}</td>
                     <td className={`py-2 pr-3 ${l.situacao === 'VENCIDO' ? 'text-danger-700 font-semibold' : 'text-gray-600'}`}>
                       {textoPrazo(l.diasRestantes)}

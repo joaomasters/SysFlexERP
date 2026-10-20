@@ -32,6 +32,13 @@ const WeightInput = forwardRef<HTMLInputElement, WeightInputProps>(function Weig
     setDisplay(formatWeightDisplay(value, decimals))
   }, [value, decimals])
 
+  // Unidade inteira (UN/CX, decimals = 0): se chegar um valor com fração (ex: o
+  // usuário trocou o produto de KG para UN), arredonda — assim o que aparece no
+  // campo é sempre o que será enviado.
+  useEffect(() => {
+    if (decimals === 0 && !Number.isInteger(value)) onChange(Math.round(value))
+  }, [decimals, value])
+
   const sizeClasses = size === 'sm' ? 'px-3 py-1.5 text-sm' : 'px-3 py-2 text-sm'
   const disabled = rest.disabled
 

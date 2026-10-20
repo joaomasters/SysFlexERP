@@ -19,7 +19,8 @@ public record LoteValidadeDTO(
         LocalDate dataValidade,
         long diasRestantes,
         String situacao,
-        String documentoRef
+        String documentoRef,
+        LocalDate dataEntrada
 ) {
     public static final String VENCIDO = "VENCIDO";
     public static final String VENCE_EM_BREVE = "VENCE_EM_BREVE";

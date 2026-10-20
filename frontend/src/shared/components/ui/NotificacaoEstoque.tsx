@@ -4,6 +4,7 @@ import { Bell, AlertTriangle, CalendarClock } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { api } from '@/shared/api/axios'
 import { usePermissao } from '@/shared/hooks/usePermissao'
+import { formatQuantidade } from '@/shared/utils/mask'
 
 interface ProdutoAlerta {
   id: number
@@ -118,7 +119,7 @@ export default function NotificacaoEstoque() {
                     <div>
                       <p className="text-sm font-medium text-gray-800">{l.produtoNome}</p>
                       <p className="text-xs text-gray-500">
-                        {l.quantidadeAtual} {l.unidadeMedida} · {new Date(l.dataValidade + 'T00:00:00').toLocaleDateString('pt-BR')}
+                        {formatQuantidade(l.quantidadeAtual, l.unidadeMedida)} {l.unidadeMedida} · {new Date(l.dataValidade + 'T00:00:00').toLocaleDateString('pt-BR')}
                       </p>
                     </div>
                     <span className={`text-xs font-semibold ${l.situacao === 'VENCIDO' ? 'text-red-600' : 'text-amber-600'}`}>
