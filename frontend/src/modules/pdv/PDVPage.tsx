@@ -9,7 +9,7 @@ import { usePdv } from './hooks/usePdv'
 import ListaItens from './components/ListaItens'
 import ModalPagamento from './components/ModalPagamento'
 import NovaComandaModal from './components/NovaComandaModal'
-import { formatBRL } from '@/shared/utils/mask'
+import { formatBRL, formatCurrencyDisplay } from '@/shared/utils/mask'
 import { CurrencyInput, WeightInput, BuscaProduto } from '@/shared/components/ui'
 import type { ProdutoBuscavel } from '@/shared/components/ui'
 import { casasDaUnidade } from '@/shared/utils/mask'
@@ -25,6 +25,10 @@ import FaixaAmbiente from '@/shared/components/ui/FaixaAmbiente'
 // valor usam a MESMA lógica de máscara do resto do sistema
 // (CurrencyInput com a variante `dark`), só que com uma pele escura.
 const brl = formatBRL
+
+/** Tamanho do total a pagar conforme os dígitos: 55,35 → grande; 12.345,67 → menor. */
+const tamanhoTotal = (valor: string) =>
+  valor.length <= 5 ? 'text-5xl' : valor.length <= 8 ? 'text-4xl' : 'text-3xl'
 
 interface FechamentoResumo {
   valorAbertura: number
@@ -281,8 +285,8 @@ export default function PDVPage() {
           {/* Rodapé da lista */}
           <div className="px-4 py-3 bg-gray-900 border-t border-gray-800 flex justify-between text-sm text-gray-400">
             <span>{venda?.itens?.length ?? 0} iten(s)</span>
-            {venda?.desconto && venda.desconto > 0 && (
-              <span>Desconto: -{brl(venda.desconto)}</span>
+            {(venda?.desconto ?? 0) > 0 && (
+              <span>Desconto: -{brl(venda?.desconto ?? 0)}</span>
             )}
             <span>Subtotal: <span className="text-white font-medium tabular-nums">{brl(venda?.subtotal ?? 0)}</span></span>
           </div>
@@ -292,10 +296,14 @@ export default function PDVPage() {
         <div className="w-72 flex flex-col gap-4 p-5 bg-gray-900">
 
           {/* Total */}
-          <div className="bg-gray-800 rounded-2xl p-6 text-center shadow-inner">
-            <p className="text-gray-400 text-xs uppercase tracking-widest mb-2">Total a Pagar</p>
-            <p className="text-5xl font-black tabular-nums text-emerald-400 leading-none">
-              {brl(totalVenda)}
+          <div className="bg-gray-800 rounded-2xl px-4 py-6 text-center shadow-inner">
+            <p className="text-gray-400 text-xs uppercase tracking-widest mb-3">Total a Pagar</p>
+            {/* "R$" menor e valor que encolhe com a quantidade de dígitos: sempre cabe centralizado */}
+            <p className="flex items-baseline justify-center gap-1.5 whitespace-nowrap font-black tabular-nums text-emerald-400 leading-none">
+              <span className="text-2xl">R$</span>
+              <span className={tamanhoTotal(formatCurrencyDisplay(totalVenda))}>
+                {formatCurrencyDisplay(totalVenda)}
+              </span>
             </p>
           </div>
 
