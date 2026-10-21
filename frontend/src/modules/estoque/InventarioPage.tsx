@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../shared/api/axios'
 import { CheckCircle2, XCircle, Filter, Printer } from 'lucide-react'
-import { formatWeightDisplay } from '@/shared/utils/mask'
+import { formatQuantidade, casasDaUnidade } from '@/shared/utils/mask'
 import { PageHeader, Card, Button, StatusBadge, WeightInput, baseInputClass } from '@/shared/components/ui'
 import type { BadgeTone } from '@/shared/components/ui'
 import RelatorioEstoqueModal from './components/RelatorioEstoqueModal'
@@ -22,7 +22,7 @@ interface InventarioItem {
 
 const hoje = new Date().toISOString().slice(0, 10)
 const trintaDiasAtras = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
-const kg3 = formatWeightDisplay
+const kg3 = formatQuantidade
 
 // ABERTO = contagem em andamento (processo, não problema); FINALIZADO = concluído;
 // CANCELADO = neutro.
@@ -200,7 +200,7 @@ export default function InventarioPage() {
                       <tr key={item.id} className="border-b last:border-0 hover:bg-gray-50">
                         <td className="px-4 py-2.5 font-medium">{item.produto.nome}</td>
                         <td className="px-4 py-2.5 text-right text-gray-500 tabular-nums">
-                          {kg3(item.saldoSistema)} {item.produto.unidadeMedida}
+                          {kg3(item.saldoSistema, item.produto.unidadeMedida)} {item.produto.unidadeMedida}
                         </td>
                         <td className="px-4 py-2.5 text-right">
                           {isAberto ? (
@@ -212,17 +212,18 @@ export default function InventarioPage() {
                                 if (v !== undefined) contar.mutate({ produtoId: item.produto.id, val: v })
                               }}
                               unit={item.produto.unidadeMedida.toLowerCase()}
+                              decimals={casasDaUnidade(item.produto.unidadeMedida)}
                               size="sm"
                               className="w-32 ml-auto"
                             />
                           ) : (
-                            <span className="tabular-nums">{item.saldoContado != null ? kg3(item.saldoContado) : '—'}</span>
+                            <span className="tabular-nums">{item.saldoContado != null ? kg3(item.saldoContado, item.produto.unidadeMedida) : '—'}</span>
                           )}
                         </td>
                         <td className="px-4 py-2.5 text-right font-medium tabular-nums">
                           {item.divergencia != null ? (
                             <span className={item.divergencia >= 0 ? 'text-success-600' : 'text-danger-600'}>
-                              {item.divergencia >= 0 ? '+' : ''}{kg3(item.divergencia)}
+                              {item.divergencia >= 0 ? '+' : ''}{kg3(item.divergencia, item.produto.unidadeMedida)}
                             </span>
                           ) : '—'}
                         </td>

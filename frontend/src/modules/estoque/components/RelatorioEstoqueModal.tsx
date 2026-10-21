@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { X, Printer, Search, AlertTriangle } from 'lucide-react'
 import { api } from '@/shared/api/axios'
 import type { Produto } from '@/types/produto'
-import { formatWeightDisplay } from '@/shared/utils/mask'
+import { formatQuantidade } from '@/shared/utils/mask'
 import { Button, baseInputClass } from '@/shared/components/ui'
 
 type OrdemCampo = 'nome' | 'marca' | 'fornecedor'
@@ -12,7 +12,7 @@ interface Props {
   onClose: () => void
 }
 
-const qtd = formatWeightDisplay
+const qtd = formatQuantidade
 
 /**
  * Relatório de produtos/estoque, pensado pra impressão em papel: busca livre
@@ -151,10 +151,10 @@ export default function RelatorioEstoqueModal({ onClose }: Props) {
                       <td className="py-2 pr-3 text-gray-600">{p.marca || '—'}</td>
                       <td className="py-2 pr-3 text-gray-600">{p.fornecedor || '—'}</td>
                       <td className={`py-2 pr-3 text-right tabular-nums ${abaixo ? 'text-warning-700 font-semibold' : 'text-gray-700'}`}>
-                        {qtd(p.estoqueAtual)} {p.unidadeMedida}
+                        {qtd(p.estoqueAtual, p.unidadeMedida)} {p.unidadeMedida}
                       </td>
                       <td className="py-2 text-right tabular-nums text-gray-500">
-                        {qtd(p.estoqueMinimo)} {p.unidadeMedida}
+                        {qtd(p.estoqueMinimo, p.unidadeMedida)} {p.unidadeMedida}
                       </td>
                     </tr>
                   )

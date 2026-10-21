@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -48,6 +49,13 @@ public class RecebimentoService {
 
     @Transactional
     public RecebimentoMercadoria registrar(RecebimentoDTO dto, Long usuarioId) {
+        // Validade acima de 3 anos da entrada quase sempre é erro de digitação:
+        // barra antes de gravar qualquer coisa.
+        LocalDate dataEntrada = LocalDate.now();
+        for (RecebimentoDTO.ItemDTO item : dto.itens()) {
+            RegraValidade.validarLimite(item.dataValidade(), dataEntrada);
+        }
+
         RecebimentoMercadoria rec = RecebimentoMercadoria.builder()
                 .usuarioId(usuarioId)
                 .fornecedor(dto.fornecedor())

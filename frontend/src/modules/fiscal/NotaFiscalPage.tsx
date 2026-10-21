@@ -3,13 +3,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { FileText, Plus, X, ChevronDown, ChevronUp, Upload, Download, Printer, CheckCircle, XCircle, Filter } from 'lucide-react'
 import { api } from '@/shared/api/axios'
 import toast from 'react-hot-toast'
-import { formatBRL, formatWeightDisplay } from '@/shared/utils/mask'
+import { formatBRL, formatWeightDisplay, formatQuantidade, casasDaUnidade } from '@/shared/utils/mask'
 import { PageHeader, Card, Modal, Button, StatusBadge, CurrencyInput, WeightInput, Field, baseInputClass, ConfirmDialog } from '@/shared/components/ui'
 import type { BadgeTone } from '@/shared/components/ui'
 import ImpressaoNFModal from './components/ImpressaoNFModal'
 import { usePermissao } from '@/shared/hooks/usePermissao'
 
-interface Produto  { id: number; nome: string; precoVenda: number }
+interface Produto  { id: number; nome: string; precoVenda: number; unidadeMedida?: string }
 interface Cliente  { id: number; nome: string }
 interface NfItem   { produtoId: number | null; descricao: string; quantidade: number; valorUnitario: number }
 
@@ -27,7 +27,7 @@ interface NotaFiscal {
   xmlNf: string | null
   usuarioCriacaoNome?: string   // quem lançou a nota — só vem para administradores
   usuarioEmissaoNome?: string   // quem efetivou a saída (EMITIDA) — só vem para administradores
-  itens: { id: number; produto: { nome: string } | null; descricao: string; quantidade: number; valorUnitario: number; valorTotal: number }[]
+  itens: { id: number; produto: { nome: string; unidadeMedida?: string } | null; descricao: string; quantidade: number; valorUnitario: number; valorTotal: number }[]
 }
 
 const brl = (v?: number) => formatBRL(v ?? 0)
@@ -259,7 +259,7 @@ export default function NotaFiscalPage() {
         subtitle="Emissão de Nota fiscal"
         actions={
           <Button variant="primary" onClick={() => setShowForm(true)}>
-            Nova NF
+            Nova Danfe
           </Button>
         }
       />
@@ -396,7 +396,7 @@ export default function NotaFiscalPage() {
                     {nf.itens.map(it => (
                       <tr key={it.id} className="border-t border-gray-200">
                         <td className="py-2">{it.descricao}</td>
-                        <td className="py-2 text-right tabular-nums">{qtd3(it.quantidade)}</td>
+                        <td className="py-2 text-right tabular-nums">{formatQuantidade(it.quantidade, it.produto?.unidadeMedida)}</td>
                         <td className="py-2 text-right tabular-nums">{brl(it.valorUnitario)}</td>
                         <td className="py-2 text-right font-medium tabular-nums">{brl(it.valorTotal)}</td>
                       </tr>
@@ -544,6 +544,7 @@ export default function NotaFiscalPage() {
                           onChange={v => updateItem(idx, 'quantidade', v)}
                           size="sm"
                           unit=""
+                          decimals={casasDaUnidade(produtos.find(p => p.id === item.produtoId)?.unidadeMedida)}
                           className={tentouSalvar && ei.quantidade ? '[&_input]:!border-danger-500' : ''}
                         />
                       </div>

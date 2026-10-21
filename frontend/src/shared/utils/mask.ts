@@ -70,6 +70,33 @@ export function maskWeightDigits(raw: string, decimals = 3): { display: string; 
   return { display: formatWeightDisplay(value, decimals), value }
 }
 
+// ─── Quantidade conforme a unidade de medida ────────────────────────────────
+
+// UN (unidade) e CX (caixa) são contadas em peças inteiras: não têm fração.
+// KG e G continuam com 3 casas (precisão de balança).
+const UNIDADES_INTEIRAS = ['UN', 'CX', 'CAIXA']
+
+/** true para unidades que só aceitam número inteiro (UN, CX). */
+export function unidadeEhInteira(unidade?: string | null): boolean {
+  return !!unidade && UNIDADES_INTEIRAS.includes(unidade.trim().toUpperCase())
+}
+
+/** Casas decimais da máscara de quantidade: 0 para UN/CX, 3 para peso. Use em <WeightInput decimals=...>. */
+export function casasDaUnidade(unidade?: string | null): number {
+  return unidadeEhInteira(unidade) ? 0 : 3
+}
+
+/**
+ * Formata uma quantidade para exibição conforme a unidade: UN/CX sem vírgula
+ * ("2"), peso com 3 casas ("2,000"). Registro antigo de UN/CX que tenha fração
+ * continua aparecendo com as casas, para a fração não ficar escondida.
+ */
+export function formatQuantidade(value: number, unidade?: string | null): string {
+  const n = Number.isFinite(value) ? value : 0
+  if (unidadeEhInteira(unidade) && Number.isInteger(n)) return formatWeightDisplay(n, 0)
+  return formatWeightDisplay(n, 3)
+}
+
 // ─── Genérico ───────────────────────────────────────────────────────────────
 
 /** Formata percentual, ex: 12.5 -> "12,5%". */

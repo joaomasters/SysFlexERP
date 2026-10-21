@@ -1,9 +1,9 @@
 import { X, Printer } from 'lucide-react'
-import { formatBRL, formatWeightDisplay } from '@/shared/utils/mask'
+import { formatBRL, formatQuantidade } from '@/shared/utils/mask'
 
 interface NotaFiscalItem {
   id: number
-  produto: { nome: string } | null
+  produto: { nome: string; unidadeMedida?: string } | null
   descricao: string
   quantidade: number
   valorUnitario: number
@@ -29,7 +29,7 @@ interface Props {
 }
 
 const brl = formatBRL
-const qtd  = formatWeightDisplay
+const qtd  = formatQuantidade
 
 /**
  * Impressão simplificada da NF — um resumo legível (cabeçalho, itens,
@@ -106,7 +106,7 @@ export default function ImpressaoNFModal({ nf, onClose }: Props) {
               {nf.itens.map(it => (
                 <tr key={it.id} className="border-b border-gray-200">
                   <td className="py-2">{it.produto?.nome ?? it.descricao}</td>
-                  <td className="py-2 text-right tabular-nums">{qtd(it.quantidade)}</td>
+                  <td className="py-2 text-right tabular-nums">{qtd(it.quantidade, it.produto?.unidadeMedida)}</td>
                   <td className="py-2 text-right tabular-nums">{brl(it.valorUnitario)}</td>
                   <td className="py-2 text-right font-medium tabular-nums">{brl(it.valorTotal)}</td>
                 </tr>
