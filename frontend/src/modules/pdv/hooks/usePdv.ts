@@ -85,6 +85,31 @@ export function usePdv() {
     }
   }, [venda, iniciarVenda, atualizarComandaLocal])
 
+  /**
+   * Produto escolhido na busca (sem código de barras): abre a comanda se
+   * preciso, como o leitor faz. O servidor calcula o total pelo preço atual.
+   */
+  const adicionarProduto = useCallback(async (produtoId: number, nome: string, quantidade: number) => {
+    setScan(true)
+    try {
+      let vendaAtual = venda
+      if (!vendaAtual) {
+        vendaAtual = await iniciarVenda()
+      }
+      const { data: vendaAtualizada } = await api.post<Venda>(
+        `/pdv/vendas/${vendaAtual.id}/itens`,
+        { produtoId, quantidade, tipoEntrada: 'MANUAL' }
+      )
+      setVenda(vendaAtualizada)
+      atualizarComandaLocal(vendaAtualizada)
+      toast.success(`${nome} adicionado`, { duration: 1500 })
+    } catch {
+      // erro já tratado pelo interceptor do axios
+    } finally {
+      setScan(false)
+    }
+  }, [venda, iniciarVenda, atualizarComandaLocal])
+
   const adicionarItemManual = useCallback(async (dto: ItemVendaDTO) => {
     if (!venda) {
       toast.error('Abra uma venda primeiro.')
@@ -155,6 +180,7 @@ export function usePdv() {
     totalVenda: venda?.total ?? 0,
     adicionarItem,
     adicionarItemManual,
+    adicionarProduto,
     removerItem,
     fecharVenda,
     cancelarVenda,
