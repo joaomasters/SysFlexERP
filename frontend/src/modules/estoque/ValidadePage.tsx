@@ -2,19 +2,19 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api } from '@/shared/api/axios'
-import { Printer } from 'lucide-react'
-import { formatWeightDisplay } from '@/shared/utils/mask'
+import { Printer, Pencil } from 'lucide-react'
+import { formatQuantidade } from '@/shared/utils/mask'
+import { usePermissao } from '@/shared/hooks/usePermissao'
 import {
   PageHeader, Card, Button, StatusBadge, FilterTabs,
   Table, THead, TH, TBody, TR, TD, EmptyState, LoadingState,
 } from '@/shared/components/ui'
 import RelatorioValidadeModal from './components/RelatorioValidadeModal'
+import EditarValidadeModal from './components/EditarValidadeModal'
 import { situacaoTom, situacaoRotulo, textoPrazo, formatarDataValidade } from './validadeUtils'
 import type { LoteValidade, SituacaoValidade } from '@/types/validade'
 
 type Filtro = 'ATENCAO' | 'TODOS' | SituacaoValidade
-
-const kg3 = (v: number) => formatWeightDisplay(v, 3)
 
 /**
  * Controle de Validade: lotes em estoque ordenados do que vence primeiro para o que vence depois.
@@ -26,6 +26,9 @@ const kg3 = (v: number) => formatWeightDisplay(v, 3)
 export default function ValidadePage() {
   const [filtro, setFiltro] = useState<Filtro>('ATENCAO')
   const [showRelatorio, setShowRelatorio] = useState(false)
+  const [editando, setEditando] = useState<LoteValidade | null>(null)
+  const { podeEditar } = usePermissao()
+  const podeEditarValidade = podeEditar('PRODUTOS')
 
   const { data: lotes = [], isLoading } = useQuery<LoteValidade[]>({
     queryKey: ['validade-lotes'],
@@ -103,13 +106,14 @@ export default function ValidadePage() {
                 <TH>Prazo</TH>
                 <TH align="center">Situação</TH>
                 <TH>Origem</TH>
+                {podeEditarValidade && <TH />}
               </tr>
             </THead>
             <TBody>
               {filtrados.map(l => (
                 <TR key={l.loteId}>
                   <TD className="font-medium">{l.produtoNome}</TD>
-                  <TD align="right" className="tabular-nums">{kg3(l.quantidadeAtual)} {l.unidadeMedida}</TD>
+                  <TD align="right" className="tabular-nums">{formatQuantidade(l.quantidadeAtual, l.unidadeMedida)} {l.unidadeMedida}</TD>
                   <TD className="text-xs text-gray-500">{formatarDataValidade(l.dataValidade)}</TD>
                   <TD className={l.situacao === 'VENCIDO' ? 'text-danger-600 font-medium' : 'text-gray-600'}>
                     {textoPrazo(l.diasRestantes)}
@@ -118,6 +122,13 @@ export default function ValidadePage() {
                     <StatusBadge tone={situacaoTom[l.situacao]}>{situacaoRotulo[l.situacao]}</StatusBadge>
                   </TD>
                   <TD className="text-xs text-gray-500">{l.documentoRef ?? '—'}</TD>
+                  {podeEditarValidade && (
+                    <TD align="right">
+                      <Button variant="secondary" size="sm" className="whitespace-nowrap" onClick={() => setEditando(l)}>
+                        Editar Validade
+                      </Button>
+                    </TD>
+                  )}
                 </TR>
               ))}
             </TBody>
@@ -133,6 +144,7 @@ export default function ValidadePage() {
       </Card>
 
       {showRelatorio && <RelatorioValidadeModal onClose={() => setShowRelatorio(false)} />}
+      {editando && <EditarValidadeModal lote={editando} onClose={() => setEditando(null)} />}
     </div>
   )
 }

@@ -11,4 +11,5 @@ export interface LoteValidade {
   diasRestantes: number   // negativo = já venceu
   situacao: SituacaoValidade
   documentoRef: string | null
+  dataEntrada: string      // dia em que o lote entrou (base do limite de 3 anos de validade)
 }

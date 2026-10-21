@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../shared/api/axios'
 import { Plus } from 'lucide-react'
-import { formatBRL, formatWeightDisplay } from '@/shared/utils/mask'
+import { formatBRL, formatQuantidade, casasDaUnidade } from '@/shared/utils/mask'
 import {
   PageHeader, Card, Modal, Button, StatusBadge, WeightInput, Field, baseInputClass,
   Table, THead, TH, TBody, TR, TD, EmptyState,
@@ -24,7 +24,7 @@ interface Perda {
 
 const MOTIVOS = ['VENCIMENTO', 'AVARIA', 'FURTO', 'DESOSSA', 'OUTROS']
 const fmt = formatBRL
-const kg3 = formatWeightDisplay
+const kg3 = formatQuantidade
 
 // FURTO é o mais grave (crime); VENCIMENTO/AVARIA pedem atenção mas são
 // operacionais; DESOSSA é perda esperada do processo (não é bem um "problema").
@@ -130,7 +130,7 @@ export default function PerdasPage() {
                 <TD>
                   <StatusBadge tone={motivoTom[p.motivo] ?? 'neutral'}>{p.motivo}</StatusBadge>
                 </TD>
-                <TD align="right" className="tabular-nums">{kg3(p.quantidade)} {p.produto.unidadeMedida}</TD>
+                <TD align="right" className="tabular-nums">{kg3(p.quantidade, p.produto.unidadeMedida)} {p.produto.unidadeMedida}</TD>
                 <TD align="right" className="font-medium text-danger-600 tabular-nums">{fmt(p.custoTotal)}</TD>
                 <TD className="text-gray-500 text-xs">{p.observacao || '—'}</TD>
                 <TD className="text-gray-400">
@@ -169,7 +169,7 @@ export default function PerdasPage() {
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Quantidade">
-              <WeightInput value={quantidade} onChange={setQuantidade} unit={(produtoSel?.unidadeMedida ?? 'kg').toLowerCase()} />
+              <WeightInput value={quantidade} onChange={setQuantidade} unit={(produtoSel?.unidadeMedida ?? 'kg').toLowerCase()} decimals={casasDaUnidade(produtoSel?.unidadeMedida)} />
             </Field>
             <Field label="Motivo">
               <select value={motivo} onChange={e => setMotivo(e.target.value)} className={baseInputClass}>

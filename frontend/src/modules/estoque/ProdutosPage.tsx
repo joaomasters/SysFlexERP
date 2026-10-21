@@ -6,14 +6,14 @@ import toast from 'react-hot-toast'
 import type { Produto } from '@/types/produto'
 import ProdutoForm from './components/ProdutoForm'
 import { usePermissao } from '@/shared/hooks/usePermissao'
-import { formatBRL, formatWeightDisplay } from '@/shared/utils/mask'
+import { formatBRL, formatQuantidade } from '@/shared/utils/mask'
 import {
   PageHeader, Button, StatusBadge, baseInputClass, ConfirmDialog,
   Table, THead, TH, TBody, TR, TD, LoadingState,
 } from '@/shared/components/ui'
 
 const brl  = (v?: number) => formatBRL(v ?? 0)
-const qtd3 = (v: number)  => formatWeightDisplay(v)
+const qtd3 = formatQuantidade
 
 function margemPct(custo?: number, venda?: number): number | null {
   if (!custo || custo <= 0 || !venda) return null
@@ -125,7 +125,7 @@ export default function ProdutosPage() {
                   </TD>
                   <TD align="right" className={`tabular-nums font-medium
                     ${p.estoqueAtual <= p.estoqueMinimo ? 'text-warning-600' : 'text-gray-700'}`}>
-                    {qtd3(p.estoqueAtual)} {p.unidadeMedida}
+                    {qtd3(p.estoqueAtual, p.unidadeMedida)} {p.unidadeMedida}
                   </TD>
                   <TD align="center" className="text-gray-500 font-mono text-xs">
                     {p.codigoBalanca ? String(p.codigoBalanca).padStart(5, '0') : '—'}
