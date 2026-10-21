@@ -16,7 +16,7 @@ export default function ListaItens({ itens, onRemover }: Props) {
   if (itens.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">
-        Aguardando leitura do código de barras...
+        Bipe o código de barras ou busque o produto acima (F2)
       </div>
     )
   }

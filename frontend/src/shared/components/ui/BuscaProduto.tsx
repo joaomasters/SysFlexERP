@@ -8,6 +8,7 @@ export interface ProdutoBuscavel {
   codigoInterno?: string | null
   ean13?: string | null
   codigoBalanca?: number | null
+  precoVenda?: number | null
 }
 
 interface Props {
@@ -23,6 +24,15 @@ interface Props {
   inputRef?: React.Ref<HTMLInputElement>
   /** Chamado quando Enter é pressionado com um código que não corresponde a nenhum produto. */
   onCodigoNaoEncontrado?: (codigo: string) => void
+  /**
+   * Se informado, um código numérico (8 a 14 dígitos) + Enter vai direto para cá em vez de
+   * ser procurado na lista — ex.: PDV, onde o servidor lê peso/preço da etiqueta de balança.
+   */
+  aoDigitarCodigo?: (codigo: string) => void
+  /** Texto à direita de cada produto na lista (padrão: código de barras ou código interno). */
+  detalhe?: (produto: ProdutoBuscavel) => string
+  /** Tema escuro (console do PDV). */
+  escuro?: boolean
   className?: string
 }
 
@@ -75,7 +85,7 @@ export function filtrarProdutos(produtos: ProdutoBuscavel[], termo: string): Pro
  */
 export default function BuscaProduto({
   produtos, value = 0, onSelect, modo = 'selecao', placeholder = 'Buscar produto por nome ou código...',
-  invalido, autoFocus, inputRef, onCodigoNaoEncontrado, className = '',
+  invalido, autoFocus, inputRef, onCodigoNaoEncontrado, aoDigitarCodigo, detalhe, escuro = false, className = '',
 }: Props) {
   const selecionado = modo === 'selecao' ? produtos.find(p => p.id === value) : undefined
   const [termo, setTermo] = useState('')
@@ -120,6 +130,11 @@ export default function BuscaProduto({
       setAberto(false); setTermo('')
     } else if (e.key === 'Enter') {
       e.preventDefault()
+      if (aoDigitarCodigo && /^\d{8,14}$/.test(termo.trim())) {
+        aoDigitarCodigo(termo.trim())
+        setTermo(''); setAberto(false)
+        return
+      }
       // Código exato (bipado ou digitado) tem prioridade sobre a lista filtrada
       const porCodigo = produtoPorCodigo(produtos, termo)
       if (porCodigo) { escolher(porCodigo); return }
@@ -151,8 +166,11 @@ export default function BuscaProduto({
           aria-expanded={aberto}
           aria-autocomplete="list"
           autoComplete="off"
-          className={`w-full border rounded pl-7 pr-7 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500
-            ${invalido ? 'border-danger-500' : 'border-gray-300'}`}
+          className={`w-full border rounded pl-7 pr-7 py-1.5 text-sm focus:outline-none focus:ring-2
+            ${escuro
+              ? 'bg-gray-800 text-white placeholder-gray-500 focus:ring-emerald-500'
+              : 'bg-white focus:ring-primary-500'}
+            ${invalido ? 'border-danger-500' : escuro ? 'border-gray-600' : 'border-gray-300'}`}
         />
         {modo === 'selecao' && selecionado && !aberto && (
           <button
@@ -171,10 +189,11 @@ export default function BuscaProduto({
         <ul
           ref={listaRef}
           role="listbox"
-          className="absolute z-30 mt-1 w-full max-h-64 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg text-sm"
+          className={`absolute z-30 mt-1 w-full max-h-64 overflow-y-auto border rounded-lg shadow-lg text-sm
+            ${escuro ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}
         >
           {resultados.length === 0 ? (
-            <li className="px-3 py-2 text-gray-400">Nenhum produto encontrado</li>
+            <li className={`px-3 py-2 ${escuro ? 'text-gray-500' : 'text-gray-400'}`}>Nenhum produto encontrado</li>
           ) : resultados.map((p, i) => (
             <li
               key={p.id}
@@ -183,11 +202,13 @@ export default function BuscaProduto({
               onMouseDown={e => { e.preventDefault(); escolher(p) }}
               onMouseEnter={() => setAtivo(i)}
               className={`px-3 py-1.5 cursor-pointer flex items-baseline justify-between gap-3
-                ${i === ativo ? 'bg-primary-50 text-primary-700' : 'text-gray-700'}`}
+                ${escuro
+                  ? (i === ativo ? 'bg-emerald-800 text-white' : 'text-gray-200')
+                  : (i === ativo ? 'bg-primary-50 text-primary-700' : 'text-gray-700')}`}
             >
               <span className="truncate">{p.nome}</span>
-              <span className="shrink-0 text-[11px] text-gray-400 font-mono">
-                {p.ean13 || p.codigoInterno || ''}
+              <span className={`shrink-0 text-[11px] font-mono tabular-nums ${escuro ? 'text-gray-400' : 'text-gray-400'}`}>
+                {detalhe ? detalhe(p) : (p.ean13 || p.codigoInterno || '')}
               </span>
             </li>
           ))}
