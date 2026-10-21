@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { ShoppingBag, Wifi, WifiOff, Trash2, Plus, User, LockOpen, Lock } from 'lucide-react'
 import { useBarcodeScan } from '@/shared/hooks/useBarcodeScan'
 import { usePermissao } from '@/shared/hooks/usePermissao'
@@ -9,7 +10,9 @@ import ListaItens from './components/ListaItens'
 import ModalPagamento from './components/ModalPagamento'
 import NovaComandaModal from './components/NovaComandaModal'
 import { formatBRL } from '@/shared/utils/mask'
-import { CurrencyInput } from '@/shared/components/ui'
+import { CurrencyInput, WeightInput, BuscaProduto } from '@/shared/components/ui'
+import type { ProdutoBuscavel } from '@/shared/components/ui'
+import { casasDaUnidade } from '@/shared/utils/mask'
 import FaixaAmbiente from '@/shared/components/ui/FaixaAmbiente'
 
 // NOTA DE DESIGN: o PDV usa de propósito um tema escuro em tela cheia
@@ -36,7 +39,7 @@ interface FechamentoResumo {
 export default function PDVPage() {
   const {
     venda, comandas, loading, scanLoading, totalVenda, caixaId, semCaixa,
-    adicionarItem, removerItem, fecharVenda, cancelarVenda,
+    adicionarItem, adicionarProduto, removerItem, fecharVenda, cancelarVenda,
     iniciarVenda, selecionarComanda, abrirCaixa, fecharCaixa,
   } = usePdv()
 
@@ -65,10 +68,42 @@ export default function PDVPage() {
     return () => clearInterval(t)
   }, [])
 
-  // Atalhos de teclado (F10 = Finalizar, Escape = Cancelar)
+  // ── Busca de produto (além do leitor) ─────────────────────────
+  const buscaRef = useRef<HTMLInputElement>(null)
+  const [pesando, setPesando] = useState<ProdutoBuscavel | null>(null)
+  const [peso, setPeso] = useState(0)
+
+  const { data: produtosPdv = [] } = useQuery<(ProdutoBuscavel & { ativo?: boolean })[]>({
+    queryKey: ['pdv-produtos'],
+    queryFn: () => api.get('/estoque/produtos', { silent: true } as never).then(r => r.data),
+    staleTime: 60_000,
+    enabled: !semCaixa,
+  })
+  const produtosAtivos = produtosPdv.filter(p => p.ativo !== false)
+
+  const porPeso = (un?: string) => ['KG', 'G'].includes((un ?? '').toUpperCase())
+
+  function escolherProduto(prod: ProdutoBuscavel) {
+    if (porPeso(prod.unidadeMedida)) {
+      setPeso(0)
+      setPesando(prod)          // pede o peso antes de lançar
+    } else {
+      adicionarProduto(prod.id, prod.nome, 1)
+    }
+  }
+
+  async function confirmarPeso() {
+    if (!pesando || peso <= 0) return
+    await adicionarProduto(pesando.id, pesando.nome, peso)
+    setPesando(null)
+    buscaRef.current?.focus()
+  }
+
+  // Atalhos de teclado (F2 = Buscar produto, F10 = Finalizar, Escape = Cancelar)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'F10') { e.preventDefault(); setShowPagto(true) }
+      if (e.key === 'F2') { e.preventDefault(); buscaRef.current?.focus() }
       if (e.key === 'Escape') { e.preventDefault(); /* abre confirmação */ }
     }
     window.addEventListener('keydown', onKey)
@@ -77,8 +112,12 @@ export default function PDVPage() {
 
   // Listener global do leitor de código de barras
   useBarcodeScan({
-    onScan: adicionarItem,
-    enabled: !showPagto && !semCaixa,
+    onScan: codigo => {
+      const el = document.activeElement
+      if (el && ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return // evita lançar em dobro
+      adicionarItem(codigo)
+    },
+    enabled: !showPagto && !semCaixa && !pesando,
   })
 
   const handleAbrirCaixa = async () => {
@@ -220,6 +259,21 @@ export default function PDVPage() {
 
         {/* Coluna esquerda: itens */}
         <div className="flex-1 flex flex-col overflow-hidden border-r border-gray-800">
+          <div className="px-4 py-3 border-b border-gray-800 bg-gray-900/40 flex items-center gap-3">
+            <BuscaProduto
+              produtos={produtosAtivos}
+              modo="acao"
+              escuro
+              inputRef={buscaRef}
+              placeholder="Buscar produto por nome ou código  (F2)"
+              onSelect={escolherProduto}
+              aoDigitarCodigo={adicionarItem}
+              detalhe={pr => pr.precoVenda != null
+                ? `${brl(pr.precoVenda)}${porPeso(pr.unidadeMedida) ? '/kg' : ''}`
+                : ''}
+              className="flex-1 [&_input]:py-2.5 [&_input]:text-base"
+            />
+          </div>
           <ListaItens
             itens={venda?.itens ?? []}
             onRemover={removerItem}
@@ -281,6 +335,48 @@ export default function PDVPage() {
           </div>
         </div>
       </div>
+      )}
+
+      {/* Peso do produto escolhido na busca */}
+      {pesando && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-sm p-6 space-y-4">
+            <div>
+              <h2 className="text-lg font-bold">{pesando.nome}</h2>
+              {pesando.precoVenda != null && (
+                <p className="text-sm text-gray-400">{brl(pesando.precoVenda)} por kg</p>
+              )}
+            </div>
+            <WeightInput
+              value={peso}
+              onChange={setPeso}
+              unit={(pesando.unidadeMedida ?? 'kg').toLowerCase()}
+              decimals={casasDaUnidade(pesando.unidadeMedida)}
+              dark
+              autoFocus
+              onKeyDown={e => {
+                if (e.key === 'Enter') confirmarPeso()
+                if (e.key === 'Escape') setPesando(null)
+              }}
+              className="[&_input]:text-2xl [&_input]:font-bold"
+            />
+            {pesando.precoVenda != null && peso > 0 && (
+              <p className="text-right text-emerald-400 font-bold tabular-nums">
+                Total: {brl(Math.round(peso * pesando.precoVenda * 100) / 100)}
+              </p>
+            )}
+            <div className="flex gap-3">
+              <button onClick={() => setPesando(null)}
+                className="flex-1 py-3 rounded-xl bg-gray-700 hover:bg-gray-600 text-sm font-medium">
+                Cancelar
+              </button>
+              <button onClick={confirmarPeso} disabled={peso <= 0 || scanLoading}
+                className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-gray-700 disabled:text-gray-500 font-bold text-sm">
+                Adicionar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Modal de pagamento */}
