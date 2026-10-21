@@ -1,14 +1,16 @@
 import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, FileText, X, ChevronDown, ChevronUp, Upload, Filter, Ban, AlertTriangle } from 'lucide-react'
+import { Plus, FileText, X, ChevronDown, ChevronUp, Upload, Filter, Ban, AlertTriangle, ScanBarcode } from 'lucide-react'
 import { api } from '@/shared/api/axios'
 import toast from 'react-hot-toast'
 import { formatBRL, formatQuantidade, casasDaUnidade } from '@/shared/utils/mask'
-import { PageHeader, Card, Modal, Button, CurrencyInput, WeightInput, Field, baseInputClass } from '@/shared/components/ui'
+import { PageHeader, Card, Modal, Button, CurrencyInput, WeightInput, Field, baseInputClass, BuscaProduto, produtoPorCodigo } from '@/shared/components/ui'
+import type { ProdutoBuscavel } from '@/shared/components/ui'
+import { useBarcodeScan } from '@/shared/hooks/useBarcodeScan'
 import { usePermissao } from '@/shared/hooks/usePermissao'
 import { limiteValidadeISO, validadeAcimaDoLimite, formatarDataValidade, MAX_ANOS_VALIDADE } from './validadeUtils'
 
-interface Produto { id: number; nome: string; unidadeMedida: string }
+interface Produto { id: number; nome: string; unidadeMedida: string; codigoInterno?: string | null; ean13?: string | null; codigoBalanca?: number | null }
 interface RecItem { produtoId: number; quantidade: number; custoUnitario: number; dataValidade: string }
 
 interface Recebimento {
@@ -134,6 +136,63 @@ export default function RecebimentoPage() {
     setTentouSalvar(false)
     setItens([{ produtoId: 0, quantidade: 0, custoUnitario: 0, dataValidade: '' }])
   }
+
+  // ── Bipagem / busca rápida de produto ─────────────────────────
+  const bipagemRef = useRef<HTMLInputElement>(null)
+  const [destaqueIdx, setDestaqueIdx] = useState<number | null>(null)
+  const [codigoNaoEncontrado, setCodigoNaoEncontrado] = useState('')
+
+  const porUnidade = (un?: string) => !['KG', 'G', 'L', 'ML'].includes((un ?? '').toUpperCase())
+
+  function destacar(idx: number) {
+    setDestaqueIdx(idx)
+    setTimeout(() => setDestaqueIdx(atual => (atual === idx ? null : atual)), 1500)
+  }
+
+  /**
+   * Produto bipado ou escolhido na barra de busca:
+   * - já está na lista e é vendido por unidade → soma 1 na última linha dele
+   * - já está na lista e é por peso → destaca a linha para digitar o peso
+   * - senão → ocupa a primeira linha vazia ou cria uma nova
+   */
+  function adicionarProduto(prod: ProdutoBuscavel) {
+    setCodigoNaoEncontrado('')
+    const linhaExistente = itens.map((it, i) => ({ it, i })).filter(x => x.it.produtoId === prod.id).pop()
+    if (linhaExistente) {
+      if (porUnidade(prod.unidadeMedida)) {
+        const nova = Math.round((linhaExistente.it.quantidade + 1) * 1000) / 1000
+        updateItem(linhaExistente.i, 'quantidade', nova)
+        toast.success(`${prod.nome}: ${nova} ${(prod.unidadeMedida ?? 'un').toLowerCase()}`, { id: 'bipagem' })
+      } else {
+        toast(`${prod.nome} já está na lista: informe o peso na linha destacada.`, { id: 'bipagem' })
+      }
+      destacar(linhaExistente.i)
+      return
+    }
+    const quantidadeInicial = porUnidade(prod.unidadeMedida) ? 1 : 0
+    const vazia = itens.findIndex(it => it.produtoId === 0)
+    if (vazia >= 0) {
+      setItens(prev => prev.map((it, i) => i === vazia ? { ...it, produtoId: prod.id, quantidade: it.quantidade || quantidadeInicial } : it))
+      destacar(vazia)
+    } else {
+      setItens(prev => [...prev, { produtoId: prod.id, quantidade: quantidadeInicial, custoUnitario: 0, dataValidade: '' }])
+      destacar(itens.length)
+    }
+    toast.success(`${prod.nome} adicionado`, { id: 'bipagem' })
+  }
+
+  // Leitor de código de barras com o foco fora de um campo de texto (ex.: depois de clicar na tela)
+  useBarcodeScan({
+    enabled: showForm,
+    onScan: codigo => {
+      const el = document.activeElement
+      if (el && ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return // o próprio campo trata
+      const prod = produtoPorCodigo(produtos, codigo)
+      if (prod) adicionarProduto(prod)
+      else setCodigoNaoEncontrado(codigo)
+      bipagemRef.current?.focus()
+    },
+  })
 
   function addItem() {
     setItens(prev => [...prev, { produtoId: 0, quantidade: 0, custoUnitario: 0, dataValidade: '' }])
@@ -468,25 +527,43 @@ export default function RecebimentoPage() {
                 <Plus size={12} /> Adicionar item
               </button>
             </div>
+            <div className="mb-3">
+              <div className="flex items-center gap-2 bg-primary-50 border border-primary-100 rounded-lg px-3 py-2">
+                <ScanBarcode size={18} className="text-primary-600 shrink-0" />
+                <BuscaProduto
+                  produtos={produtos}
+                  modo="acao"
+                  inputRef={bipagemRef}
+                  placeholder="Bipe o código de barras ou digite o nome do produto..."
+                  onSelect={adicionarProduto}
+                  onCodigoNaoEncontrado={setCodigoNaoEncontrado}
+                  className="flex-1"
+                />
+              </div>
+              {codigoNaoEncontrado && (
+                <p className="text-danger-600 text-xs mt-1">
+                  Código <span className="font-mono">{codigoNaoEncontrado}</span> não pertence a nenhum produto cadastrado.
+                  Confira o código ou cadastre o produto (com esse código de barras) em Produtos.
+                </p>
+              )}
+            </div>
             <div className="space-y-2">
               {itens.map((item, idx) => {
                 const produtoSel = produtos.find(p => p.id === item.produtoId)
                 const ei = errosItens[idx]
                 const bad = (v: boolean) => (tentouSalvar && v ? '!border-danger-500' : '')
                 return (
-                  <div key={idx} className="grid grid-cols-6 sm:grid-cols-12 gap-2 items-end bg-gray-50 border border-gray-100 rounded-lg p-3">
+                  <div key={idx} className={`grid grid-cols-6 sm:grid-cols-12 gap-2 items-end border rounded-lg p-3 transition-colors duration-500
+                    ${destaqueIdx === idx ? 'bg-primary-50 border-primary-400' : 'bg-gray-50 border-gray-100'}`}>
                     <div className="col-span-6 sm:col-span-3">
                       <label className={`text-xs text-gray-500 block mb-1 ${idx === 0 ? '' : 'sm:hidden'}`}>Produto *</label>
-                      <select
+                      <BuscaProduto
+                        produtos={produtos}
                         value={item.produtoId}
-                        onChange={e => updateItem(idx, 'produtoId', parseInt(e.target.value))}
-                        className={`w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white ${bad(ei.produto)}`}
-                      >
-                        <option value={0}>Selecione...</option>
-                        {produtos.map(p => (
-                          <option key={p.id} value={p.id}>{p.nome}</option>
-                        ))}
-                      </select>
+                        onSelect={prod => updateItem(idx, 'produtoId', prod.id)}
+                        invalido={tentouSalvar && ei.produto}
+                        placeholder="Buscar produto..."
+                      />
                     </div>
                     <div className="col-span-3 sm:col-span-3">
                       <label className={`text-xs text-gray-500 block mb-1 ${idx === 0 ? '' : 'sm:hidden'}`}>Quantidade *</label>
