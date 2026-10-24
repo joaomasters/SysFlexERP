@@ -3,7 +3,7 @@ import {
   ShoppingCart, Package, Scissors, DollarSign,
   CreditCard, BarChart2, Scale, AlertTriangle,
   ClipboardList, TrendingDown, ArrowDownCircle, BarChart,
-  Truck, FileText, Users, ShieldCheck, Percent,
+  Truck, FileText, Users, ShieldCheck, Percent, Store,
 } from 'lucide-react'
 import { usePermissao } from '@/shared/hooks/usePermissao'
 
@@ -11,6 +11,7 @@ const atalhos = [
   { label: 'PDV / Caixa',          href: '/pdv',                       icon: ShoppingCart,    modulo: 'PDV',            cor: 'bg-talho-600' },
   { label: 'Sangria / Suprimento', href: '/pdv/sangria',               icon: ArrowDownCircle, modulo: 'SANGRIA',        cor: 'bg-red-500' },
   { label: 'Produtos',             href: '/estoque/produtos',          icon: Package,         modulo: 'PRODUTOS',       cor: 'bg-blue-600' },
+  { label: 'Fornecedores',         href: '/estoque/fornecedores',      icon: Store,           modulo: 'FORNECEDORES',   cor: 'bg-blue-400' },
   { label: 'Recebimento',          href: '/estoque/recebimento',       icon: Truck,           modulo: 'RECEBIMENTO',    cor: 'bg-blue-500' },
   { label: 'Fichas Desossa',       href: '/estoque/fichas-desossa',    icon: ClipboardList,   modulo: 'FICHAS_DESOSSA', cor: 'bg-indigo-500' },
   { label: 'Rateio de Desossa',    href: '/estoque/desossa',           icon: Scissors,        modulo: 'RATEIO_DESOSSA', cor: 'bg-indigo-600' },

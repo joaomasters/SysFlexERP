@@ -49,8 +49,13 @@ public class Produto {
     @Column(length = 100)
     private String marca;
 
+    // Nome do fornecedor vinculado (fornecedorId). Mantido como texto para as telas e
+    // relatórios que já o exibem; o ProdutoService o sincroniza com o cadastro de Fornecedores.
     @Column(length = 150)
     private String fornecedor;
+
+    @Column(name = "fornecedor_id")
+    private Long fornecedorId;
 
     @Column(name = "preco_custo", precision = 12, scale = 4)
     private BigDecimal precoCusto;

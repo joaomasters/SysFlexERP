@@ -1,8 +1,11 @@
 package com.acougue.modules.estoque;
 
+import com.acougue.entity.Fornecedor;
 import com.acougue.entity.Produto;
 import com.acougue.exception.BusinessException;
 import com.acougue.modules.balanca.ItemPendenteBalancaService;
+import com.acougue.modules.estoque.dto.OpcaoFornecedorDTO;
+import com.acougue.repository.FornecedorRepository;
 import com.acougue.repository.ProdutoRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +20,7 @@ import java.util.List;
 public class ProdutoService {
 
     private final ProdutoRepository produtoRepo;
+    private final FornecedorRepository fornecedorRepo;
     private final ItemPendenteBalancaService itemPendenteBalancaService;
 
     public List<Produto> listarAtivos() {
@@ -54,6 +58,33 @@ public class ProdutoService {
         }
     }
 
+    /** Fornecedores ativos para o dropdown do cadastro de produto. */
+    public List<OpcaoFornecedorDTO> opcoesFornecedor() {
+        return fornecedorRepo.findByAtivoTrueOrderByNomeAsc().stream()
+                .map(f -> new OpcaoFornecedorDTO(f.getId(), f.getNome()))
+                .toList();
+    }
+
+    /**
+     * Mantém produto.fornecedor (texto) coerente com produto.fornecedorId. Com id, o nome vem
+     * SEMPRE do cadastro — o texto enviado pelo cliente é ignorado. Só aceita fornecedor ativo,
+     * ou o mesmo que o produto já tinha (inativar um fornecedor não impede editar produtos dele).
+     * Sem id, o vínculo é removido e o texto livre é limpo.
+     */
+    private void aplicarFornecedor(Produto produto, Long fornecedorAtualId) {
+        Long id = produto.getFornecedorId();
+        if (id == null) {
+            produto.setFornecedor(null);
+            return;
+        }
+        Fornecedor f = fornecedorRepo.findById(id)
+                .orElseThrow(() -> new BusinessException("Fornecedor não encontrado."));
+        if (!Boolean.TRUE.equals(f.getAtivo()) && !id.equals(fornecedorAtualId)) {
+            throw new BusinessException("O fornecedor \"" + f.getNome() + "\" está inativo.");
+        }
+        produto.setFornecedor(f.getNome());
+    }
+
     public List<Produto> alertasEstoqueMinimo() {
         return produtoRepo.findEstoqueAbaixoMinimo();
     }
@@ -65,6 +96,7 @@ public class ProdutoService {
         produto.setId(null);
         produto.setCriadoPorId(usuarioId); // autoria vem do token, nunca do corpo da requisição
         validarValidadePadrao(produto.getValidadePadraoDias());
+        aplicarFornecedor(produto, null);
         if (produto.getCodigoInterno() == null || produto.getCodigoInterno().isBlank()) {
             produto.setCodigoInterno(gerarCodigoInterno());
         }
@@ -74,6 +106,7 @@ public class ProdutoService {
     @Transactional
     public Produto atualizar(Long id, Produto dados) {
         Produto existente = buscarPorId(id);
+        Long fornecedorAnteriorId = existente.getFornecedorId();
         BigDecimal precoAnterior = existente.getPrecoVenda();
 
         existente.setNome(dados.getNome());
@@ -85,7 +118,8 @@ public class ProdutoService {
         existente.setUnidadeMedida(dados.getUnidadeMedida());
         existente.setTipoProduto(dados.getTipoProduto());
         existente.setMarca(dados.getMarca());
-        existente.setFornecedor(dados.getFornecedor());
+        existente.setFornecedorId(dados.getFornecedorId());
+        aplicarFornecedor(existente, fornecedorAnteriorId);
         existente.setCodigoBalanca(dados.getCodigoBalanca());
         existente.setEan13(dados.getEan13());
         existente.setEstoqueMinimo(dados.getEstoqueMinimo());

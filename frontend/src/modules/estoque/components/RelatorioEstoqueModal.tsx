@@ -9,7 +9,9 @@ import { Button, baseInputClass } from '@/shared/components/ui'
 type OrdemCampo = 'nome' | 'marca' | 'fornecedor'
 
 interface Props {
-  onClose: () => void
+  onClose?: () => void
+  /** Dentro da página de Relatórios: sem overlay, sem botão de fechar. */
+  embedded?: boolean
 }
 
 const qtd = formatQuantidade
@@ -21,7 +23,7 @@ const qtd = formatQuantidade
  * dentro de #relatorio-estoque-print fica oculto, então só a tabela vai pro
  * papel (sem o overlay escuro, cabeçalho do modal, botões, etc).
  */
-export default function RelatorioEstoqueModal({ onClose }: Props) {
+export default function RelatorioEstoqueModal({ onClose, embedded = false }: Props) {
   const [busca, setBusca]         = useState('')
   const [ordenarPor, setOrdenarPor] = useState<OrdemCampo>('nome')
   const [apenasAbaixoMinimo, setApenasAbaixoMinimo] = useState(false)
@@ -58,7 +60,9 @@ export default function RelatorioEstoqueModal({ onClose }: Props) {
   }, [produtos, busca, ordenarPor, apenasAbaixoMinimo])
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 print:static print:bg-white print:p-0">
+    <div className={embedded
+        ? 'print:static print:bg-white print:p-0'
+        : 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 print:static print:bg-white print:p-0'}>
       <style>{`
         @media print {
           body * { visibility: hidden; }
@@ -67,16 +71,20 @@ export default function RelatorioEstoqueModal({ onClose }: Props) {
         }
       `}</style>
 
-      <div className="bg-white rounded-2xl w-full max-w-4xl h-[85vh] flex flex-col shadow-xl print:h-auto print:shadow-none print:rounded-none print:max-w-full">
+      <div className={embedded
+          ? 'bg-white rounded-xl border border-gray-100 shadow-sm w-full flex flex-col print:border-0 print:shadow-none print:rounded-none'
+          : 'bg-white rounded-2xl w-full max-w-4xl h-[85vh] flex flex-col shadow-xl print:h-auto print:shadow-none print:rounded-none print:max-w-full'}>
         {/* Cabeçalho — some na impressão */}
         <div className="flex items-center justify-between px-6 py-4 border-b print:hidden">
           <div>
             <h2 className="font-bold text-gray-900">Relatório de Estoque</h2>
             <p className="text-xs text-gray-400">{linhas.length} produto(s) ativo(s)</p>
           </div>
-          <button onClick={onClose} aria-label="Fechar">
-            <X size={20} className="text-gray-400 hover:text-gray-600" />
-          </button>
+          {!embedded && (
+            <button onClick={onClose} aria-label="Fechar">
+              <X size={20} className="text-gray-400 hover:text-gray-600" />
+            </button>
+          )}
         </div>
 
         {/* Filtros — somem na impressão */}

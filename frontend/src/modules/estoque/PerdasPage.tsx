@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../shared/api/axios'
-import { Plus } from 'lucide-react'
+import { Printer } from 'lucide-react'
 import { formatBRL, formatQuantidade, casasDaUnidade } from '@/shared/utils/mask'
 import {
   PageHeader, Card, Modal, Button, StatusBadge, WeightInput, Field, baseInputClass,
@@ -9,6 +9,7 @@ import {
 } from '@/shared/components/ui'
 import type { BadgeTone } from '@/shared/components/ui'
 import { usePermissao } from '@/shared/hooks/usePermissao'
+import RelatorioPerdasModal from './components/RelatorioPerdasModal'
 
 interface Produto { id: number; nome: string; unidadeMedida: string; precoCusto: number }
 interface Perda {
@@ -44,6 +45,7 @@ export default function PerdasPage() {
   const [inicio, setInicio] = useState(hoje)
   const [fim, setFim] = useState(hoje)
   const [showForm, setShowForm] = useState(false)
+  const [showRelatorio, setShowRelatorio] = useState(false)
   const [produtoId, setProdutoId] = useState('')
   const [quantidade, setQuantidade] = useState(0)
   const [motivo, setMotivo] = useState('VENCIMENTO')
@@ -86,9 +88,14 @@ export default function PerdasPage() {
         title="Controle de Perdas"
         subtitle="Vencimentos, avarias, furtos e quebras"
         actions={
-          <Button variant="primary" onClick={() => setShowForm(true)}>
-            Lançar Perda
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" onClick={() => setShowRelatorio(true)}>
+              <Printer size={16} /> Relatório de Perdas
+            </Button>
+            <Button variant="primary" onClick={() => setShowForm(true)}>
+              Lançar Perda
+            </Button>
+          </div>
         }
       />
 
@@ -144,6 +151,10 @@ export default function PerdasPage() {
           </TBody>
         </Table>
       </Card>
+
+      {showRelatorio && (
+        <RelatorioPerdasModal inicio={inicio} fim={fim} onClose={() => setShowRelatorio(false)} />
+      )}
 
       {/* Modal lançar perda */}
       {showForm && (
