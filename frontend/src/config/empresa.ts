@@ -1,15 +1,10 @@
-export const EMPRESA = {
-  nome: 'Açougue e Mercearia do Zé',
-  endereco: 'R Nicolau Cotting, 103',
-  bairro: 'Conjunto Habitacional',
-  telefone: '(43) 96130-248',
-}
-
+// Dados do próprio sistema (rodapé do cupom etc.).
+//
+// Os dados de cada LOJA (nome, endereço, telefone, largura da bobina) não ficam
+// mais aqui: são configurados por empresa em Administração → Comprovante
+// (tabela configuracao_comprovante). Antes ficavam fixos neste arquivo com os
+// dados do Açougue do Zé, e qualquer outra empresa imprimiria o cabeçalho dele.
 export const SISTEMA = {
   nome: 'SysFlexERP',
   telefones: ['(43) 99808-8022', '(43) 99602-1880'],
 }
-
-// 58mm é a largura da bobina da impressora térmica do Açougue do Zé.
-// Se trocar de impressora pra uma de 80mm, troque aqui.
-export const LARGURA_PAPEL_MM = 58
