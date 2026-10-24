@@ -1,165 +1,105 @@
-import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { api } from '../../shared/api/axios'
-import { BarChart2, TrendingUp, TrendingDown, Package, ShoppingBag, Printer } from 'lucide-react'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { formatBRL, formatWeightDisplay } from '@/shared/utils/mask'
-import { PageHeader, Card, Button, Field, baseInputClass, Table, THead, TH, TBody, TR, TD } from '@/shared/components/ui'
+import { useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { PageHeader, Card, Field, baseInputClass } from '@/shared/components/ui'
+import { usePermissao } from '@/shared/hooks/usePermissao'
+import RelatorioEstoqueModal from '../estoque/components/RelatorioEstoqueModal'
+import RelatorioValidadeModal from '../estoque/components/RelatorioValidadeModal'
+import RelatorioPerdasModal from '../estoque/components/RelatorioPerdasModal'
+import RelatorioComissoesModal from '../comissao/components/RelatorioComissoesModal'
+import HistoricoPagamentosModal from './components/HistoricoPagamentosModal'
+import DesempenhoRelatorio from './relatorios/DesempenhoRelatorio'
+import PosicaoEstoqueRelatorio from './relatorios/PosicaoEstoqueRelatorio'
+import ContasPagarPosicaoRelatorio from './relatorios/ContasPagarPosicaoRelatorio'
+import ComprasFornecedorRelatorio from './relatorios/ComprasFornecedorRelatorio'
+import { periodoPadrao } from './relatorios/PainelRelatorio'
 
-interface RelatorioVendas {
-  totalVendas: number; quantidadeVendas: number; ticketMedio: number; totalPerdas: number
-  topProdutos: { produtoId: number; nomeProduto: string; quantidadeTotal: number; valorTotal: number }[]
-}
-interface FluxoCaixa {
-  totalRecebimentos: number; totalPagamentos: number; saldo: number
+type Grupo = 'Vendas e desempenho' | 'Estoque' | 'Compras' | 'Financeiro'
+
+interface Opcao {
+  id: string
+  grupo: Grupo
+  titulo: string
+  /** Módulo cujo acesso o relatório exige (as chamadas usam as permissões desse módulo). */
+  modulo: string
+  /** Relatórios do histórico de pagamentos são restritos a administradores. */
+  somenteAdmin?: boolean
+  render: (periodo: { inicio: string; fim: string }) => JSX.Element
 }
 
-const fmt = formatBRL
-const hoje = new Date().toISOString().slice(0, 10)
-const primeiroDiaMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10)
+/**
+ * Catálogo dos relatórios. Cada item só aparece para quem tem acesso ao módulo de origem —
+ * os relatórios que já existem nas telas (Estoque, Validade, Perdas, Comissões, Histórico de
+ * pagamentos) são os mesmos, reaproveitados aqui sem o modal.
+ */
+const OPCOES: Opcao[] = [
+  { id: 'desempenho', grupo: 'Vendas e desempenho', titulo: 'Desempenho (vendas, margem e fluxo de caixa)', modulo: 'RELATORIOS',
+    render: () => <DesempenhoRelatorio /> },
+  { id: 'comissoes', grupo: 'Vendas e desempenho', titulo: 'Comissões', modulo: 'COMISSOES',
+    render: p => <RelatorioComissoesModal embedded inicio={p.inicio} fim={p.fim} /> },
+
+  { id: 'estoque', grupo: 'Estoque', titulo: 'Estoque (produtos)', modulo: 'PRODUTOS',
+    render: () => <RelatorioEstoqueModal embedded /> },
+  { id: 'posicao-estoque', grupo: 'Estoque', titulo: 'Posição de estoque (valor e itens abaixo do mínimo)', modulo: 'RELATORIOS',
+    render: () => <PosicaoEstoqueRelatorio /> },
+  { id: 'validade', grupo: 'Estoque', titulo: 'Validade dos lotes', modulo: 'PRODUTOS',
+    render: () => <RelatorioValidadeModal embedded /> },
+  { id: 'perdas', grupo: 'Estoque', titulo: 'Perdas', modulo: 'PERDAS',
+    render: p => <RelatorioPerdasModal embedded inicio={p.inicio} fim={p.fim} /> },
+
+  { id: 'compras-fornecedor', grupo: 'Compras', titulo: 'Compras por fornecedor', modulo: 'RECEBIMENTO',
+    render: () => <ComprasFornecedorRelatorio /> },
+
+  { id: 'contas-pagar-posicao', grupo: 'Financeiro', titulo: 'Contas a pagar — posição em aberto', modulo: 'RELATORIOS',
+    render: () => <ContasPagarPosicaoRelatorio /> },
+  { id: 'pagamentos-pagar', grupo: 'Financeiro', titulo: 'Pagamentos realizados (contas a pagar)', modulo: 'CONTAS_PAGAR', somenteAdmin: true,
+    render: () => <HistoricoPagamentosModal embedded tipo="pagar" /> },
+  { id: 'pagamentos-receber', grupo: 'Financeiro', titulo: 'Recebimentos realizados (contas a receber)', modulo: 'CONTAS_RECEBER', somenteAdmin: true,
+    render: () => <HistoricoPagamentosModal embedded tipo="receber" /> },
+]
+
+const ORDEM_GRUPOS: Grupo[] = ['Vendas e desempenho', 'Estoque', 'Compras', 'Financeiro']
 
 export default function RelatoriosPage() {
-  const [inicio, setInicio] = useState(primeiroDiaMes)
-  const [fim, setFim] = useState(hoje)
+  const { podeVer, podeVerIdentificacao, isSuperAdmin } = usePermissao()
+  const [params, setParams] = useSearchParams()
+  const periodo = useMemo(() => periodoPadrao(), [])
 
-  const relVendas = useQuery<RelatorioVendas>({
-    queryKey: ['rel-vendas', inicio, fim],
-    queryFn: () => api.get(`/financeiro/relatorios/vendas?inicio=${inicio}&fim=${fim}`).then(r => r.data),
-  })
-
-  const fluxo = useQuery<FluxoCaixa>({
-    queryKey: ['fluxo-caixa', inicio, fim],
-    queryFn: () => api.get(`/financeiro/relatorios/fluxo-caixa?inicio=${inicio}&fim=${fim}`).then(r => r.data),
-  })
-
-  const cards = [
-    { label: 'Total de Vendas', value: fmt(relVendas.data?.totalVendas ?? 0), icon: TrendingUp, color: 'text-success-600 bg-success-50' },
-    { label: 'Qtd. Vendas', value: relVendas.data?.quantidadeVendas ?? 0, icon: ShoppingBag, color: 'text-info-600 bg-info-50' },
-    { label: 'Ticket Médio', value: fmt(relVendas.data?.ticketMedio ?? 0), icon: BarChart2, color: 'text-purple-600 bg-purple-50' },
-    { label: 'Total Perdas', value: fmt(relVendas.data?.totalPerdas ?? 0), icon: TrendingDown, color: 'text-danger-600 bg-danger-50' },
-  ]
-
-  const saldoPositivo = (fluxo.data?.saldo ?? 0) >= 0
+  const disponiveis = OPCOES.filter(o =>
+    (isSuperAdmin || podeVer(o.modulo)) && (!o.somenteAdmin || podeVerIdentificacao)
+  )
+  const atual = disponiveis.find(o => o.id === params.get('relatorio')) ?? disponiveis[0]
 
   return (
     <div className="p-6 space-y-6">
-      <style>{`
-        @media print {
-          body * { visibility: hidden; }
-          #relatorios-print-area, #relatorios-print-area * { visibility: visible; }
-          #relatorios-print-area { position: absolute; top: 0; left: 0; width: 100%; }
-        }
-      `}</style>
-
       <PageHeader
         title="Relatórios"
-        subtitle="Análise de desempenho e controle gerencial"
-        actions={
-          <Button variant="secondary" onClick={() => window.print()}>
-            <Printer size={16} /> Imprimir Relatório
-          </Button>
-        }
+        subtitle="Todos os relatórios e indicadores do sistema em um só lugar"
       />
 
-      {/* Filtro de período — some na impressão */}
-      <Card padding="sm" className="flex gap-4 items-end print:hidden">
-        <Field label="De">
-          <input type="date" value={inicio} onChange={e => setInicio(e.target.value)} className={baseInputClass} />
-        </Field>
-        <Field label="Até">
-          <input type="date" value={fim} onChange={e => setFim(e.target.value)} className={baseInputClass} />
+      <Card padding="sm" className="print:hidden">
+        <Field label="Relatório">
+          <select
+            value={atual?.id ?? ''}
+            onChange={e => setParams({ relatorio: e.target.value }, { replace: true })}
+            className={`${baseInputClass} max-w-lg`}
+          >
+            {ORDEM_GRUPOS.map(grupo => {
+              const itens = disponiveis.filter(o => o.grupo === grupo)
+              if (itens.length === 0) return null
+              return (
+                <optgroup key={grupo} label={grupo}>
+                  {itens.map(o => <option key={o.id} value={o.id}>{o.titulo}</option>)}
+                </optgroup>
+              )
+            })}
+          </select>
         </Field>
       </Card>
 
-      <div id="relatorios-print-area" className="space-y-6">
-        {/* Cabeçalho só visível na impressão */}
-        <div className="hidden print:block">
-          <h1 className="text-xl font-bold text-gray-900">Relatório de Desempenho</h1>
-          <p className="text-xs text-gray-500">
-            Período: {new Date(inicio + 'T00:00:00').toLocaleDateString('pt-BR')} a {new Date(fim + 'T00:00:00').toLocaleDateString('pt-BR')}
-            {' '}— Gerado em {new Date().toLocaleString('pt-BR')}
-          </p>
-        </div>
-
-        {/* Cards de resumo */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 print:grid-cols-4 print:gap-2">
-          {cards.map(c => (
-            <Card key={c.label} padding="md" className="print:border print:shadow-none">
-              <div className={`inline-flex p-2 rounded-lg ${c.color} mb-3`}>
-                <c.icon size={20} />
-              </div>
-              <p className="text-2xl font-bold text-gray-900 tabular-nums">{c.value}</p>
-              <p className="text-xs text-gray-500 mt-1">{c.label}</p>
-            </Card>
-          ))}
-        </div>
-
-        {/* Fluxo de Caixa */}
-        <Card className="print:border print:shadow-none">
-          <h2 className="text-base font-semibold text-gray-700 mb-4">Fluxo de Caixa</h2>
-          <div className="grid grid-cols-3 gap-4">
-            <div className="text-center p-4 bg-success-50 rounded-lg">
-              <p className="text-xs text-gray-500">Entradas</p>
-              <p className="text-xl font-bold text-success-600 tabular-nums">{fmt(fluxo.data?.totalRecebimentos ?? 0)}</p>
-            </div>
-            <div className="text-center p-4 bg-danger-50 rounded-lg">
-              <p className="text-xs text-gray-500">Saídas</p>
-              <p className="text-xl font-bold text-danger-600 tabular-nums">{fmt(fluxo.data?.totalPagamentos ?? 0)}</p>
-            </div>
-            <div className={`text-center p-4 rounded-lg ${saldoPositivo ? 'bg-info-50' : 'bg-warning-50'}`}>
-              <p className="text-xs text-gray-500">Saldo</p>
-              <p className={`text-xl font-bold tabular-nums ${saldoPositivo ? 'text-info-600' : 'text-warning-600'}`}>
-                {fmt(fluxo.data?.saldo ?? 0)}
-              </p>
-            </div>
-          </div>
-        </Card>
-
-        {/* Top 10 Produtos */}
-        {relVendas.data?.topProdutos && relVendas.data.topProdutos.length > 0 && (
-          <Card className="print:border print:shadow-none">
-            <h2 className="text-base font-semibold text-gray-700 mb-4 flex items-center gap-2">
-              <Package size={18} className="text-gray-500" />
-              Top 10 Produtos por Faturamento
-            </h2>
-            <div className="h-72 print:hidden">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={relVendas.data.topProdutos} layout="vertical"
-                  margin={{ left: 20, right: 20, top: 5, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                  <XAxis type="number" tickFormatter={v => `R$${v.toFixed(0)}`} tick={{ fontSize: 11 }} />
-                  <YAxis type="category" dataKey="nomeProduto" width={120} tick={{ fontSize: 11 }} />
-                  <Tooltip formatter={(v: number) => fmt(v)} />
-                  <Bar dataKey="valorTotal" name="Faturamento" fill="#A32B1E" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* Tabela ranking — essa sim fica na impressão, o gráfico não
-                (SVG de biblioteca de gráfico costuma sair mal na impressão) */}
-            <Table>
-              <THead>
-                <tr>
-                  <TH>#</TH>
-                  <TH>Produto</TH>
-                  <TH align="right">Qtd Vendida</TH>
-                  <TH align="right">Faturamento</TH>
-                </tr>
-              </THead>
-              <TBody>
-                {relVendas.data.topProdutos.map((p, i) => (
-                  <TR key={p.produtoId}>
-                    <TD className="text-gray-400 font-mono">{i + 1}</TD>
-                    <TD className="font-medium">{p.nomeProduto}</TD>
-                    <TD align="right" className="text-gray-600 tabular-nums">{formatWeightDisplay(p.quantidadeTotal ?? 0)}</TD>
-                    <TD align="right" className="font-semibold text-success-600 tabular-nums">{fmt(p.valorTotal)}</TD>
-                  </TR>
-                ))}
-              </TBody>
-            </Table>
-          </Card>
-        )}
-      </div>
+      {atual
+        // key: ao trocar de relatório o estado (filtros, busca) recomeça do zero
+        ? <div key={atual.id}>{atual.render(periodo)}</div>
+        : <Card><p className="text-sm text-gray-500">Você não tem acesso a nenhum relatório.</p></Card>}
     </div>
   )
 }

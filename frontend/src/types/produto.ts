@@ -14,7 +14,8 @@ export interface Produto {
   unidadeMedida: 'KG' | 'UN' | 'CX' | 'G'
   tipoProduto: 'CORTE' | 'INDUSTRIALIZADO' | 'INSUMO' | 'SUBPRODUTO'
   marca?: string
-  fornecedor?: string
+  fornecedor?: string        // nome do fornecedor vinculado (somente leitura)
+  fornecedorId?: number | null   // vínculo com o cadastro de Fornecedores
   precoCusto?: number
   precoVenda: number
   estoqueAtual: number

@@ -3,6 +3,7 @@ package com.acougue.modules.estoque;
 import com.acougue.entity.*;
 import com.acougue.modules.estoque.dto.ExecutarDesossaDTO;
 import com.acougue.modules.estoque.dto.FichaDesossaDTO;
+import com.acougue.modules.estoque.dto.OpcaoFornecedorDTO;
 import com.acougue.repository.MovimentacaoEstoqueRepository;
 import com.acougue.security.Acao;
 import com.acougue.security.ContextoUsuario;
@@ -39,6 +40,13 @@ public class EstoqueController {
             return ResponseEntity.ok(comNomes(produtoService.buscarPorNome(nome)));
         }
         return ResponseEntity.ok(comNomes(produtoService.listarAtivos()));
+    }
+
+    /** Dropdown de fornecedor do cadastro de produto: basta poder ver Produtos (não exige o módulo Fornecedores). */
+    @ExigirPermissao(modulo = Modulo.PRODUTOS, acao = Acao.VER)
+    @GetMapping("/fornecedores-opcoes")
+    public ResponseEntity<List<OpcaoFornecedorDTO>> opcoesFornecedor() {
+        return ResponseEntity.ok(produtoService.opcoesFornecedor());
     }
 
     // Só administradores recebem o nome de quem cadastrou o produto — ver IdentificacaoUsuario.

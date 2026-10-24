@@ -11,7 +11,9 @@ type FiltroSituacao = 'TODOS' | 'ATENCAO' | SituacaoValidade
 type Ordem = 'validade' | 'produto'
 
 interface Props {
-  onClose: () => void
+  onClose?: () => void
+  /** Dentro da página de Relatórios: sem overlay, sem botão de fechar. */
+  embedded?: boolean
 }
 
 const qtd = formatQuantidade
@@ -32,7 +34,7 @@ const rotuloFiltro: Record<FiltroSituacao, string> = {
  *
  * Usa a mesma query da tela (['validade-lotes']), então abre instantâneo e sem nova chamada.
  */
-export default function RelatorioValidadeModal({ onClose }: Props) {
+export default function RelatorioValidadeModal({ onClose, embedded = false }: Props) {
   const [busca, setBusca]       = useState('')
   const [situacao, setSituacao] = useState<FiltroSituacao>('TODOS')
   const [ordenarPor, setOrdenarPor] = useState<Ordem>('validade')
@@ -68,7 +70,9 @@ export default function RelatorioValidadeModal({ onClose }: Props) {
   const qtdOk       = linhas.filter(l => l.situacao === 'OK').length
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 print:static print:bg-white print:p-0">
+    <div className={embedded
+        ? 'print:static print:bg-white print:p-0'
+        : 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 print:static print:bg-white print:p-0'}>
       <style>{`
         @media print {
           body * { visibility: hidden; }
@@ -77,16 +81,20 @@ export default function RelatorioValidadeModal({ onClose }: Props) {
         }
       `}</style>
 
-      <div className="bg-white rounded-2xl w-full max-w-4xl h-[85vh] flex flex-col shadow-xl print:h-auto print:shadow-none print:rounded-none print:max-w-full">
+      <div className={embedded
+          ? 'bg-white rounded-xl border border-gray-100 shadow-sm w-full flex flex-col print:border-0 print:shadow-none print:rounded-none'
+          : 'bg-white rounded-2xl w-full max-w-4xl h-[85vh] flex flex-col shadow-xl print:h-auto print:shadow-none print:rounded-none print:max-w-full'}>
         {/* Cabeçalho — some na impressão */}
         <div className="flex items-center justify-between px-6 py-4 border-b print:hidden">
           <div>
             <h2 className="font-bold text-gray-900">Relatório de Validade</h2>
             <p className="text-xs text-gray-400">{linhas.length} lote(s)</p>
           </div>
-          <button onClick={onClose} aria-label="Fechar">
-            <X size={20} className="text-gray-400 hover:text-gray-600" />
-          </button>
+          {!embedded && (
+            <button onClick={onClose} aria-label="Fechar">
+              <X size={20} className="text-gray-400 hover:text-gray-600" />
+            </button>
+          )}
         </div>
 
         {/* Filtros — somem na impressão */}

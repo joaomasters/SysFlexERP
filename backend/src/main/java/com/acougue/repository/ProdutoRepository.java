@@ -2,6 +2,7 @@ package com.acougue.repository;
 
 import com.acougue.entity.Produto;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -12,6 +13,11 @@ import java.util.Optional;
 
 @Repository
 public interface ProdutoRepository extends JpaRepository<Produto, Long> {
+
+    /** Renomear um fornecedor atualiza o nome guardado nos produtos vinculados a ele. */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE Produto p SET p.fornecedor = :nome WHERE p.fornecedorId = :fornecedorId")
+    int atualizarNomeFornecedor(@Param("fornecedorId") Long fornecedorId, @Param("nome") String nome);
 
     Optional<Produto> findByCodigoBalanca(Integer codigoBalanca);
 
