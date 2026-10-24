@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ShoppingBag, Wifi, WifiOff, Trash2, Plus, User, LockOpen, Lock } from 'lucide-react'
+import { ShoppingBag, Wifi, WifiOff, Trash2, Plus, User, LockOpen, Lock, Printer } from 'lucide-react'
 import { useBarcodeScan } from '@/shared/hooks/useBarcodeScan'
 import { usePermissao } from '@/shared/hooks/usePermissao'
 import { getNomeUsuario } from '@/shared/auth'
@@ -14,6 +14,10 @@ import { CurrencyInput, WeightInput, BuscaProduto } from '@/shared/components/ui
 import type { ProdutoBuscavel } from '@/shared/components/ui'
 import { casasDaUnidade } from '@/shared/utils/mask'
 import FaixaAmbiente from '@/shared/components/ui/FaixaAmbiente'
+import { imprimirComprovante } from './imprimirComprovante'
+import type { ConfiguracaoComprovante, PagamentoCupom } from '@/types/comprovante'
+import type { Venda } from '@/types/venda'
+import toast from 'react-hot-toast'
 
 // NOTA DE DESIGN: o PDV usa de propósito um tema escuro em tela cheia
 // ("console de caixa"), diferente do tema claro do back-office (financeiro,
@@ -59,6 +63,25 @@ export default function PDVPage() {
   const [fechando, setFechando]           = useState(false)
 
   const nomeOperador = getNomeUsuario()
+
+  // ── Comprovante (cupom não fiscal) ────────────────────────────
+  const { data: configCupom } = useQuery<ConfiguracaoComprovante>({
+    queryKey: ['comprovante-config'],
+    queryFn: () => api.get('/comprovante/configuracao', { silent: true } as never).then(r => r.data),
+    staleTime: 5 * 60_000,
+  })
+  const [ultimoCupom, setUltimoCupom] = useState<{ venda: Venda; pagamentos: PagamentoCupom[] } | null>(null)
+  const [perguntarImpressao, setPerguntarImpressao] = useState(false)
+
+  function imprimirUltimo() {
+    if (!ultimoCupom || !configCupom) return
+    try {
+      imprimirComprovante(ultimoCupom.venda, nomeOperador ?? '', configCupom, ultimoCupom.pagamentos)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Não foi possível imprimir.')
+    }
+    setPerguntarImpressao(false)
+  }
   const { podeExcluir } = usePermissao()
   // Cancelar uma venda é restrito a quem tem a permissão de EXCLUIR no
   // módulo PDV — por padrão, só ADMIN e SUPER_ADMIN (ver matriz de perfis).
@@ -121,7 +144,7 @@ export default function PDVPage() {
       if (el && ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return // evita lançar em dobro
       adicionarItem(codigo)
     },
-    enabled: !showPagto && !semCaixa && !pesando,
+    enabled: !showPagto && !semCaixa && !pesando && !perguntarImpressao,
   })
 
   const handleAbrirCaixa = async () => {
@@ -338,11 +361,46 @@ export default function PDVPage() {
             </p>
           )}
 
+          <button
+            onClick={imprimirUltimo}
+            disabled={!ultimoCupom || !configCupom}
+            title={ultimoCupom ? `Venda #${ultimoCupom.venda.id}` : 'Nenhuma venda finalizada neste caixa ainda'}
+            className="w-full py-2.5 rounded-xl text-sm font-medium bg-gray-800 hover:bg-gray-700 text-gray-300
+                       disabled:text-gray-600 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
+          >
+            <Printer size={15} />
+            Reimprimir último cupom
+          </button>
+
           <div className="mt-auto text-center text-xs text-gray-600">
             Leitor de barcode ativo
           </div>
         </div>
       </div>
+      )}
+
+      {/* Pergunta de impressão ao finalizar a venda */}
+      {perguntarImpressao && ultimoCupom && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+             onKeyDown={e => { if (e.key === 'Escape') setPerguntarImpressao(false) }}>
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-sm p-6 space-y-4 text-center">
+            <Printer size={32} className="mx-auto text-emerald-400" />
+            <div>
+              <h2 className="text-lg font-bold">Venda #{ultimoCupom.venda.id} finalizada</h2>
+              <p className="text-sm text-gray-400">Imprimir o comprovante para o cliente?</p>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setPerguntarImpressao(false)}
+                className="flex-1 py-3 rounded-xl bg-gray-700 hover:bg-gray-600 text-sm font-medium">
+                Não imprimir <span className="opacity-60">[Esc]</span>
+              </button>
+              <button autoFocus onClick={imprimirUltimo}
+                className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-sm">
+                Imprimir <span className="opacity-70 font-normal">[Enter]</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Peso do produto escolhido na busca */}
@@ -393,8 +451,18 @@ export default function PDVPage() {
           totalVenda={totalVenda}
           vendaId={venda?.id}
           onConfirmar={async (pagamentos) => {
-            await fecharVenda(pagamentos)
+            const vendaFechada = await fecharVenda(pagamentos)
             setShowPagto(false)
+            if (vendaFechada) {
+              const cupom = { venda: vendaFechada, pagamentos }
+              setUltimoCupom(cupom)
+              if (configCupom?.imprimirAutomatico) {
+                try { imprimirComprovante(cupom.venda, nomeOperador ?? '', configCupom, pagamentos) }
+                catch { toast.error('Não foi possível imprimir o comprovante.') }
+              } else {
+                setPerguntarImpressao(true)
+              }
+            }
           }}
           onCancelar={() => setShowPagto(false)}
         />

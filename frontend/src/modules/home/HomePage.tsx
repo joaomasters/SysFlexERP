@@ -1,11 +1,14 @@
+
 import { Link } from 'react-router-dom'
 import {
   ShoppingCart, Package, Scissors, DollarSign,
   CreditCard, BarChart2, Scale, AlertTriangle,
   ClipboardList, TrendingDown, ArrowDownCircle, BarChart,
   Truck, FileText, Users, ShieldCheck, Percent, Store,
+  Printer,
 } from 'lucide-react'
 import { usePermissao } from '@/shared/hooks/usePermissao'
+
 
 const atalhos = [
   { label: 'PDV / Caixa',          href: '/pdv',                       icon: ShoppingCart,    modulo: 'PDV',            cor: 'bg-talho-600' },
@@ -29,6 +32,7 @@ const atalhos = [
   { label: 'Perfis',               href: '/acesso/perfis',             icon: ShieldCheck,     modulo: 'PERFIS',         cor: 'bg-gray-800' },
   { label: 'Auditoria',            href: '/acesso/auditoria',          icon: FileText,     modulo: 'AUDITORIA',      cor: 'bg-talho-600' },
   { label: 'Maquininhas',          href: '/acesso/maquininhas',        icon: CreditCard,   modulo: 'MAQUININHAS',    cor: 'bg-blue-700' },
+  { label: 'Comprovante',          href: '/acesso/comprovante',        icon: Printer,      modulo: 'COMPROVANTE',    cor: 'bg-gray-600' },
   { label: 'Validade',            href: '/estoque/validade',          icon: Package,     modulo: 'VALIDADE',      cor: 'bg-amber-600' },
 ]
 

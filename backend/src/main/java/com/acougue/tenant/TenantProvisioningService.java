@@ -64,7 +64,7 @@ public class TenantProvisioningService {
 
         // As migrations trazem o seed de demonstração (V3) e o usuário teste/teste (V9):
         // a empresa nova começa vazia, só com o administrador informado.
-        dadosIniciais.prepararEmpresaNova(schemaName, adminNome.trim(), adminLogin.trim(),
+        dadosIniciais.prepararEmpresaNova(schemaName, nome.trim(), adminNome.trim(), adminLogin.trim(),
                 passwordEncoder.encode(adminSenha));
 
         String codigo = proximoCodigo();

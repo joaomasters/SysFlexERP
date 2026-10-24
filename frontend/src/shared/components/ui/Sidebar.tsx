@@ -1,9 +1,11 @@
+
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   ShoppingCart, Package, Scissors, DollarSign,
   CreditCard, BarChart2, Scale, AlertTriangle,
   ClipboardList, TrendingDown, ArrowDownCircle, BarChart, LogOut,
-  Truck, FileText, Users, ShieldCheck, Home, Contact, ShieldAlert, CalendarClock, Percent, Building2, Store
+  Truck, FileText, Users, ShieldCheck, Home, Contact,
+  ShieldAlert, CalendarClock, Percent, Building2, Store, Printer
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import clsx from 'clsx'
@@ -47,6 +49,7 @@ const nav = [
   { label: 'Perfis',   href: '/acesso/perfis',   icon: ShieldCheck, modulo: 'PERFIS' },
   { label: 'Auditoria', href: '/acesso/auditoria', icon: ShieldAlert, modulo: 'AUDITORIA' },
   { label: 'Maquininhas', href: '/acesso/maquininhas', icon: CreditCard, modulo: 'MAQUININHAS' },
+  { label: 'Comprovante', href: '/acesso/comprovante', icon: Printer, modulo: 'COMPROVANTE' },
   // Sem Modulo no backend de propósito: só o super admin da EMPRESA PRINCIPAL
   // gerencia empresas (o SUPER_ADMIN de cada empresa cliente não vê este item).
   { label: 'Empresas', href: '/acesso/empresas', icon: Building2, somentePlataforma: true },

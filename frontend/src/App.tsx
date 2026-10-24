@@ -26,6 +26,7 @@ import AuditoriaPage from './modules/acesso/AuditoriaPage'
 import PerfisPage from './modules/acesso/PerfisPage'
 import TenantsPage from './modules/acesso/TenantsPage'
 import MaquininhasPage from './modules/pagamento/MaquininhasPage'
+import ComprovantePage from './modules/acesso/ComprovantePage'
 import HomePage from './modules/home/HomePage'
 
 export default function App() {
@@ -68,6 +69,7 @@ export default function App() {
             <Route path="/acesso/perfis"             element={<PerfisPage />} />
             <Route path="/acesso/empresas"           element={<TenantsPage />} />
             <Route path="/acesso/maquininhas"        element={<MaquininhasPage />} />
+            <Route path="/acesso/comprovante"        element={<ComprovantePage />} />
           </Route>
         </Route>
 
