@@ -46,6 +46,7 @@ public class ComprovanteService {
         c.setTelefone(vazioParaNull(dto.getTelefone()));
         c.setMensagemRodape(vazioParaNull(dto.getMensagemRodape()));
         c.setLarguraPapelMm(dto.getLarguraPapelMm());
+        c.setMargemDireitaMm(dto.getMargemDireitaMm());
         c.setVias(dto.getVias());
         c.setImprimirAutomatico(dto.isImprimirAutomatico());
         c.setMostrarAvisoNaoFiscal(dto.isMostrarAvisoNaoFiscal());
