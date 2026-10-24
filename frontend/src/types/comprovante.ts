@@ -7,6 +7,8 @@ export interface ConfiguracaoComprovante {
   telefone?: string | null
   mensagemRodape?: string | null
   larguraPapelMm: 58 | 80
+  /** folga à direita (0–20 mm) para drivers que cortam o fim das linhas */
+  margemDireitaMm: number
   vias: number
   /** false = o PDV pergunta se imprime ao finalizar a venda */
   imprimirAutomatico: boolean

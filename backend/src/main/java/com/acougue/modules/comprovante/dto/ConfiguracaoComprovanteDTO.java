@@ -31,6 +31,9 @@ public class ConfiguracaoComprovanteDTO {
     @NotNull
     private Short larguraPapelMm;
 
+    @NotNull @Min(0) @Max(value = 20, message = "Margem à direita deve ser de 0 a 20 mm")
+    private Short margemDireitaMm;
+
     @NotNull @Min(1) @Max(3)
     private Short vias;
 

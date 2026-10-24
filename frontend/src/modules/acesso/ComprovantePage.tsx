@@ -31,7 +31,7 @@ const VENDA_EXEMPLO = {
 
 const PADRAO: ConfiguracaoComprovante = {
   nomeFantasia: '', cnpj: '', endereco: '', bairro: '', cidade: '', telefone: '', mensagemRodape: '',
-  larguraPapelMm: 80, vias: 1, imprimirAutomatico: false,
+  larguraPapelMm: 80, margemDireitaMm: 5, vias: 1, imprimirAutomatico: false,
   mostrarAvisoNaoFiscal: true, mostrarOperador: true, mostrarCliente: true,
 }
 
@@ -146,6 +146,12 @@ export default function ComprovantePage() {
                   <option value={58}>58 mm</option>
                 </select>
               </Field>
+              <Field label="Margem de segurança à direita (mm)"
+                     hint="Se os valores da direita saírem cortados, aumente (1 em 1 mm) e use Imprimir teste">
+                <input type="number" min={0} max={20} step={1} value={form.margemDireitaMm} disabled={!editavel}
+                       onChange={e => set('margemDireitaMm', Math.min(20, Math.max(0, Math.round(Number(e.target.value) || 0))))}
+                       className={baseInputClass} />
+              </Field>
               <Field label="Vias por venda">
                 <select value={form.vias} disabled={!editavel}
                         onChange={e => set('vias', Number(e.target.value))} className={baseInputClass}>
@@ -176,7 +182,7 @@ export default function ComprovantePage() {
         </div>
 
         <div className="lg:sticky lg:top-4">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Prévia (bobina {form.larguraPapelMm} mm, impressão {areaImpressaoMm(form.larguraPapelMm)} mm)</p>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Prévia (bobina {form.larguraPapelMm} mm, conteúdo {areaImpressaoMm(form)} mm)</p>
           <div className="bg-white border border-gray-200 shadow-md rounded-sm overflow-x-auto max-w-full">
             <ReciboCupom venda={VENDA_EXEMPLO} operador={nome ?? 'Operador'} config={{ ...form, nomeFantasia: form.nomeFantasia || 'NOME DA LOJA' }} />
           </div>

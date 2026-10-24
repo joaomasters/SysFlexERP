@@ -14,12 +14,19 @@ interface Props {
 const num2 = (v: number) => (v ?? 0).toFixed(2).replace('.', ',')
 
 /**
- * Largura que a cabeça térmica realmente imprime: numa bobina de 80 mm são
- * ~72 mm (576 pontos a 203 dpi); na de 58 mm, ~48 mm. Desenhar o cupom com a
- * largura do papel corta o fim das linhas (valores e totais) na direita.
+ * Largura que a cabeça térmica imprime: numa bobina de 80 mm são ~72 mm
+ * (576 pontos a 203 dpi); na de 58 mm, ~48 mm. É a largura da página.
  */
-export const AREA_IMPRESSAO_MM: Record<number, number> = { 80: 72, 58: 48 }
-export const areaImpressaoMm = (larguraPapelMm: number) => AREA_IMPRESSAO_MM[larguraPapelMm] ?? larguraPapelMm - 8
+export const AREA_CABECA_MM: Record<number, number> = { 80: 72, 58: 48 }
+export const larguraCabecaMm = (larguraPapelMm: number) => AREA_CABECA_MM[larguraPapelMm] ?? larguraPapelMm - 8
+
+/**
+ * Largura do conteúdo: a da cabeça menos a margem configurada. Na prática os
+ * drivers imprimem um pouco menos (ou trocam a fonte por uma interna mais
+ * larga), e sem essa folga os valores da direita saem cortados.
+ */
+export const areaImpressaoMm = (config: Pick<ConfiguracaoComprovante, 'larguraPapelMm' | 'margemDireitaMm'>) =>
+  larguraCabecaMm(config.larguraPapelMm) - (config.margemDireitaMm ?? 5)
 
 const FORMA_PAGAMENTO: Record<string, string> = {
   DINHEIRO: 'DINHEIRO',
@@ -38,7 +45,7 @@ const FORMA_PAGAMENTO: Record<string, string> = {
  * imprimirComprovante.ts), sem o CSS do resto do sistema.
  */
 export default function ReciboCupom({ venda, operador, config, pagamentos }: Props) {
-  const largura = areaImpressaoMm(config.larguraPapelMm)
+  const largura = areaImpressaoMm(config)
   const estreito = config.larguraPapelMm <= 58
   const dataVenda = venda.dataVenda ? new Date(venda.dataVenda) : new Date()
   const descontoItens = (venda.itens ?? []).reduce((acc, i) => acc + (i.descontoItem ?? 0), 0)
@@ -53,7 +60,7 @@ export default function ReciboCupom({ venda, operador, config, pagamentos }: Pro
           box-sizing: border-box;
           font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif;
           font-weight: 700;
-          font-size: ${estreito ? 10.5 : 12.5}px;
+          font-size: ${estreito ? 10 : 12}px;
           line-height: 1.32;
           color: #000;
           background: #fff;
@@ -71,7 +78,7 @@ export default function ReciboCupom({ venda, operador, config, pagamentos }: Pro
         .recibo th { text-align: left; font-weight: 700; border-bottom: 2px solid #000; padding-bottom: 2px; }
         .recibo th.num, .recibo td.num { text-align: right; }
         .recibo td { overflow-wrap: break-word; vertical-align: top; }
-        .recibo .total-grande { font-size: ${estreito ? 15 : 19}px; font-weight: 800; }
+        .recibo .total-grande { font-size: ${estreito ? 14 : 17}px; font-weight: 800; }
         .recibo .rodape { margin-top: 4px; white-space: pre-line; }
       `}</style>
 
