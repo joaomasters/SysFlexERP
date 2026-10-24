@@ -108,7 +108,7 @@ export default function ProdutoForm({ produto, onClose, onSaved }: Props) {
               defaultValue={produto.precoVenda ?? 0}
               rules={{ required: true, min: 0.01 }}
               render={({ field }) => (
-                <CurrencyInput value={field.value ?? 0} onChange={field.onChange} />
+                <CurrencyInput name={field.name} value={field.value ?? 0} onChange={field.onChange} />
               )}
             />
           </Field>
@@ -121,7 +121,7 @@ export default function ProdutoForm({ produto, onClose, onSaved }: Props) {
               control={control}
               defaultValue={produto.precoCusto ?? 0}
               render={({ field }) => (
-                <CurrencyInput value={field.value ?? 0} onChange={field.onChange} disabled={isEdicao} />
+                <CurrencyInput name={field.name} value={field.value ?? 0} onChange={field.onChange} disabled={isEdicao} />
               )}
             />
           </Field>
@@ -132,6 +132,7 @@ export default function ProdutoForm({ produto, onClose, onSaved }: Props) {
               defaultValue={produto.estoqueMinimo ?? 0}
               render={({ field }) => (
                 <WeightInput
+                  name={field.name}
                   value={field.value ?? 0}
                   onChange={field.onChange}
                   unit={(unidadeMedida ?? 'kg').toLowerCase()}
