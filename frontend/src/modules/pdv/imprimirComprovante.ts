@@ -1,13 +1,13 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import ReciboCupom from './components/ReciboCupom'
+import ReciboCupom, { areaImpressaoMm } from './components/ReciboCupom'
 import type { Venda } from '@/types/venda'
 import type { ConfiguracaoComprovante, PagamentoCupom } from '@/types/comprovante'
 
 /**
  * Imprime o cupom num iframe escondido, com só o HTML do cupom: o resto da
- * tela do PDV nunca vai para o papel, e o tamanho da página fica exatamente
- * na largura da bobina (58 ou 80 mm, altura automática).
+ * tela do PDV nunca vai para o papel, e a página tem a largura que a cabeça
+ * térmica imprime (72 mm na bobina de 80; 48 mm na de 58), altura automática.
  *
  * Com o Chrome do caixa aberto com --kiosk-printing, sai direto na impressora
  * padrão do Windows, sem a janela de impressão (ver docs/IMPRESSORA.md).
@@ -25,7 +25,8 @@ export function imprimirComprovante(
 
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>Cupom ${venda.id}</title>
     <style>
-      @page { size: ${config.larguraPapelMm}mm auto; margin: 0; }
+      /* página = área que a cabeça imprime (72 mm na bobina de 80): nada fica fora */
+      @page { size: ${areaImpressaoMm(config.larguraPapelMm)}mm auto; margin: 0; }
       html, body { margin: 0; padding: 0; background: #fff; }
     </style></head><body>${corpo}</body></html>`
 
