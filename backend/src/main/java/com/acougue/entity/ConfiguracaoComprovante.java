@@ -42,6 +42,11 @@ public class ConfiguracaoComprovante {
     @Column(name = "largura_papel_mm", nullable = false)
     private Short larguraPapelMm = 80;
 
+    /** Folga à direita (mm) para drivers que imprimem menos que a área nominal. */
+    @Builder.Default
+    @Column(name = "margem_direita_mm", nullable = false)
+    private Short margemDireitaMm = 5;
+
     @Builder.Default
     @Column(nullable = false)
     private Short vias = 1;

@@ -1,6 +1,6 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import ReciboCupom, { areaImpressaoMm } from './components/ReciboCupom'
+import ReciboCupom, { larguraCabecaMm } from './components/ReciboCupom'
 import type { Venda } from '@/types/venda'
 import type { ConfiguracaoComprovante, PagamentoCupom } from '@/types/comprovante'
 
@@ -25,8 +25,9 @@ export function imprimirComprovante(
 
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>Cupom ${venda.id}</title>
     <style>
-      /* página = área que a cabeça imprime (72 mm na bobina de 80): nada fica fora */
-      @page { size: ${areaImpressaoMm(config.larguraPapelMm)}mm auto; margin: 0; }
+      /* página = área que a cabeça imprime (72 mm na bobina de 80); o cupom
+         fica alinhado à esquerda, mais estreito pela margem à direita */
+      @page { size: ${larguraCabecaMm(config.larguraPapelMm)}mm auto; margin: 0; }
       html, body { margin: 0; padding: 0; background: #fff; }
     </style></head><body>${corpo}</body></html>`
 
