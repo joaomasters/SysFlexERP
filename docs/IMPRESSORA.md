@@ -68,7 +68,8 @@ Por padrão o navegador abre a janela "Imprimir" a cada cupom. Para o cupom sair
 |---|---|
 | Nada sai na impressora | Confira se a Knup é a **impressora padrão** e se a página de teste do Windows imprime |
 | Abre a janela de impressão | Abra o PDV pelo **atalho** do passo 3, com o Chrome todo fechado antes |
-| Cupom cortado na lateral ou letra muito pequena | Confira se a **largura** em Administração → Comprovante bate com a bobina (80 ou 58 mm) e se a margem no Chrome está em **Nenhuma** |
+| Cupom cortado na lateral direita | A cabeça térmica imprime ~72 mm numa bobina de 80 (~48 mm na de 58), e o cupom já é montado nessa largura. Confira se a **largura** em Administração → Comprovante bate com a bobina, se a margem no Chrome está em **Nenhuma** e a escala em **Padrão** (não "Ajustar à página") |
+| Letra fraca, falhada ou pontilhada | Térmica não imprime cinza: o cupom já usa letra em negrito. Se ainda sair fraco, aumente a **Densidade/Darkness** em Preferências de impressão da Knup (ou *Propriedades da impressora → Avançado*), confira se a bobina é **térmica** e com o lado certo para a cabeça (risque a unha: o lado que escurece é o de impressão) e limpe a cabeça com álcool isopropílico |
 | Sai uma página em branco depois do cupom | Ajuste o papel no driver da Knup para o modo **rolo/bobina** (altura contínua), não A4 |
 | Cupom com cabeçalho de outra loja | Cada empresa tem a própria configuração: entre com o código da empresa certa e confira em Administração → Comprovante |
 

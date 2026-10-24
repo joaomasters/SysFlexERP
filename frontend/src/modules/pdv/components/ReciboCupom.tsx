@@ -13,6 +13,14 @@ interface Props {
 
 const num2 = (v: number) => (v ?? 0).toFixed(2).replace('.', ',')
 
+/**
+ * Largura que a cabeça térmica realmente imprime: numa bobina de 80 mm são
+ * ~72 mm (576 pontos a 203 dpi); na de 58 mm, ~48 mm. Desenhar o cupom com a
+ * largura do papel corta o fim das linhas (valores e totais) na direita.
+ */
+export const AREA_IMPRESSAO_MM: Record<number, number> = { 80: 72, 58: 48 }
+export const areaImpressaoMm = (larguraPapelMm: number) => AREA_IMPRESSAO_MM[larguraPapelMm] ?? larguraPapelMm - 8
+
 const FORMA_PAGAMENTO: Record<string, string> = {
   DINHEIRO: 'DINHEIRO',
   DEBITO: 'CARTÃO DÉBITO',
@@ -30,8 +38,8 @@ const FORMA_PAGAMENTO: Record<string, string> = {
  * imprimirComprovante.ts), sem o CSS do resto do sistema.
  */
 export default function ReciboCupom({ venda, operador, config, pagamentos }: Props) {
-  const largura = config.larguraPapelMm
-  const estreito = largura <= 58
+  const largura = areaImpressaoMm(config.larguraPapelMm)
+  const estreito = config.larguraPapelMm <= 58
   const dataVenda = venda.dataVenda ? new Date(venda.dataVenda) : new Date()
   const descontoItens = (venda.itens ?? []).reduce((acc, i) => acc + (i.descontoItem ?? 0), 0)
   const pags: PagamentoCupom[] = venda.pagamentos?.length ? venda.pagamentos : (pagamentos ?? [])
@@ -43,24 +51,27 @@ export default function ReciboCupom({ venda, operador, config, pagamentos }: Pro
         .recibo {
           width: ${largura}mm;
           box-sizing: border-box;
-          font-family: 'Courier New', Courier, monospace;
-          font-size: ${estreito ? 9.5 : 11.5}px;
-          line-height: 1.3;
+          font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif;
+          font-weight: 700;
+          font-size: ${estreito ? 10.5 : 12.5}px;
+          line-height: 1.32;
           color: #000;
           background: #fff;
-          padding: 1.5mm ${estreito ? 2 : 3}mm;
+          padding: 1mm 0.5mm;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
         }
         .recibo p { margin: 0; }
         .recibo .centro { text-align: center; }
-        .recibo .separador { border-top: 1px dashed #000; margin: 3px 0; }
+        .recibo .separador { border-top: 2px dashed #000; margin: 4px 0; }
         .recibo .linha { display: flex; justify-content: space-between; gap: 4px; }
         .recibo .negrito { font-weight: bold; }
-        .recibo .titulo { font-size: ${estreito ? 11.5 : 13.5}px; font-weight: bold; text-align: center; margin: 2px 0; }
+        .recibo .titulo { font-size: ${estreito ? 13 : 16}px; font-weight: 800; text-align: center; margin: 3px 0; }
         .recibo table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-        .recibo th { text-align: left; font-weight: normal; border-bottom: 1px solid #000; padding-bottom: 2px; }
+        .recibo th { text-align: left; font-weight: 700; border-bottom: 2px solid #000; padding-bottom: 2px; }
         .recibo th.num, .recibo td.num { text-align: right; }
         .recibo td { overflow-wrap: break-word; vertical-align: top; }
-        .recibo .total-grande { font-size: ${estreito ? 13 : 16}px; font-weight: bold; }
+        .recibo .total-grande { font-size: ${estreito ? 15 : 19}px; font-weight: 800; }
         .recibo .rodape { margin-top: 4px; white-space: pre-line; }
       `}</style>
 
