@@ -5,6 +5,7 @@ import LoginPage from './modules/auth/LoginPage'
 import PDVPage from './modules/pdv/PDVPage'
 import SangriaPage from './modules/pdv/SangriaPage'
 import ProdutosPage from './modules/estoque/ProdutosPage'
+import FornecedoresPage from './modules/estoque/FornecedoresPage'
 import DesossaPage from './modules/estoque/DesossaPage'
 import InventarioPage from './modules/estoque/InventarioPage'
 import PerdasPage from './modules/estoque/PerdasPage'
@@ -47,6 +48,7 @@ export default function App() {
             <Route path="/inicio" element={<HomePage />} />
             <Route path="/pdv/sangria"               element={<SangriaPage />} />
             <Route path="/estoque/produtos"          element={<ProdutosPage />} />
+            <Route path="/estoque/fornecedores"      element={<FornecedoresPage />} />
             <Route path="/estoque/desossa"           element={<DesossaPage />} />
             <Route path="/estoque/inventario"        element={<InventarioPage />} />
             <Route path="/estoque/perdas"            element={<PerdasPage />} />

@@ -1,3 +1,4 @@
+
 package com.acougue.entity;
 
 public enum Modulo {
@@ -22,6 +23,7 @@ public enum Modulo {
     AUDITORIA("Auditoria"),
     COMISSOES("Comissões"),
     MAQUININHAS("Maquininhas de Cartão"),
+    FORNECEDORES("Fornecedores"),
     COMPROVANTE("Comprovante de Venda");
 
     private final String rotulo;

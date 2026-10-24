@@ -1,9 +1,12 @@
 import { useEffect } from 'react'
 import { useForm, Controller } from 'react-hook-form'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 import { api } from '@/shared/api/axios'
 import toast from 'react-hot-toast'
 import type { Produto } from '@/types/produto'
+import type { OpcaoFornecedor } from '@/types/fornecedor'
+import { usePermissao } from '@/shared/hooks/usePermissao'
 import { Modal, Button, Field, baseInputClass, CurrencyInput, WeightInput } from '@/shared/components/ui'
 
 interface Props {
@@ -18,6 +21,20 @@ export default function ProdutoForm({ produto, onClose, onSaved }: Props) {
     defaultValues: produto,
   })
 
+  const { podeVer } = usePermissao()
+
+  // Fornecedores cadastrados (só ativos). O produto grava o vínculo (fornecedorId); o nome
+  // é preenchido pelo backend a partir do cadastro.
+  const { data: fornecedores = [], isLoading: carregandoFornecedores } = useQuery<OpcaoFornecedor[]>({
+    queryKey: ['fornecedores-opcoes'],
+    queryFn: () => api.get('/estoque/fornecedores-opcoes').then(r => r.data),
+  })
+  const fornecedorIdAtual = watch('fornecedorId')
+  // Produto de fornecedor já inativado: mantém o nome na lista para não "perder" o vínculo ao editar.
+  const fornecedorInativo = produto.fornecedorId && !fornecedores.some(f => f.id === produto.fornecedorId)
+    ? { id: produto.fornecedorId, nome: `${produto.fornecedor ?? 'Fornecedor'} (inativo)` }
+    : null
+
   const unidadeMedida = watch('unidadeMedida')
   const usaBalanca = unidadeMedida === 'KG' || unidadeMedida === 'G'
   const isUnidade = !usaBalanca
@@ -27,7 +44,6 @@ export default function ProdutoForm({ produto, onClose, onSaved }: Props) {
       setValue('codigoBalanca', undefined)
     } else {
       setValue('marca', undefined)
-      setValue('fornecedor', undefined)
     }
   }, [usaBalanca, setValue])
 
@@ -126,11 +142,11 @@ export default function ProdutoForm({ produto, onClose, onSaved }: Props) {
           </Field>
         </div>
 
-        {/* Marca e Fornecedor — só fazem sentido pra produtos vendidos por
-            unidade ou caixa (industrializados, insumos). Cortes por KG/G
-            normalmente não têm uma marca comercial própria. */}
-        {isUnidade && (
-          <div className="grid grid-cols-2 gap-4">
+        {/* Marca só faz sentido pra produtos vendidos por unidade ou caixa (industrializados,
+            insumos) — cortes por KG/G normalmente não têm marca comercial própria.
+            Fornecedor vale para qualquer produto: é de quem se compra. */}
+        <div className={isUnidade ? 'grid grid-cols-2 gap-4' : ''}>
+          {isUnidade && (
             <Field label="Marca">
               <input
                 {...register('marca')}
@@ -138,15 +154,31 @@ export default function ProdutoForm({ produto, onClose, onSaved }: Props) {
                 className={baseInputClass}
               />
             </Field>
-            <Field label="Fornecedor">
-              <input
-                {...register('fornecedor')}
-                placeholder="Ex: Distribuidora ABC"
-                className={baseInputClass}
-              />
-            </Field>
-          </div>
-        )}
+          )}
+          <Field
+            label="Fornecedor"
+            hint={
+              fornecedores.length === 0 && !carregandoFornecedores
+                ? 'Nenhum fornecedor cadastrado ainda.'
+                : undefined
+            }
+          >
+            <select
+              value={fornecedorIdAtual ?? ''}
+              onChange={e => setValue('fornecedorId', e.target.value ? Number(e.target.value) : null, { shouldDirty: true })}
+              className={baseInputClass}
+            >
+              <option value="">{carregandoFornecedores ? 'Carregando...' : 'Sem fornecedor'}</option>
+              {fornecedorInativo && <option value={fornecedorInativo.id}>{fornecedorInativo.nome}</option>}
+              {fornecedores.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
+            </select>
+            {podeVer('FORNECEDORES') && (
+              <Link to="/estoque/fornecedores" className="text-[11px] text-gray-500 underline hover:text-gray-700 mt-1 inline-block">
+                Não encontrou? Cadastre em Fornecedores
+              </Link>
+            )}
+          </Field>
+        </div>
 
         <Field
           label="Validade padrão (dias)"

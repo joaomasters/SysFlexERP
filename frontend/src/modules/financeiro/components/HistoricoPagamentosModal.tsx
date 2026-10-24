@@ -33,7 +33,9 @@ interface Props {
   tipo: TipoHistorico
   /** Quando informado, mostra só o histórico dessa conta (sem filtros). */
   contaId?: number
-  onClose: () => void
+  onClose?: () => void
+  /** Dentro da página de Relatórios: sem overlay, sem botão de fechar. */
+  embedded?: boolean
 }
 
 const brl = formatBRL
@@ -71,7 +73,7 @@ const csvTxt = (v: string) => `"${v.replace(/"/g, '""')}"`
  * Impressão: técnica de "print isolado" (igual ao RelatorioEstoqueModal) — só o
  * conteúdo de #relatorio-historico-print vai pro papel.
  */
-export default function HistoricoPagamentosModal({ tipo, contaId, onClose }: Props) {
+export default function HistoricoPagamentosModal({ tipo, contaId, onClose, embedded = false }: Props) {
   const t = TEXTOS[tipo]
   const [clienteId, setClienteId]   = useState('')
   const [fornecedor, setFornecedor] = useState('')
@@ -119,7 +121,9 @@ export default function HistoricoPagamentosModal({ tipo, contaId, onClose }: Pro
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 print:static print:bg-white print:p-0">
+    <div className={embedded
+        ? 'print:static print:bg-white print:p-0'
+        : 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 print:static print:bg-white print:p-0'}>
       <style>{`
         @media print {
           body * { visibility: hidden; }
@@ -128,16 +132,20 @@ export default function HistoricoPagamentosModal({ tipo, contaId, onClose }: Pro
         }
       `}</style>
 
-      <div className="bg-white rounded-2xl w-full max-w-4xl h-[85vh] flex flex-col shadow-xl print:h-auto print:shadow-none print:rounded-none print:max-w-full">
+      <div className={embedded
+          ? 'bg-white rounded-xl border border-gray-100 shadow-sm w-full flex flex-col print:border-0 print:shadow-none print:rounded-none'
+          : 'bg-white rounded-2xl w-full max-w-4xl h-[85vh] flex flex-col shadow-xl print:h-auto print:shadow-none print:rounded-none print:max-w-full'}>
         {/* Cabeçalho — some na impressão */}
         <div className="flex items-center justify-between px-6 py-4 border-b print:hidden">
           <div>
             <h2 className="font-bold text-gray-900">{t.titulo}{contaId ? ` — conta #${contaId}` : ''}</h2>
             <p className="text-xs text-gray-400">Visível somente para administradores</p>
           </div>
-          <button onClick={onClose} aria-label="Fechar">
-            <X size={20} className="text-gray-400 hover:text-gray-600" />
-          </button>
+          {!embedded && (
+            <button onClick={onClose} aria-label="Fechar">
+              <X size={20} className="text-gray-400 hover:text-gray-600" />
+            </button>
+          )}
         </div>
 
         {/* Filtros (só no modo relatório) + ações — somem na impressão */}
