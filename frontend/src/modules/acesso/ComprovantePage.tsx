@@ -5,7 +5,7 @@ import toast from 'react-hot-toast'
 import { api } from '@/shared/api/axios'
 import { usePermissao } from '@/shared/hooks/usePermissao'
 import { PageHeader, Card, Button, Field, baseInputClass } from '@/shared/components/ui'
-import ReciboCupom from '@/modules/pdv/components/ReciboCupom'
+import ReciboCupom, { areaImpressaoMm } from '@/modules/pdv/components/ReciboCupom'
 import { imprimirComprovante } from '@/modules/pdv/imprimirComprovante'
 import type { ConfiguracaoComprovante } from '@/types/comprovante'
 import type { Venda } from '@/types/venda'
@@ -176,7 +176,7 @@ export default function ComprovantePage() {
         </div>
 
         <div className="lg:sticky lg:top-4">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Prévia ({form.larguraPapelMm} mm)</p>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Prévia (bobina {form.larguraPapelMm} mm, impressão {areaImpressaoMm(form.larguraPapelMm)} mm)</p>
           <div className="bg-white border border-gray-200 shadow-md rounded-sm overflow-x-auto max-w-full">
             <ReciboCupom venda={VENDA_EXEMPLO} operador={nome ?? 'Operador'} config={{ ...form, nomeFantasia: form.nomeFantasia || 'NOME DA LOJA' }} />
           </div>
