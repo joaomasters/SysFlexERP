@@ -1,12 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
+import dotenv from 'dotenv';
+import path from 'node:path';
 
-/**
- * Read environment variables from file.
- * https://github.com/motdotla/dotenv
- */
-// import dotenv from 'dotenv';
-// import path from 'path';
-// dotenv.config({ path: path.resolve(__dirname, '.env') });
+// Carregado aqui porque o config é lido antes de tudo (inclusive do globalSetup)
+dotenv.config({ path: path.resolve(import.meta.dirname, '.env') });
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -35,7 +32,8 @@ export default defineConfig({
     /* Base URL to use in actions like `await page.goto('')`. */
     // baseURL: 'http://localhost:3000',
     baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:5173',
-    storageState: 'playwright/.auth/user.json',
+    // Relativo a este arquivo, não à pasta de onde o comando roda. O globalSetup grava aqui
+    storageState: path.resolve(import.meta.dirname, '.auth/user.json'),
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',

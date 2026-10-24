@@ -1,17 +1,16 @@
 import { request, type FullConfig } from '@playwright/test'
-import * as dotenv from 'dotenv'
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
-dotenv.config({ path: path.resolve(import.meta.dirname, '../.env') })
-
-const authFile = path.resolve('playwright/.auth/user.json')
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:5173'
 const tenant = process.env.E2E_TENANT
 const username = process.env.E2E_USERNAME
 const password = process.env.E2E_PASSWORD
 
-export default async function globalSetup(_config: FullConfig) {
+export default async function globalSetup(config: FullConfig) {
+  // Caminho definido uma vez só, no storageState do playwright.config.ts
+  const authFile = config.projects[0].use.storageState as string
+
   if (!username || !password || !tenant) {
     throw new Error('Defina as variáveis E2E_USERNAME, E2E_PASSWORD e E2E_TENANT antes de executar o Playwright.')
   }
@@ -32,6 +31,8 @@ export default async function globalSetup(_config: FullConfig) {
   }
 
   const sessao = await response.json()
+  // Variáveis definidas aqui chegam aos testes: o `request` das fixtures usa o token no header
+  process.env.E2E_TOKEN = sessao.token
   await mkdir(path.dirname(authFile), { recursive: true })
   await writeFile(authFile, JSON.stringify({
     cookies: [],
