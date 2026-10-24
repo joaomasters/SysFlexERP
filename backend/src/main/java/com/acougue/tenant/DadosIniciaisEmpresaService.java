@@ -38,6 +38,7 @@ public class DadosIniciaisEmpresaService {
             "perfil_permissoes",          // matriz de permissões dos perfis
             "usuarios",                   // quem acessa (tratado à parte na criação)
             "pagamento_provedor_config",  // linhas das adquirentes (vazias numa empresa nova)
+            "configuracao_comprovante",   // cabeçalho/rodapé do cupom da empresa
             "tenants"                     // registro de empresas (só é usado em public)
     );
 
@@ -69,10 +70,16 @@ public class DadosIniciaisEmpresaService {
      * Empresa recém-migrada: esvazia os dados de demonstração e troca o
      * usuário padrão teste/teste pelo administrador informado. Tudo ou nada.
      */
-    public void prepararEmpresaNova(String schema, String adminNome, String adminLogin, String adminSenhaHash) {
+    public void prepararEmpresaNova(String schema, String nomeEmpresa, String adminNome, String adminLogin, String adminSenhaHash) {
         validarSchema(schema);
         emTransacao(con -> {
             esvaziar(con, schema);
+            // A migration do comprovante roda antes de a empresa existir em public.tenants:
+            // grava aqui o nome real no cabeçalho do cupom.
+            try (PreparedStatement ps = con.prepareStatement("UPDATE " + schema + ".configuracao_comprovante SET nome_fantasia = ?")) {
+                ps.setString(1, nomeEmpresa);
+                ps.executeUpdate();
+            }
             Long perfilSuperAdmin;
             try (Statement st = con.createStatement();
                  ResultSet rs = st.executeQuery("SELECT id FROM " + schema + ".perfis WHERE nome = 'SUPER_ADMIN'")) {
