@@ -16,6 +16,14 @@ frontend/node_modules/
 frontend/dist/
 frontend/.vite/
 
+# Playwright
+playwright/node_modules/
+playwright/test-results/
+playwright/playwright-report/
+playwright/blob-report/
+playwright/playwright/.cache/
+playwright/.auth/
+
 # Logs
 *.log
 logs/

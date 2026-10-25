@@ -138,10 +138,10 @@ export default function ProdutosPage() {
                   )}
                   <TD>
                     <div className="flex items-center gap-1 justify-end">
-                      <Button variant="ghost" size="sm" onClick={() => setForm(p)}>
+                      <Button variant="ghost" size="sm" aria-label="Editar produto" onClick={() => setForm(p)}>
                         <Pencil size={14} />
                       </Button>
-                      <Button variant="ghost" size="sm" className="hover:!text-danger-600" onClick={() => setConfirmando(p)}>
+                      <Button variant="ghost" size="sm" aria-label="Inativar produto" className="hover:!text-danger-600" onClick={() => setConfirmando(p)}>
                         <Trash2 size={14} />
                       </Button>
                     </div>
