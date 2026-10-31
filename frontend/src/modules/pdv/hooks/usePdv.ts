@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import { api } from '@/shared/api/axios'
+import { api, mensagemDeErro } from '@/shared/api/axios'
 import { getUsuarioId } from '@/shared/auth'
 import toast from 'react-hot-toast'
 import type { Venda, ItemVendaDTO, PagamentoDTO } from '@/types/venda'
@@ -178,7 +178,7 @@ export function usePdv() {
       if (e?.response?.status === 409 && data?.codigo === 'LIMITE_CREDITO_EXCEDIDO') {
         throw new LimiteExcedidoError(data as LimiteExcedidoInfo, String(data.message ?? 'Limite de crédito excedido.'))
       }
-      toast.error(String(data?.message ?? data ?? e?.message ?? 'Erro desconhecido'))
+      toast.error(mensagemDeErro(e))
       throw e
     } finally {
       setLoading(false)
