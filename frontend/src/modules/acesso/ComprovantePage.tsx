@@ -96,7 +96,6 @@ export default function ComprovantePage() {
       <PageHeader
         title="Comprovante de Venda"
         subtitle="O que sai no cupom impresso no PDV (cupom não fiscal)"
-        icon={<Printer size={22} className="text-gray-400" />}
         actions={
           <>
             <Button variant="secondary" onClick={imprimirTeste} disabled={!form.nomeFantasia.trim()}>

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { X, Printer, Search, AlertTriangle } from 'lucide-react'
 import { api } from '@/shared/api/axios'
+import { TIPOS_PRODUTO, nomeTipoProduto } from '@/types/produto'
 import type { Produto } from '@/types/produto'
 import { formatQuantidade } from '@/shared/utils/mask'
 import { Button, baseInputClass } from '@/shared/components/ui'
@@ -27,6 +28,7 @@ export default function RelatorioEstoqueModal({ onClose, embedded = false }: Pro
   const [busca, setBusca]         = useState('')
   const [ordenarPor, setOrdenarPor] = useState<OrdemCampo>('nome')
   const [apenasAbaixoMinimo, setApenasAbaixoMinimo] = useState(false)
+  const [tipo, setTipo] = useState('')
 
   const { data: produtos = [], isLoading } = useQuery<Produto[]>({
     queryKey: ['produtos-relatorio'],
@@ -41,8 +43,13 @@ export default function RelatorioEstoqueModal({ onClose, embedded = false }: Pro
       filtrados = filtrados.filter(p =>
         p.nome.toLowerCase().includes(buscaLower) ||
         (p.marca ?? '').toLowerCase().includes(buscaLower) ||
-        (p.fornecedor ?? '').toLowerCase().includes(buscaLower)
+        (p.fornecedor ?? '').toLowerCase().includes(buscaLower) ||
+        (p.ean13 ?? '').startsWith(buscaLower)
       )
+    }
+
+    if (tipo) {
+      filtrados = filtrados.filter(p => p.tipoProduto === tipo)
     }
 
     if (apenasAbaixoMinimo) {
@@ -57,7 +64,7 @@ export default function RelatorioEstoqueModal({ onClose, embedded = false }: Pro
       if (va && !vb) return -1
       return va.localeCompare(vb, 'pt-BR')
     })
-  }, [produtos, busca, ordenarPor, apenasAbaixoMinimo])
+  }, [produtos, busca, ordenarPor, apenasAbaixoMinimo, tipo])
 
   return (
     <div className={embedded
@@ -95,9 +102,20 @@ export default function RelatorioEstoqueModal({ onClose, embedded = false }: Pro
               type="text"
               value={busca}
               onChange={e => setBusca(e.target.value)}
-              placeholder="Buscar por nome, marca ou fornecedor..."
+              placeholder="Buscar por nome, marca, fornecedor ou código de barras..."
               className={`${baseInputClass} pl-8 py-1.5 text-sm`}
             />
+          </div>
+          <div>
+            <label className="text-[11px] text-gray-500 block mb-1">Tipo</label>
+            <select
+              value={tipo}
+              onChange={e => setTipo(e.target.value)}
+              className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm bg-white"
+            >
+              <option value="">Todos</option>
+              {TIPOS_PRODUTO.map(t => <option key={t.valor} value={t.valor}>{t.nome}</option>)}
+            </select>
           </div>
           <div>
             <label className="text-[11px] text-gray-500 block mb-1">Ordenar por</label>
@@ -128,6 +146,7 @@ export default function RelatorioEstoqueModal({ onClose, embedded = false }: Pro
             <p className="text-xs text-gray-500">
               Gerado em {new Date().toLocaleString('pt-BR')}
               {busca && ` — filtro: "${busca}"`}
+              {tipo && ` — tipo: ${nomeTipoProduto(tipo)}`}
               {' '}— ordenado por {ordenarPor === 'nome' ? 'nome' : ordenarPor === 'marca' ? 'marca' : 'fornecedor'}
             </p>
           </div>
@@ -139,6 +158,7 @@ export default function RelatorioEstoqueModal({ onClose, embedded = false }: Pro
               <thead>
                 <tr className="text-xs text-gray-500 uppercase tracking-wide border-b-2 border-gray-300">
                   <th className="text-left py-2 pr-3">Nome</th>
+                  <th className="text-left py-2 pr-3">Tipo</th>
                   <th className="text-left py-2 pr-3">Marca</th>
                   <th className="text-left py-2 pr-3">Fornecedor</th>
                   <th className="text-right py-2 pr-3">Estoque Atual</th>
@@ -156,6 +176,7 @@ export default function RelatorioEstoqueModal({ onClose, embedded = false }: Pro
                           {p.nome}
                         </span>
                       </td>
+                      <td className="py-2 pr-3 text-gray-600">{nomeTipoProduto(p.tipoProduto)}</td>
                       <td className="py-2 pr-3 text-gray-600">{p.marca || '—'}</td>
                       <td className="py-2 pr-3 text-gray-600">{p.fornecedor || '—'}</td>
                       <td className={`py-2 pr-3 text-right tabular-nums ${abaixo ? 'text-warning-700 font-semibold' : 'text-gray-700'}`}>

@@ -2,12 +2,15 @@ package com.acougue.modules.pdv;
 
 import com.acougue.entity.*;
 import com.acougue.exception.BusinessException;
+import com.acougue.exception.LimiteCreditoExcedidoException;
 import com.acougue.modules.balanca.EanBalancaParser;
 import com.acougue.modules.balanca.dto.EanParseResult;
 import com.acougue.modules.estoque.EstoqueService;
 import com.acougue.modules.pagamento.TransacaoTerminalService;
 import com.acougue.modules.pdv.dto.*;
 import com.acougue.repository.*;
+import com.acougue.security.AutorizacaoAdminService;
+import com.acougue.security.auditoria.AuditoriaService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -34,6 +37,8 @@ public class PdvService {
     private final EanBalancaParser         eanParser;
     private final CaixaService             caixaService;
     private final TransacaoTerminalService transacaoTerminalService;
+    private final AutorizacaoAdminService  autorizacaoAdminService;
+    private final AuditoriaService         auditoriaService;
 
     // ── Caixa ──────────────────────────────────────────────────
 
@@ -157,6 +162,41 @@ public class PdvService {
         return vendaRepo.save(venda);
     }
 
+    /**
+     * Define o desconto (em reais) de um item da comanda, substituindo o anterior: zero remove.
+     * O desconto reduz o total do item, então entra sozinho no subtotal, na comissão e nos
+     * relatórios, que somam total_item.
+     */
+    @Transactional
+    public Venda aplicarDescontoItem(Long vendaId, Long itemId, BigDecimal valor) {
+        Venda venda = buscarVendaAberta(vendaId);
+        ItensVenda item = itensRepo.findById(itemId)
+                .filter(i -> i.getVenda().getId().equals(vendaId))
+                .orElseThrow(() -> new EntityNotFoundException("Item não encontrado nesta venda: " + itemId));
+
+        BigDecimal anterior = item.getDescontoItem() == null ? BigDecimal.ZERO : item.getDescontoItem();
+        BigDecimal valorCheio = item.getTotalItem().add(anterior);
+        BigDecimal desconto = valor.setScale(2, RoundingMode.HALF_UP);
+
+        if (desconto.signum() < 0) {
+            throw new BusinessException("O desconto não pode ser negativo.");
+        }
+        if (desconto.compareTo(valorCheio) >= 0) {
+            throw new BusinessException(String.format(
+                    "O desconto deve ser menor que o valor do item (R$ %.2f).", valorCheio));
+        }
+
+        item.setDescontoItem(desconto);
+        item.setTotalItem(valorCheio.subtract(desconto));
+        itensRepo.save(item);
+
+        recalcularTotais(venda);
+        auditoriaService.registrar("PDV", "EDITAR", String.format(
+                "Desconto no item — Venda #%d, %s: de R$ %.2f para R$ %.2f (valor do item R$ %.2f)",
+                venda.getId(), item.getProduto().getNome(), anterior, desconto, valorCheio));
+        return vendaRepo.save(venda);
+    }
+
     @Transactional
     public Venda fecharVenda(FecharVendaDTO dto) {
         Venda venda = buscarVendaAberta(dto.getVendaId());
@@ -169,6 +209,16 @@ public class PdvService {
             throw new BusinessException(String.format(
                     "Pagamento insuficiente. Venda: R$ %.2f | Pago: R$ %.2f",
                     venda.getTotal(), totalPago));
+        }
+
+        // Fiado acima do limite de crédito do cliente: confere ANTES de gravar qualquer coisa
+        // (pagamento, conta a receber, baixa de estoque). Sem autorização de administrador, aborta.
+        BigDecimal valorFiado = dto.getPagamentos().stream()
+                .filter(p -> "FIADO".equals(p.getFormaPagamento()))
+                .map(PagamentoDTO::getValor)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (valorFiado.signum() > 0) {
+            conferirLimiteCredito(venda, valorFiado, dto.getAutorizacaoLimite());
         }
 
         for (PagamentoDTO pag : dto.getPagamentos()) {
@@ -247,8 +297,12 @@ public class PdvService {
     // ── Privados ───────────────────────────────────────────────
 
     private ItemVendaDTO processarEanBalanca(String ean13) {
-        int codigoBalanca = Integer.parseInt(ean13.substring(1, 6));
+        // Layout: 2 + PLU(6) + valor(5) + DV. Compatibilidade: produtos cadastrados antes com
+        // o PLU lido em 5 dígitos (ex.: 80 em vez de 800) continuam sendo encontrados.
+        int codigoBalanca = Integer.parseInt(ean13.substring(1, 7));
+        int codigoLegado  = Integer.parseInt(ean13.substring(1, 6));
         Produto produto = produtoRepo.findByCodigoBalanca(codigoBalanca)
+                .or(() -> produtoRepo.findByCodigoBalanca(codigoLegado))
                 .orElseThrow(() -> new EntityNotFoundException("Produto não cadastrado para PLU: " + codigoBalanca));
 
         EanParseResult result = eanParser.parse(ean13, produto.getPrecoVenda());
@@ -302,11 +356,56 @@ public class PdvService {
     private void registrarComissao(Venda venda) {
         BigDecimal percentual = venda.getOperadorId() == null ? BigDecimal.ZERO
                 : usuarioRepo.findById(venda.getOperadorId())
-                        .map(Usuario::getPercentualComissao)
-                        .orElse(BigDecimal.ZERO);
+                .map(Usuario::getPercentualComissao)
+                .orElse(BigDecimal.ZERO);
         venda.setPercentualComissao(percentual);
         venda.setValorComissao(venda.getTotal().multiply(percentual)
                 .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP));
+    }
+
+    /**
+     * Trava de limite de crédito do fiado. O saldo em aberto do cliente (contas ABERTO/PARCIAL)
+     * mais o fiado desta venda não pode passar do limite cadastrado — a não ser que um
+     * administrador autorize, informando a própria credencial.
+     *
+     * Limite zerado/ausente = cliente sem limite cadastrado: não há valor a ultrapassar, então não
+     * trava (é o caso dos clientes antigos, cadastrados antes da regra).
+     *
+     * O cliente é carregado com lock de escrita: duas vendas fiado simultâneas do mesmo cliente
+     * esperam uma pela outra, em vez de ambas lerem o mesmo saldo e ambas passarem do limite.
+     */
+    private void conferirLimiteCredito(Venda venda, BigDecimal valorFiado, AutorizacaoLimiteDTO autorizacao) {
+        if (venda.getCliente() == null) {
+            throw new BusinessException("Pagamento FIADO exige cliente identificado na venda.");
+        }
+        Cliente cliente = clienteRepo.buscarParaAtualizar(venda.getCliente().getId())
+                .orElseThrow(() -> new EntityNotFoundException("Cliente não encontrado: " + venda.getCliente().getId()));
+
+        BigDecimal limite = cliente.getLimiteCredito() == null ? BigDecimal.ZERO : cliente.getLimiteCredito();
+        if (limite.signum() <= 0) {
+            return;
+        }
+
+        BigDecimal saldoAtual = contasRepo.saldoAberto(cliente.getId());
+        BigDecimal saldoAposVenda = saldoAtual.add(valorFiado);
+        if (saldoAposVenda.compareTo(limite) <= 0) {
+            return;
+        }
+        BigDecimal excedente = saldoAposVenda.subtract(limite);
+
+        if (autorizacao == null) {
+            throw new LimiteCreditoExcedidoException(cliente.getNome(), limite, saldoAtual, valorFiado, excedente);
+        }
+
+        Usuario administrador = autorizacaoAdminService.validar(
+                venda.getOperadorId(), autorizacao.getLogin(), autorizacao.getSenha());
+
+        auditoriaService.registrar("PDV", "CRIAR", String.format(
+                "Fiado acima do limite autorizado por %s (login %s) — Venda #%d, cliente %s: limite %s, "
+                        + "saldo anterior %s, fiado desta venda %s, excedente %s",
+                administrador.getNome(), administrador.getLogin(), venda.getId(), cliente.getNome(),
+                LimiteCreditoExcedidoException.brl(limite), LimiteCreditoExcedidoException.brl(saldoAtual),
+                LimiteCreditoExcedidoException.brl(valorFiado), LimiteCreditoExcedidoException.brl(excedente)));
     }
 
     private void lancarContaAReceber(Venda venda, BigDecimal valor) {

@@ -42,6 +42,8 @@ type FormState = {
   endereco: string
   tipoCliente: Cliente['tipoCliente']
   limiteCredito: number
+  /** Só leitura: fiado em aberto (calculado pelo servidor). */
+  saldoFiadoAtual?: number
 }
 
 // ── Máscaras e validação do cadastro ─────────────────────────────────
@@ -160,6 +162,7 @@ export default function ClientesPage() {
     endereco: c.endereco ?? '',
     tipoCliente: c.tipoCliente,
     limiteCredito: c.limiteCredito ?? 0,
+    saldoFiadoAtual: c.saldoFiadoAtual ?? 0,
   }) }
 
   const erros = form ? validarCliente(form) : null
@@ -234,6 +237,9 @@ export default function ClientesPage() {
                 <TD align="right" className="tabular-nums">{brl(c.limiteCredito)}</TD>
                 <TD align="right" className={`tabular-nums font-medium ${(c.saldoFiadoAtual ?? 0) > 0 ? 'text-danger-600' : 'text-gray-400'}`}>
                   {brl(c.saldoFiadoAtual)}
+                  {c.limiteCredito > 0 && (c.saldoFiadoAtual ?? 0) > c.limiteCredito && (
+                    <div className="text-[11px] font-semibold text-danger-600">Acima do limite</div>
+                  )}
                 </TD>
                 {podeVerIdentificacao && (
                   <TD className="text-gray-500 text-xs">{c.criadoPorNome ?? '—'}</TD>
@@ -346,6 +352,14 @@ export default function ClientesPage() {
             <Field label={novo ? 'Limite de Crédito *' : 'Limite de Crédito'} error={mostrar(erros?.limiteCredito)}>
               <CurrencyInput value={form.limiteCredito} onChange={v => setForm({ ...form, limiteCredito: v })}
                 className={tentouSalvar && erros?.limiteCredito ? '[&_input]:!border-danger-500' : ''} />
+              {!novo && (
+                <p className="mt-1 text-xs text-gray-500">
+                  Fiado em aberto: <strong>{brl(form.saldoFiadoAtual)}</strong>
+                  {form.limiteCredito > 0
+                    ? ` · Disponível: ${brl(Math.max(form.limiteCredito - (form.saldoFiadoAtual ?? 0), 0))}`
+                    : ' · Sem limite cadastrado (não bloqueia vendas)'}
+                </p>
+              )}
             </Field>
           </div>
         </Modal>

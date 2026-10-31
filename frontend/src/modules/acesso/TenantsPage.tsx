@@ -15,6 +15,7 @@ export default function TenantsPage() {
   const { isAdministradorPlataforma } = usePermissao()
   const [showNovo, setShowNovo] = useState(false)
   const [limpando, setLimpando] = useState<Tenant | null>(null)
+  const [renomeando, setRenomeando] = useState<Tenant | null>(null)
 
   const { data: tenants = [], isLoading } = useQuery<Tenant[]>({
     queryKey: ['tenants'],
@@ -98,6 +99,9 @@ export default function TenantsPage() {
                     </TD>
                     <TD align="right">
                       <div className="flex justify-end gap-2">
+                        <Button variant="secondary" size="sm" onClick={() => setRenomeando(t)}>
+                          Renomear
+                        </Button>
                         {!principal && (
                           <Button variant="outline-danger" size="sm" onClick={() => setLimpando(t)}>
                             Limpar dados
@@ -135,6 +139,7 @@ export default function TenantsPage() {
 
       {showNovo && <NovaEmpresaModal onClose={() => setShowNovo(false)} />}
       {limpando && <LimparDadosModal empresa={limpando} onClose={() => setLimpando(null)} />}
+      {renomeando && <RenomearEmpresaModal empresa={renomeando} onClose={() => setRenomeando(null)} />}
     </div>
   )
 }
@@ -204,6 +209,59 @@ function NovaEmpresaModal({ onClose }: { onClose: () => void }) {
         <strong>inativa</strong> — ative na lista quando quiser liberar o acesso. Passe ao cliente o código,
         o login e a senha.
       </p>
+    </Modal>
+  )
+}
+
+// ─── Renomear empresa ───────────────────────────────────────────────────────
+
+function RenomearEmpresaModal({ empresa, onClose }: { empresa: Tenant; onClose: () => void }) {
+  const qc = useQueryClient()
+  const [nome, setNome] = useState(empresa.nome)
+  const limpo = nome.trim().replace(/\s+/g, ' ')
+  const alterou = limpo !== '' && limpo !== empresa.nome
+
+  const renomear = useMutation({
+    mutationFn: () => api.patch<Tenant>(`/admin/tenants/${empresa.id}/nome`, { nome: limpo }),
+    onSuccess: ({ data }) => {
+      toast.success(`Empresa renomeada para "${data.nome}".`)
+      qc.invalidateQueries({ queryKey: ['tenants'] })
+      onClose()
+    },
+  })
+
+  function salvar() {
+    if (alterou && !renomear.isPending) renomear.mutate()
+  }
+
+  return (
+    <Modal
+      title={`Renomear empresa ${empresa.codigo}`}
+      maxWidth="md"
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="secondary" fullWidth onClick={onClose}>Cancelar</Button>
+          <Button variant="primary" fullWidth disabled={!alterou} loading={renomear.isPending} onClick={salvar}>
+            Salvar
+          </Button>
+        </>
+      }
+    >
+      <Field
+        label="Nome da empresa *"
+        hint={`O código de acesso (${empresa.codigo}) e os dados continuam os mesmos. O cabeçalho do cupom tem configuração própria, em Comprovante.`}
+      >
+        <input
+          value={nome}
+          onChange={e => setNome(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') salvar() }}
+          maxLength={120}
+          className={baseInputClass}
+          autoFocus
+          onFocus={e => e.currentTarget.select()}
+        />
+      </Field>
     </Modal>
   )
 }

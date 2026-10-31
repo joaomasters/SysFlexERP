@@ -4,6 +4,26 @@ import { getUsuarioId } from '@/shared/auth'
 import toast from 'react-hot-toast'
 import type { Venda, ItemVendaDTO, PagamentoDTO } from '@/types/venda'
 
+/** Credencial de administrador que libera um fiado acima do limite do cliente. */
+export interface AutorizacaoLimite { login: string; senha: string }
+
+/** Resposta 409 do backend quando o fiado ultrapassa o limite de crédito. */
+export interface LimiteExcedidoInfo {
+  clienteNome: string
+  limite: number
+  saldoAtual: number
+  valorFiado: number
+  excedente: number
+}
+
+/** Lançado por fecharVenda quando o fiado passa do limite e falta autorização de administrador. */
+export class LimiteExcedidoError extends Error {
+  constructor(public info: LimiteExcedidoInfo, message: string) {
+    super(message)
+    this.name = 'LimiteExcedidoError'
+  }
+}
+
 export function usePdv() {
   const [venda, setVenda]         = useState<Venda | null>(null)
   const [caixaId, setCaixaId]     = useState<number | null>(null)
@@ -132,15 +152,34 @@ export function usePdv() {
     atualizarComandaLocal(data)
   }, [venda, atualizarComandaLocal])
 
-  const fecharVenda = useCallback(async (pagamentos: PagamentoDTO[]) => {
+  const aplicarDescontoItem = useCallback(async (itemId: number, valor: number) => {
+    if (!venda) return
+    const { data } = await api.put<Venda>(`/pdv/vendas/${venda.id}/itens/${itemId}/desconto`, { valor })
+    setVenda(data)
+    atualizarComandaLocal(data)
+  }, [venda, atualizarComandaLocal])
+
+  const fecharVenda = useCallback(async (pagamentos: PagamentoDTO[], autorizacaoLimite?: AutorizacaoLimite) => {
     if (!venda) return
     setLoading(true)
     try {
-      const { data: vendaFechada } = await api.post<Venda>(`/pdv/vendas/fechar`, { vendaId: venda.id, pagamentos })
+      // silent: o toast global não deve aparecer no "limite excedido" — isso abre o pedido de autorização
+      const { data: vendaFechada } = await api.post<Venda>(
+        `/pdv/vendas/fechar`,
+        { vendaId: venda.id, pagamentos, ...(autorizacaoLimite ? { autorizacaoLimite } : {}) },
+        { silent: true } as any
+      )
       toast.success('Venda finalizada!')
       setVenda(null)
       carregarComandas()
       return vendaFechada
+    } catch (e: any) {
+      const data = e?.response?.data
+      if (e?.response?.status === 409 && data?.codigo === 'LIMITE_CREDITO_EXCEDIDO') {
+        throw new LimiteExcedidoError(data as LimiteExcedidoInfo, String(data.message ?? 'Limite de crédito excedido.'))
+      }
+      toast.error(String(data?.message ?? data ?? e?.message ?? 'Erro desconhecido'))
+      throw e
     } finally {
       setLoading(false)
     }
@@ -153,6 +192,12 @@ export function usePdv() {
     setVenda(null)
     carregarComandas()
   }, [venda, carregarComandas])
+
+  /** Sai da comanda aberta e volta à tela inicial do PDV. A comanda continua em aberto, nas abas. */
+  const sairDaComanda = useCallback(() => {
+    setVenda(null)
+    carregarComandas()
+  }, [carregarComandas])
 
   const abrirCaixa = useCallback(async (valorAbertura: number) => {
     if (!operadorId) throw new Error('Usuário não identificado.')
@@ -182,8 +227,10 @@ export function usePdv() {
     adicionarItemManual,
     adicionarProduto,
     removerItem,
+    aplicarDescontoItem,
     fecharVenda,
     cancelarVenda,
+    sairDaComanda,
     iniciarVenda,
     selecionarComanda,
     abrirCaixa,
