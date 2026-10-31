@@ -40,6 +40,19 @@ class GestaoEmpresasTest {
     }
 
     @Test
+    @DisplayName("renomear: tira espaços sobrando e recusa nome vazio ou longo demais")
+    void normalizarNomeEmpresa() {
+        assertThat(TenantAdminController.normalizarNome("  Açougue   do  Zé ")).isEqualTo("Açougue do Zé");
+        assertThatThrownBy(() -> TenantAdminController.normalizarNome("   "))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("Informe o nome");
+        assertThatThrownBy(() -> TenantAdminController.normalizarNome(null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> TenantAdminController.normalizarNome("x".repeat(121)))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("120");
+        assertThat(TenantAdminController.normalizarNome("x".repeat(120))).hasSize(120);
+    }
+
+    @Test
     @DisplayName("usuários, perfis e controle de migrations nunca são apagados")
     void tabelasMantidas() {
         assertThat(DadosIniciaisEmpresaService.TABELAS_MANTIDAS)

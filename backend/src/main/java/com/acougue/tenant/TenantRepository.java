@@ -101,6 +101,11 @@ public class TenantRepository {
         jdbc.update("UPDATE public.tenants SET ativo = true WHERE id = ?", id);
     }
 
+    /** Só o nome de exibição muda: código, slug e schema (a identidade da empresa) ficam intactos. */
+    public void renomear(Long id, String nome) {
+        jdbc.update("UPDATE public.tenants SET nome = ? WHERE id = ?", nome, id);
+    }
+
     public void desativar(Long id) {
         jdbc.update("UPDATE public.tenants SET ativo = false WHERE id = ?", id);
     }

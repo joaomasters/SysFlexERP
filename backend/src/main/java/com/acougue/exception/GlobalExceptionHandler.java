@@ -8,6 +8,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -21,6 +22,16 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(new ErrorResponse(ex.getMessage(), 403));
+    }
+
+    // Fiado acima do limite: 409 com os valores, para o PDV pedir a autorização de um administrador.
+    // Declarado mais específico que BusinessException, então o Spring escolhe este handler.
+    @ExceptionHandler(LimiteCreditoExcedidoException.class)
+    public ResponseEntity<LimiteExcedidoResponse> handleLimiteExcedido(LimiteCreditoExcedidoException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new LimiteExcedidoResponse(
+                ex.getMessage(), 409, LimiteCreditoExcedidoException.CODIGO,
+                ex.getClienteNome(), ex.getLimite(), ex.getSaldoAtual(), ex.getValorFiado(), ex.getExcedente(),
+                LocalDateTime.now()));
     }
 
     @ExceptionHandler(BusinessException.class)
@@ -91,6 +102,10 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
                 .body(new ErrorResponse("Os dados informados não são válidos ou já existem no cadastro.", 422));
     }
+
+    public record LimiteExcedidoResponse(String message, int status, String codigo, String clienteNome,
+                                         BigDecimal limite, BigDecimal saldoAtual, BigDecimal valorFiado,
+                                         BigDecimal excedente, LocalDateTime timestamp) {}
 
     public record ErrorResponse(String message, int status, LocalDateTime timestamp) {
         public ErrorResponse(String message, int status) {

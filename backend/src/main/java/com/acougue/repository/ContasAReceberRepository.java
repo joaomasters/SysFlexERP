@@ -36,9 +36,17 @@ public interface ContasAReceberRepository extends JpaRepository<ContasAReceber, 
 
     List<ContasAReceber> findByDataVencimentoBeforeAndStatusIn(LocalDate data, List<String> statuses);
 
-    @Query("SELECT COALESCE(SUM(c.valor - c.valorPago), 0) FROM ContasAReceber c " +
+    @Query("SELECT COALESCE(SUM(c.valor - COALESCE(c.valorPago, 0)), 0) FROM ContasAReceber c " +
             "WHERE c.cliente.id = :clienteId AND c.status IN ('ABERTO', 'PARCIAL')")
     BigDecimal saldoAberto(@Param("clienteId") Long clienteId);
+
+    /**
+     * Saldo em aberto de TODOS os clientes de uma vez (listagem de clientes), no mesmo critério de
+     * {@link #saldoAberto}. Cada linha é [clienteId, saldo]; cliente sem conta em aberto não aparece.
+     */
+    @Query("SELECT c.cliente.id, COALESCE(SUM(c.valor - COALESCE(c.valorPago, 0)), 0) FROM ContasAReceber c " +
+            "WHERE c.status IN ('ABERTO', 'PARCIAL') GROUP BY c.cliente.id")
+    List<Object[]> saldosAbertosPorCliente();
 
     /**
      * Contas de fiado avulso (lançadas pelo PDV por venda) elegíveis pra
