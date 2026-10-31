@@ -1,15 +1,18 @@
-import { useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Search, AlertTriangle, Pencil, Trash2 } from 'lucide-react'
+import { Search, AlertTriangle, Pencil, Trash2, Printer } from 'lucide-react'
 import { api } from '@/shared/api/axios'
 import toast from 'react-hot-toast'
+import { nomeTipoProduto } from '@/types/produto'
 import type { Produto } from '@/types/produto'
 import ProdutoForm from './components/ProdutoForm'
+import RelatorioEstoqueModal from './components/RelatorioEstoqueModal'
 import { usePermissao } from '@/shared/hooks/usePermissao'
+import { useBarcodeScan } from '@/shared/hooks/useBarcodeScan'
 import { formatBRL, formatQuantidade } from '@/shared/utils/mask'
 import {
   PageHeader, Button, StatusBadge, baseInputClass, ConfirmDialog,
-  Table, THead, TH, TBody, TR, TD, LoadingState,
+  Table, THead, TH, TBody, TR, TD, LoadingState, filtrarProdutos, produtoPorCodigo,
 } from '@/shared/components/ui'
 
 const brl  = (v?: number) => formatBRL(v ?? 0)
@@ -26,12 +29,32 @@ export default function ProdutosPage() {
   const [busca, setBusca]   = useState('')
   const [form, setForm]     = useState<Partial<Produto> | null>(null)
   const [confirmando, setConfirmando] = useState<Produto | null>(null)
+  const [showRelatorio, setShowRelatorio] = useState(false)
+  const buscaRef = useRef<HTMLInputElement>(null)
 
   const { data: produtos = [], isLoading, isError, error } = useQuery<Produto[]>({
-    queryKey: ['produtos', busca],
-    queryFn: () =>
-      api.get('/estoque/produtos', { params: busca ? { nome: busca } : {} })
-         .then(r => r.data),
+    queryKey: ['produtos', 'cadastro'],
+    queryFn: () => api.get('/estoque/produtos').then(r => r.data),
+  })
+
+  // Nome (sem acento), código interno ou código de barras; etiqueta de balança acha pelo PLU
+  const lista = useMemo(() => {
+    if (!busca.trim()) return produtos
+    const achados = filtrarProdutos(produtos, busca, Infinity)
+    if (achados.length > 0) return achados
+    const porCodigo = produtoPorCodigo(produtos, busca)
+    return porCodigo ? [porCodigo] : []
+  }, [produtos, busca])
+
+  // Leitor com o foco fora do campo de busca (com o foco nele, os dígitos entram direto)
+  useBarcodeScan({
+    enabled: form === null && !showRelatorio,
+    onScan: codigo => {
+      const el = document.activeElement
+      if (el && ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return
+      setBusca(codigo)
+      buscaRef.current?.focus()
+    },
   })
 
   const deletar = useMutation({
@@ -49,9 +72,14 @@ export default function ProdutosPage() {
         title="Produtos"
         subtitle="Cadastro e gestão de estoque"
         actions={
-          <Button variant="primary" onClick={() => setForm({})}>
-            Novo Produto
-          </Button>
+          <>
+            <Button variant="secondary" onClick={() => setShowRelatorio(true)}>
+              <Printer size={16} /> Relatório de Estoque
+            </Button>
+            <Button variant="primary" onClick={() => setForm({})}>
+              Novo Produto
+            </Button>
+          </>
         }
       />
 
@@ -59,10 +87,14 @@ export default function ProdutosPage() {
       <div className="relative mb-4">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
         <input
+          ref={buscaRef}
           type="text"
-          placeholder="Buscar por nome..."
+          placeholder="Buscar por nome, código ou código de barras..."
           value={busca}
           onChange={e => setBusca(e.target.value)}
+          onFocus={e => e.target.select()}
+          // seleciona o texto para o próximo código bipado substituir o anterior
+          onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.select() }}
           className={`${baseInputClass} pl-9 py-2.5`}
         />
       </div>
@@ -76,6 +108,8 @@ export default function ProdutosPage() {
             <p className="text-danger-600 font-medium mb-1">Erro ao carregar produtos</p>
             <p className="text-gray-400 text-sm">{String((error as Error)?.message ?? 'Falha na requisição')}</p>
           </div>
+        ) : lista.length === 0 ? (
+          <p className="p-8 text-center text-sm text-gray-400">Nenhum produto encontrado.</p>
         ) : (
           <div className="overflow-x-auto">
           <Table>
@@ -97,9 +131,12 @@ export default function ProdutosPage() {
               </tr>
             </THead>
             <TBody>
-              {produtos.map(p => (
+              {lista.map(p => (
                 <TR key={p.id}>
-                  <TD className="font-mono text-xs text-gray-500">{p.codigoInterno}</TD>
+                  <TD className="font-mono text-xs text-gray-500">
+                    {p.codigoInterno}
+                    {p.ean13 && <div className="text-[11px] text-gray-400">{p.ean13}</div>}
+                  </TD>
                   <TD className="font-medium">
                     <div className="flex items-center gap-2">
                       {p.estoqueAtual <= p.estoqueMinimo && (
@@ -107,6 +144,7 @@ export default function ProdutosPage() {
                       )}
                       {p.nome}
                     </div>
+                    <div className="text-xs font-normal text-gray-400">{nomeTipoProduto(p.tipoProduto)}</div>
                   </TD>
                   <TD className="text-gray-500">{p.marca || '—'}</TD>
                   <TD className="text-gray-500">{p.fornecedor || '—'}</TD>
@@ -165,6 +203,8 @@ export default function ProdutosPage() {
           onCancel={() => setConfirmando(null)}
         />
       )}
+
+      {showRelatorio && <RelatorioEstoqueModal onClose={() => setShowRelatorio(false)} />}
 
       {/* Modal de formulário */}
       {form !== null && (

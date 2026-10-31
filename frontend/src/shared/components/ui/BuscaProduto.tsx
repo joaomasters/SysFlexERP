@@ -44,9 +44,9 @@ export const normalizar = (s: string) =>
 
 /**
  * Acha o produto de um código lido/digitado: EAN cadastrado, código interno,
- * ou etiqueta de balança (EAN-13 começando com 2: dígitos 2-6 = código da balança).
+ * ou etiqueta de balança (EAN-13 começando com 2: PLU em 6 dígitos, ou em 5 nos cadastros antigos).
  */
-export function produtoPorCodigo(produtos: ProdutoBuscavel[], codigo: string): ProdutoBuscavel | undefined {
+export function produtoPorCodigo<T extends ProdutoBuscavel>(produtos: T[], codigo: string): T | undefined {
   const c = codigo.trim()
   if (!c) return undefined
   const porEan = produtos.find(p => p.ean13 && p.ean13 === c)
@@ -54,26 +54,27 @@ export function produtoPorCodigo(produtos: ProdutoBuscavel[], codigo: string): P
   const porInterno = produtos.find(p => p.codigoInterno && p.codigoInterno.toLowerCase() === c.toLowerCase())
   if (porInterno) return porInterno
   if (/^2\d{12}$/.test(c)) {
-    const plu = parseInt(c.substring(1, 6), 10)
-    return produtos.find(p => p.codigoBalanca === plu)
+    const plu = parseInt(c.substring(1, 7), 10)
+    const pluLegado = parseInt(c.substring(1, 6), 10)
+    return produtos.find(p => p.codigoBalanca === plu) ?? produtos.find(p => p.codigoBalanca === pluLegado)
   }
   return undefined
 }
 
 /** Filtra por nome (todas as palavras, sem acento), código interno ou início do código de barras. */
-export function filtrarProdutos(produtos: ProdutoBuscavel[], termo: string): ProdutoBuscavel[] {
+export function filtrarProdutos<T extends ProdutoBuscavel>(produtos: T[], termo: string, limite = MAX_RESULTADOS): T[] {
   const t = normalizar(termo)
-  if (!t) return produtos.slice(0, MAX_RESULTADOS)
+  if (!t) return produtos.slice(0, limite)
   const palavras = t.split(/\s+/)
   const soDigitos = /^\d+$/.test(t)
-  const resultado: ProdutoBuscavel[] = []
+  const resultado: T[] = []
   for (const p of produtos) {
     const nome = normalizar(p.nome)
     const casaNome = palavras.every(w => nome.includes(w))
     const casaCodigo = (p.codigoInterno && normalizar(p.codigoInterno).includes(t))
       || (soDigitos && p.ean13 && p.ean13.startsWith(t))
     if (casaNome || casaCodigo) resultado.push(p)
-    if (resultado.length >= MAX_RESULTADOS) break
+    if (resultado.length >= limite) break
   }
   return resultado
 }

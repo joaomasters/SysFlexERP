@@ -4,6 +4,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api } from '@/shared/api/axios'
 import toast from 'react-hot-toast'
+import { TIPOS_PRODUTO } from '@/types/produto'
 import type { Produto } from '@/types/produto'
 import type { OpcaoFornecedor } from '@/types/fornecedor'
 import { usePermissao } from '@/shared/hooks/usePermissao'
@@ -78,10 +79,7 @@ export default function ProdutoForm({ produto, onClose, onSaved }: Props) {
         <div className="grid grid-cols-2 gap-4">
           <Field label="Tipo *">
             <select {...register('tipoProduto', { required: true })} className={baseInputClass}>
-              <option value="CORTE">Corte de Carne</option>
-              <option value="INDUSTRIALIZADO">Industrializado</option>
-              <option value="INSUMO">Insumo</option>
-              <option value="SUBPRODUTO">Subproduto (sebo, osso...)</option>
+              {TIPOS_PRODUTO.map(t => <option key={t.valor} value={t.valor}>{t.nome}</option>)}
             </select>
           </Field>
           <Field

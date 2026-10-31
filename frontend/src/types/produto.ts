@@ -4,6 +4,29 @@ export interface Categoria {
   descricao?: string
 }
 
+/** Tipos aceitos pelo banco (ver migration V29). A ordem é a do formulário. */
+export const TIPOS_PRODUTO = [
+  { valor: 'CORTE', nome: 'Corte de Carne' },
+  { valor: 'BEBIDA', nome: 'Bebida' },
+  { valor: 'ALIMENTO', nome: 'Alimento' },
+  { valor: 'MERCEARIA', nome: 'Mercearia' },
+  { valor: 'HORTIFRUTI', nome: 'Hortifruti' },
+  { valor: 'FRIOS_LATICINIOS', nome: 'Frios e Laticínios' },
+  { valor: 'PADARIA', nome: 'Padaria' },
+  { valor: 'CONGELADOS', nome: 'Congelados' },
+  { valor: 'LIMPEZA', nome: 'Limpeza' },
+  { valor: 'HIGIENE', nome: 'Higiene' },
+  { valor: 'INDUSTRIALIZADO', nome: 'Industrializado' },
+  { valor: 'INSUMO', nome: 'Insumo' },
+  { valor: 'SUBPRODUTO', nome: 'Subproduto (sebo, osso...)' },
+  { valor: 'OUTROS', nome: 'Outros' },
+] as const
+
+export type TipoProduto = (typeof TIPOS_PRODUTO)[number]['valor']
+
+export const nomeTipoProduto = (tipo?: string) =>
+  TIPOS_PRODUTO.find(t => t.valor === tipo)?.nome ?? tipo ?? ''
+
 export interface Produto {
   id: number
   codigoInterno: string
@@ -12,7 +35,7 @@ export interface Produto {
   nome: string
   descricao?: string
   unidadeMedida: 'KG' | 'UN' | 'CX' | 'G'
-  tipoProduto: 'CORTE' | 'INDUSTRIALIZADO' | 'INSUMO' | 'SUBPRODUTO'
+  tipoProduto: TipoProduto
   marca?: string
   fornecedor?: string        // nome do fornecedor vinculado (somente leitura)
   fornecedorId?: number | null   // vínculo com o cadastro de Fornecedores

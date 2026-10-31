@@ -122,6 +122,7 @@ export default function ReciboCupom({ venda, operador, config, pagamentos }: Pro
         <tbody>
           {(venda.itens ?? []).flatMap((item, idx) => {
             const casas = casasDaUnidade(item.produto?.unidadeMedida)
+            const desconto = item.descontoItem ?? 0
             return [
               <tr key={`${item.id}-n`}>
                 <td colSpan={4}>{idx + 1} {item.produto?.nome}</td>
@@ -130,8 +131,14 @@ export default function ReciboCupom({ venda, operador, config, pagamentos }: Pro
                 <td>{(item.produto?.unidadeMedida ?? '').toUpperCase()}</td>
                 <td className="num">{num2(item.precoUnitario)}</td>
                 <td className="num">{(item.quantidade ?? 0).toFixed(casas).replace('.', ',')}</td>
-                <td className="num">{num2(item.totalItem)}</td>
+                <td className="num">{num2(item.totalItem + desconto)}</td>
               </tr>,
+              ...(desconto > 0 ? [
+                <tr key={`${item.id}-d`}>
+                  <td colSpan={3}>Desconto</td>
+                  <td className="num">-{num2(desconto)}</td>
+                </tr>,
+              ] : []),
             ]
           })}
         </tbody>
@@ -139,7 +146,8 @@ export default function ReciboCupom({ venda, operador, config, pagamentos }: Pro
 
       <div className="separador" />
 
-      <div className="linha"><span>Sub Total:</span><span>{num2(venda.subtotal)}</span></div>
+      {/* venda.subtotal já vem sem os descontos dos itens: o cupom mostra o valor cheio para a conta fechar */}
+      <div className="linha"><span>Sub Total:</span><span>{num2(venda.subtotal + descontoItens)}</span></div>
       {descontoItens > 0 && (
         <div className="linha"><span>&nbsp;&nbsp;Desconto nos itens:</span><span>{num2(descontoItens)}</span></div>
       )}
