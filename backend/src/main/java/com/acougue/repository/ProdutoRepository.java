@@ -21,7 +21,15 @@ public interface ProdutoRepository extends JpaRepository<Produto, Long> {
 
     Optional<Produto> findByCodigoBalanca(Integer codigoBalanca);
 
-    Optional<Produto> findByEan13(String ean13);
+    /** Com código repetido (cadastros antigos ou produto inativado), prefere o produto ativo. */
+    default Optional<Produto> findByEan13(String ean13) {
+        return findFirstByEan13OrderByAtivoDescIdAsc(ean13);
+    }
+
+    Optional<Produto> findFirstByEan13OrderByAtivoDescIdAsc(String ean13);
+
+    /** Outro produto ativo com o mesmo código de barras (id = 0 no cadastro novo). */
+    Optional<Produto> findFirstByEan13AndAtivoTrueAndIdNot(String ean13, Long id);
 
     Optional<Produto> findByCodigoInterno(String codigoInterno);
 

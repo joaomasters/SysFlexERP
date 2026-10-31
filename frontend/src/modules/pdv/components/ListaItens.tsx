@@ -1,10 +1,13 @@
-import { Trash2 } from 'lucide-react'
+import { Percent, Trash2 } from 'lucide-react'
 import type { ItemVenda } from '@/types/venda'
 import { formatBRL, formatWeightDisplay } from '@/shared/utils/mask'
 
 interface Props {
   itens: ItemVenda[]
   onRemover: (id: number) => void
+  onDesconto: (item: ItemVenda) => void
+  /** Sem a permissão, o botão fica visível e desabilitado, como o de cancelar venda. */
+  podeDescontar: boolean
 }
 
 // Tema escuro proposital — console de operação do caixa (PDV), separado do
@@ -12,7 +15,7 @@ interface Props {
 const brl = formatBRL
 const kg3 = formatWeightDisplay
 
-export default function ListaItens({ itens, onRemover }: Props) {
+export default function ListaItens({ itens, onRemover, onDesconto, podeDescontar }: Props) {
   if (itens.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">
@@ -52,8 +55,21 @@ export default function ListaItens({ itens, onRemover }: Props) {
               </td>
               <td className="px-4 py-3 text-right tabular-nums font-bold text-emerald-400">
                 {brl(item.totalItem)}
+                {item.descontoItem > 0 && (
+                  <span className="block text-xs font-normal text-amber-400">-{brl(item.descontoItem)}</span>
+                )}
               </td>
-              <td className="px-2 py-3">
+              <td className="px-2 py-3 whitespace-nowrap">
+                <button
+                  onClick={() => onDesconto(item)}
+                  disabled={!podeDescontar}
+                  aria-label="Desconto no item"
+                  title={podeDescontar ? 'Desconto no item' : 'Seu perfil não pode dar desconto'}
+                  className="p-1.5 rounded text-gray-500 hover:text-amber-400 hover:bg-amber-900/30 transition-colors
+                             disabled:text-gray-700 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+                >
+                  <Percent size={14} />
+                </button>
                 <button
                   onClick={() => onRemover(item.id)}
                   className="p-1.5 rounded text-gray-500 hover:text-red-400 hover:bg-red-900/30 transition-colors"

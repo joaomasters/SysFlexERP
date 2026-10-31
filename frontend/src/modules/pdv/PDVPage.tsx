@@ -10,6 +10,7 @@ import type { LimiteExcedidoInfo } from './hooks/usePdv'
 import AutorizacaoLimiteModal from './components/AutorizacaoLimiteModal'
 import type { PagamentoDTO } from '@/types/venda'
 import ListaItens from './components/ListaItens'
+import DescontoItemModal from './components/DescontoItemModal'
 import ModalPagamento from './components/ModalPagamento'
 import NovaComandaModal from './components/NovaComandaModal'
 import { formatBRL, formatCurrencyDisplay } from '@/shared/utils/mask'
@@ -19,7 +20,7 @@ import { casasDaUnidade } from '@/shared/utils/mask'
 import FaixaAmbiente from '@/shared/components/ui/FaixaAmbiente'
 import { imprimirComprovante } from './imprimirComprovante'
 import type { ConfiguracaoComprovante, PagamentoCupom } from '@/types/comprovante'
-import type { Venda } from '@/types/venda'
+import type { ItemVenda, Venda } from '@/types/venda'
 import toast from 'react-hot-toast'
 
 // NOTA DE DESIGN: o PDV usa de propósito um tema escuro em tela cheia
@@ -50,7 +51,7 @@ interface FechamentoResumo {
 export default function PDVPage() {
   const {
     venda, comandas, loading, scanLoading, totalVenda, caixaId, semCaixa,
-    adicionarItem, adicionarProduto, removerItem, fecharVenda, cancelarVenda, sairDaComanda,
+    adicionarItem, adicionarProduto, removerItem, aplicarDescontoItem, fecharVenda, cancelarVenda, sairDaComanda,
     iniciarVenda, selecionarComanda, abrirCaixa, fecharCaixa,
   } = usePdv()
 
@@ -59,6 +60,7 @@ export default function PDVPage() {
   const [limitePendente, setLimitePendente] = useState<{ pagamentos: PagamentoDTO[]; info: LimiteExcedidoInfo } | null>(null)
   const [autorizando, setAutorizando] = useState(false)
   const [showNovaComanda, setShowNovaComanda] = useState(false)
+  const [descontando, setDescontando] = useState<ItemVenda | null>(null)
   const [hora, setHora]           = useState(new Date())
   const [valorAbertura, setValorAbertura] = useState(0)
   const [abrindo, setAbrindo]     = useState(false)
@@ -104,7 +106,7 @@ export default function PDVPage() {
     }
     setPerguntarImpressao(false)
   }
-  const { podeExcluir } = usePermissao()
+  const { podeExcluir, podeEditar } = usePermissao()
   // Cancelar uma venda é restrito a quem tem a permissão de EXCLUIR no
   // módulo PDV — por padrão, só ADMIN e SUPER_ADMIN (ver matriz de perfis).
   // O botão fica visível mas desabilitado pro operador entender que a
@@ -176,7 +178,7 @@ export default function PDVPage() {
       if (el && ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return // evita lançar em dobro
       adicionarItem(codigo)
     },
-    enabled: !showPagto && !semCaixa && !pesando && !perguntarImpressao,
+    enabled: !showPagto && !semCaixa && !pesando && !perguntarImpressao && !descontando,
   })
 
   const handleAbrirCaixa = async () => {
@@ -336,6 +338,8 @@ export default function PDVPage() {
           <ListaItens
             itens={venda?.itens ?? []}
             onRemover={removerItem}
+            onDesconto={setDescontando}
+            podeDescontar={podeEditar('PDV')}
           />
           {/* Rodapé da lista */}
           <div className="px-4 py-3 bg-gray-900 border-t border-gray-800 flex justify-between text-sm text-gray-400">
@@ -446,6 +450,18 @@ export default function PDVPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Desconto no item */}
+      {descontando && (
+        <DescontoItemModal
+          item={descontando}
+          onConfirmar={async valor => {
+            await aplicarDescontoItem(descontando.id, valor)
+            setDescontando(null)
+          }}
+          onCancelar={() => setDescontando(null)}
+        />
       )}
 
       {/* Peso do produto escolhido na busca */}

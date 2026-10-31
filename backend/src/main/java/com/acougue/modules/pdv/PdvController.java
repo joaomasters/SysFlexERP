@@ -85,6 +85,17 @@ public class PdvController {
         return ResponseEntity.ok(pdvService.removerItem(vendaId, itemId));
     }
 
+    // Desconto mexe no valor da venda: exige EDITAR no PDV, que por padrão ADMIN e GESTOR têm
+    // e CAIXA não. Para liberar ao caixa, basta marcar a permissão na tela de Perfis.
+    @ExigirPermissao(modulo = Modulo.PDV, acao = Acao.EDITAR)
+    @PutMapping("/vendas/{vendaId}/itens/{itemId}/desconto")
+    public ResponseEntity<Venda> aplicarDescontoItem(
+            @PathVariable Long vendaId,
+            @PathVariable Long itemId,
+            @RequestBody @Valid DescontoItemDTO dto) {
+        return ResponseEntity.ok(pdvService.aplicarDescontoItem(vendaId, itemId, dto.getValor()));
+    }
+
     @ExigirPermissao(modulo = Modulo.PDV, acao = Acao.CRIAR)
     @PostMapping("/vendas/fechar")
     public ResponseEntity<Venda> fecharVenda(@RequestBody @Valid FecharVendaDTO dto) {

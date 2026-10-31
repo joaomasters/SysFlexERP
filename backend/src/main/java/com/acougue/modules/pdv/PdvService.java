@@ -162,6 +162,41 @@ public class PdvService {
         return vendaRepo.save(venda);
     }
 
+    /**
+     * Define o desconto (em reais) de um item da comanda, substituindo o anterior: zero remove.
+     * O desconto reduz o total do item, então entra sozinho no subtotal, na comissão e nos
+     * relatórios, que somam total_item.
+     */
+    @Transactional
+    public Venda aplicarDescontoItem(Long vendaId, Long itemId, BigDecimal valor) {
+        Venda venda = buscarVendaAberta(vendaId);
+        ItensVenda item = itensRepo.findById(itemId)
+                .filter(i -> i.getVenda().getId().equals(vendaId))
+                .orElseThrow(() -> new EntityNotFoundException("Item não encontrado nesta venda: " + itemId));
+
+        BigDecimal anterior = item.getDescontoItem() == null ? BigDecimal.ZERO : item.getDescontoItem();
+        BigDecimal valorCheio = item.getTotalItem().add(anterior);
+        BigDecimal desconto = valor.setScale(2, RoundingMode.HALF_UP);
+
+        if (desconto.signum() < 0) {
+            throw new BusinessException("O desconto não pode ser negativo.");
+        }
+        if (desconto.compareTo(valorCheio) >= 0) {
+            throw new BusinessException(String.format(
+                    "O desconto deve ser menor que o valor do item (R$ %.2f).", valorCheio));
+        }
+
+        item.setDescontoItem(desconto);
+        item.setTotalItem(valorCheio.subtract(desconto));
+        itensRepo.save(item);
+
+        recalcularTotais(venda);
+        auditoriaService.registrar("PDV", "EDITAR", String.format(
+                "Desconto no item — Venda #%d, %s: de R$ %.2f para R$ %.2f (valor do item R$ %.2f)",
+                venda.getId(), item.getProduto().getNome(), anterior, desconto, valorCheio));
+        return vendaRepo.save(venda);
+    }
+
     @Transactional
     public Venda fecharVenda(FecharVendaDTO dto) {
         Venda venda = buscarVendaAberta(dto.getVendaId());

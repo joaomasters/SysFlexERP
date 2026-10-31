@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -58,6 +59,21 @@ public class ProdutoService {
         }
     }
 
+    private static String normalizarEan(String ean13) {
+        return ean13 == null || ean13.isBlank() ? null : ean13.trim();
+    }
+
+    // Só bloqueia contra produto ativo: inativos não aparecem na tela, e um código preso num
+    // produto inativado impediria recadastrar o item sem o usuário ter como resolver.
+    private void validarEanUnico(String ean13, Long idProduto) {
+        if (ean13 == null) return;
+        produtoRepo.findFirstByEan13AndAtivoTrueAndIdNot(ean13, idProduto == null ? 0L : idProduto)
+                .ifPresent(outro -> {
+                    throw new BusinessException("Código de barras " + ean13
+                            + " já cadastrado no produto \"" + outro.getNome() + "\".");
+                });
+    }
+
     /** Fornecedores ativos para o dropdown do cadastro de produto. */
     public List<OpcaoFornecedorDTO> opcoesFornecedor() {
         return fornecedorRepo.findByAtivoTrueOrderByNomeAsc().stream()
@@ -96,6 +112,8 @@ public class ProdutoService {
         produto.setId(null);
         produto.setCriadoPorId(usuarioId); // autoria vem do token, nunca do corpo da requisição
         validarValidadePadrao(produto.getValidadePadraoDias());
+        produto.setEan13(normalizarEan(produto.getEan13()));
+        validarEanUnico(produto.getEan13(), null);
         aplicarFornecedor(produto, null);
         if (produto.getCodigoInterno() == null || produto.getCodigoInterno().isBlank()) {
             produto.setCodigoInterno(gerarCodigoInterno());
@@ -109,6 +127,14 @@ public class ProdutoService {
         Long fornecedorAnteriorId = existente.getFornecedorId();
         BigDecimal precoAnterior = existente.getPrecoVenda();
 
+        // Só confere quando o código muda ou o produto volta a ser ativo: duplicados antigos
+        // não podem impedir de editar outros campos, como o preço.
+        String ean13 = normalizarEan(dados.getEan13());
+        boolean reativando = !Boolean.TRUE.equals(existente.getAtivo()) && Boolean.TRUE.equals(dados.getAtivo());
+        if (reativando || !Objects.equals(ean13, normalizarEan(existente.getEan13()))) {
+            validarEanUnico(ean13, id);
+        }
+
         existente.setNome(dados.getNome());
         existente.setDescricao(dados.getDescricao());
         existente.setPrecoVenda(dados.getPrecoVenda());
@@ -121,7 +147,7 @@ public class ProdutoService {
         existente.setFornecedorId(dados.getFornecedorId());
         aplicarFornecedor(existente, fornecedorAnteriorId);
         existente.setCodigoBalanca(dados.getCodigoBalanca());
-        existente.setEan13(dados.getEan13());
+        existente.setEan13(ean13);
         existente.setEstoqueMinimo(dados.getEstoqueMinimo());
         validarValidadePadrao(dados.getValidadePadraoDias());
         existente.setValidadePadraoDias(dados.getValidadePadraoDias());
