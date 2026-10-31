@@ -54,7 +54,9 @@ export default function ReciboCupom({ venda, operador, config, pagamentos }: Pro
 
   return (
     <div className="recibo">
-      <style>{`
+      {/* dangerouslySetInnerHTML: como texto, o renderToStaticMarkup troca as aspas por &#x27;
+          dentro do <style>, a fonte fica inválida e o cupom sai em Times New Roman */}
+      <style dangerouslySetInnerHTML={{ __html: `
         .recibo {
           width: ${largura}mm;
           box-sizing: border-box;
@@ -76,11 +78,11 @@ export default function ReciboCupom({ venda, operador, config, pagamentos }: Pro
         .recibo .titulo { font-size: ${estreito ? 13 : 16}px; font-weight: 800; text-align: center; margin: 3px 0; }
         .recibo table { width: 100%; border-collapse: collapse; table-layout: fixed; }
         .recibo th { text-align: left; font-weight: 700; border-bottom: 2px solid #000; padding-bottom: 2px; }
-        .recibo th.num, .recibo td.num { text-align: right; }
+        .recibo th.num, .recibo td.num { text-align: right; white-space: nowrap; }
         .recibo td { overflow-wrap: break-word; vertical-align: top; }
         .recibo .total-grande { font-size: ${estreito ? 14 : 17}px; font-weight: 800; }
         .recibo .rodape { margin-top: 4px; white-space: pre-line; }
-      `}</style>
+      ` }} />
 
       {config.mostrarAvisoNaoFiscal && (
         <>
@@ -113,7 +115,8 @@ export default function ReciboCupom({ venda, operador, config, pagamentos }: Pro
       <table>
         <thead>
           <tr>
-            <th style={{ width: '40%' }}>Descrição</th>
+            {/* na bobina estreita, o espaço vai para os valores: o nome tem linha própria */}
+            <th style={{ width: estreito ? '22%' : '40%' }}>{estreito ? 'Un.' : 'Descrição'}</th>
             <th className="num">Valor</th>
             <th className="num">Qtde.</th>
             <th className="num">Total</th>
