@@ -1,11 +1,14 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ShoppingBag, Wifi, WifiOff, Trash2, Plus, User, LockOpen, Lock, Printer } from 'lucide-react'
+import { ShoppingBag, Wifi, WifiOff, Trash2, Plus, User, LockOpen, Lock, Printer, LogOut } from 'lucide-react'
 import { useBarcodeScan } from '@/shared/hooks/useBarcodeScan'
 import { usePermissao } from '@/shared/hooks/usePermissao'
 import { getNomeUsuario } from '@/shared/auth'
 import { api } from '@/shared/api/axios'
-import { usePdv } from './hooks/usePdv'
+import { usePdv, LimiteExcedidoError } from './hooks/usePdv'
+import type { LimiteExcedidoInfo } from './hooks/usePdv'
+import AutorizacaoLimiteModal from './components/AutorizacaoLimiteModal'
+import type { PagamentoDTO } from '@/types/venda'
 import ListaItens from './components/ListaItens'
 import ModalPagamento from './components/ModalPagamento'
 import NovaComandaModal from './components/NovaComandaModal'
@@ -47,11 +50,14 @@ interface FechamentoResumo {
 export default function PDVPage() {
   const {
     venda, comandas, loading, scanLoading, totalVenda, caixaId, semCaixa,
-    adicionarItem, adicionarProduto, removerItem, fecharVenda, cancelarVenda,
+    adicionarItem, adicionarProduto, removerItem, fecharVenda, cancelarVenda, sairDaComanda,
     iniciarVenda, selecionarComanda, abrirCaixa, fecharCaixa,
   } = usePdv()
 
   const [showPagto, setShowPagto] = useState(false)
+  // Fiado acima do limite: guarda o pagamento e os valores até um administrador autorizar
+  const [limitePendente, setLimitePendente] = useState<{ pagamentos: PagamentoDTO[]; info: LimiteExcedidoInfo } | null>(null)
+  const [autorizando, setAutorizando] = useState(false)
   const [showNovaComanda, setShowNovaComanda] = useState(false)
   const [hora, setHora]           = useState(new Date())
   const [valorAbertura, setValorAbertura] = useState(0)
@@ -72,6 +78,22 @@ export default function PDVPage() {
   })
   const [ultimoCupom, setUltimoCupom] = useState<{ venda: Venda; pagamentos: PagamentoCupom[] } | null>(null)
   const [perguntarImpressao, setPerguntarImpressao] = useState(false)
+
+  /** Fecha a venda e trata o comprovante. Usado no pagamento normal e após a autorização do admin. */
+  async function finalizarVenda(pagamentos: PagamentoDTO[], autorizacao?: { login: string; senha: string }) {
+    const vendaFechada = await fecharVenda(pagamentos, autorizacao)
+    setShowPagto(false)
+    if (vendaFechada) {
+      const cupom = { venda: vendaFechada, pagamentos }
+      setUltimoCupom(cupom)
+      if (configCupom?.imprimirAutomatico) {
+        try { imprimirComprovante(cupom.venda, nomeOperador ?? '', configCupom, pagamentos) }
+        catch { toast.error('Não foi possível imprimir o comprovante.') }
+      } else {
+        setPerguntarImpressao(true)
+      }
+    }
+  }
 
   function imprimirUltimo() {
     if (!ultimoCupom || !configCupom) return
@@ -126,9 +148,19 @@ export default function PDVPage() {
     buscaRef.current?.focus()
   }
 
-  // Atalhos de teclado (F2 = Buscar produto, F10 = Finalizar, Escape = Cancelar)
+  // Deixa a comanda atual em espera (continua aberta nas abas) e volta à tela inicial do PDV
+  function sairDaComandaAberta() {
+    if (showPagto || limitePendente) return
+    sairDaComanda()
+    buscaRef.current?.focus()
+  }
+  const sairRef = useRef(sairDaComandaAberta)
+  sairRef.current = sairDaComandaAberta
+
+  // Atalhos de teclado (F2 = Buscar produto, F4 = Sair da comanda, F10 = Finalizar, Escape = Cancelar)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'F4') { e.preventDefault(); sairRef.current() }
       if (e.key === 'F10') { e.preventDefault(); setShowPagto(true) }
       if (e.key === 'F2') { e.preventDefault(); buscaRef.current?.focus() }
       if (e.key === 'Escape') { e.preventDefault(); /* abre confirmação */ }
@@ -344,6 +376,19 @@ export default function PDVPage() {
           </button>
 
           <button
+            onClick={sairDaComandaAberta}
+            disabled={!venda || loading}
+            title="Deixa esta comanda em aberto (continua na aba) e volta à tela inicial do PDV"
+            className="py-3 rounded-xl text-sm font-medium bg-gray-800 hover:bg-gray-700 text-gray-200
+                       disabled:text-gray-600 disabled:cursor-not-allowed
+                       flex items-center justify-center gap-2 transition-colors"
+          >
+            <LogOut size={15} />
+            SAIR DA COMANDA
+            <span className="text-xs font-normal opacity-60">[F4]</span>
+          </button>
+
+          <button
             onClick={cancelarVenda}
             disabled={!venda || !podeCancelarVenda}
             title={!podeCancelarVenda ? 'Só um administrador pode cancelar uma venda' : undefined}
@@ -451,20 +496,33 @@ export default function PDVPage() {
           totalVenda={totalVenda}
           vendaId={venda?.id}
           onConfirmar={async (pagamentos) => {
-            const vendaFechada = await fecharVenda(pagamentos)
-            setShowPagto(false)
-            if (vendaFechada) {
-              const cupom = { venda: vendaFechada, pagamentos }
-              setUltimoCupom(cupom)
-              if (configCupom?.imprimirAutomatico) {
-                try { imprimirComprovante(cupom.venda, nomeOperador ?? '', configCupom, pagamentos) }
-                catch { toast.error('Não foi possível imprimir o comprovante.') }
-              } else {
-                setPerguntarImpressao(true)
-              }
+            try {
+              await finalizarVenda(pagamentos)
+            } catch (e) {
+              if (e instanceof LimiteExcedidoError) setLimitePendente({ pagamentos, info: e.info })
             }
           }}
           onCancelar={() => setShowPagto(false)}
+        />
+      )}
+
+      {/* Fiado acima do limite: só um administrador libera */}
+      {limitePendente && (
+        <AutorizacaoLimiteModal
+          info={limitePendente.info}
+          enviando={autorizando}
+          onCancelar={() => !autorizando && setLimitePendente(null)}
+          onAutorizar={async (login, senha) => {
+            setAutorizando(true)
+            try {
+              await finalizarVenda(limitePendente.pagamentos, { login, senha })
+              setLimitePendente(null)
+            } catch {
+              /* credencial inválida/bloqueio: o aviso já foi mostrado; o modal fica aberto para tentar de novo */
+            } finally {
+              setAutorizando(false)
+            }
+          }}
         />
       )}
 

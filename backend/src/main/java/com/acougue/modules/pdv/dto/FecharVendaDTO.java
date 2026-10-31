@@ -22,4 +22,11 @@ public class FecharVendaDTO {
     @NotEmpty
     @Valid
     private List<PagamentoDTO> pagamentos;
+
+    /**
+     * Só enviada quando o fiado passa do limite de crédito do cliente (o servidor responde 409 e o
+     * PDV reenvia o fechamento com a credencial de um administrador). Ignorada se não houver excesso.
+     */
+    @Valid
+    private AutorizacaoLimiteDTO autorizacaoLimite;
 }

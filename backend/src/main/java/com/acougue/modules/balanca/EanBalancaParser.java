@@ -24,8 +24,10 @@ public class EanBalancaParser {
             throw new InvalidBarcodeException("EAN não é de balança (deve iniciar com '2'): " + ean13);
         }
 
-        int codigoBalanca = Integer.parseInt(ean13.substring(1, 6));
-        int campoNumerico = Integer.parseInt(ean13.substring(6, 11));
+        // Layout padrão de balança: 2 + PLU(6) + valor/peso(5) + dígito verificador
+        //   ex.: 2 000800 00968 3  →  PLU 800, R$ 9,68
+        int codigoBalanca = Integer.parseInt(ean13.substring(1, 7));
+        int campoNumerico = Integer.parseInt(ean13.substring(7, 12));
 
         FormatoEtiqueta formato = resolverFormato(formatoForcado, precoVendaKg);
 
@@ -35,14 +37,14 @@ public class EanBalancaParser {
         };
     }
 
-    
+
     private EanParseResult parseByValor(int codigoBalanca, int campoNumerico, BigDecimal precoKg) {
         if (precoKg == null || precoKg.compareTo(BigDecimal.ZERO) <= 0) {
             throw new InvalidBarcodeException(
-                "Preço/kg inválido ou não cadastrado para calcular peso pelo valor.");
+                    "Preço/kg inválido ou não cadastrado para calcular peso pelo valor.");
         }
         BigDecimal valorTotal = BigDecimal.valueOf(campoNumerico).divide(
-            BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
 
         BigDecimal pesoKg = valorTotal.divide(precoKg, 3, RoundingMode.HALF_UP);
 
@@ -54,10 +56,10 @@ public class EanBalancaParser {
                 .build();
     }
 
-    
+
     private EanParseResult parseByPeso(int codigoBalanca, int campoNumerico, BigDecimal precoKg) {
         BigDecimal pesoKg = BigDecimal.valueOf(campoNumerico).divide(
-            BigDecimal.valueOf(1000), 3, RoundingMode.HALF_UP);
+                BigDecimal.valueOf(1000), 3, RoundingMode.HALF_UP);
 
         BigDecimal valorTotal = (precoKg != null && precoKg.compareTo(BigDecimal.ZERO) > 0)
                 ? pesoKg.multiply(precoKg).setScale(2, RoundingMode.HALF_UP)
@@ -81,11 +83,11 @@ public class EanBalancaParser {
     private void validarFormato(String ean13) {
         if (ean13 == null || !ean13.matches("\\d{13}")) {
             throw new InvalidBarcodeException(
-                "EAN inválido — deve conter exatamente 13 dígitos numéricos. Recebido: " + ean13);
+                    "EAN inválido — deve conter exatamente 13 dígitos numéricos. Recebido: " + ean13);
         }
     }
 
-    
+
     private void validarDigitoVerificador(String ean13) {
         int soma = 0;
         for (int i = 0; i < 12; i++) {
@@ -97,8 +99,8 @@ public class EanBalancaParser {
 
         if (calculado != informado) {
             throw new InvalidBarcodeException(String.format(
-                "Dígito verificador inválido. Calculado=%d, Informado=%d | EAN: %s",
-                calculado, informado, ean13));
+                    "Dígito verificador inválido. Calculado=%d, Informado=%d | EAN: %s",
+                    calculado, informado, ean13));
         }
     }
 }

@@ -79,6 +79,34 @@ public class TenantAdminController {
         return ResponseEntity.ok(buscarOuFalhar(id));
     }
 
+    /**
+     * Renomeia a empresa. Corpo: { "nome": "Novo nome" }. Só o nome de exibição muda —
+     * o código de acesso (login), o slug e o schema continuam os mesmos, então ninguém
+     * perde acesso nem dado. O cabeçalho do cupom (Comprovante) tem configuração própria
+     * e não é alterado aqui.
+     */
+    @PatchMapping("/{id}/nome")
+    public ResponseEntity<Tenant> renomear(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        exigirAdministradorPlataforma();
+        buscarOuFalhar(id);
+        tenantRepository.renomear(id, normalizarNome(body.get("nome")));
+        return ResponseEntity.ok(buscarOuFalhar(id));
+    }
+
+    static final int NOME_MAX = 120;
+
+    /** Tira espaços sobrando (inclusive os duplicados no meio) e recusa nome vazio ou longo demais. */
+    static String normalizarNome(String nome) {
+        String limpo = nome == null ? "" : nome.trim().replaceAll("\\s+", " ");
+        if (limpo.isEmpty()) {
+            throw new IllegalArgumentException("Informe o nome da empresa.");
+        }
+        if (limpo.length() > NOME_MAX) {
+            throw new IllegalArgumentException("O nome da empresa deve ter no máximo " + NOME_MAX + " caracteres.");
+        }
+        return limpo;
+    }
+
     /** Quantos registros de dados de negócio a empresa tem, por tabela — a tela mostra antes de limpar. */
     @GetMapping("/{id}/dados")
     public ResponseEntity<Map<String, Long>> contarDados(@PathVariable Long id) {

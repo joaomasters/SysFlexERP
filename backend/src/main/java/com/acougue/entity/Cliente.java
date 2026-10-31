@@ -46,9 +46,16 @@ public class Cliente {
     @Builder.Default
     private BigDecimal limiteCredito = BigDecimal.ZERO;
 
-    @Builder.Default
-    @Column(name = "saldo_fiado_atual", precision = 12, scale = 2)
-    private BigDecimal saldoFiadoAtual = BigDecimal.ZERO;
+    /*
+     Saldo de fiado em aberto — CALCULADO a partir das contas a receber (ABERTO/PARCIAL) a cada
+     consulta, nunca gravado. A coluna clientes.saldo_fiado_atual existia mas nenhum fluxo a
+     atualizava (ficava sempre 0), então a tela mostrava saldo zerado mesmo com fiado em aberto.
+     Preenchido pelo ClienteService; fica ausente (null) onde o cliente vem embutido em outra
+     resposta (ex: dentro de uma venda).
+     */
+    @Transient
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private BigDecimal saldoFiadoAtual;
 
     @Builder.Default
     private Boolean ativo = true;
