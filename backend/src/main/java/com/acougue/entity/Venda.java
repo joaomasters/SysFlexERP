@@ -79,7 +79,9 @@ public class Venda {
     @Column(name = "valor_comissao", precision = 12, scale = 2)
     private BigDecimal valorComissao;
 
+    // Ordem de lançamento: sem isso, um item editado podia mudar de posição na lista do PDV
     @OneToMany(mappedBy = "venda", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("id ASC")
     @Builder.Default
     private List<ItensVenda> itens = new ArrayList<>();
 

@@ -3,6 +3,16 @@ import toast from 'react-hot-toast'
 import { getToken, removeToken } from '../auth'
 import { API_BASE_URL } from './ambiente'
 
+/**
+ * Texto do erro para o usuário. Erro de validação vem como { campo: mensagem } em vez de
+ * { message }: sem isso o aviso saía como "[object Object]".
+ */
+export function mensagemDeErro(error: any): string {
+  const data = error?.response?.data
+  const campos = data && typeof data === 'object' ? Object.values(data).join(' · ') : ''
+  return String(data?.message ?? (campos || data || error?.message || 'Erro desconhecido'))
+}
+
 export const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 15_000,
@@ -29,12 +39,7 @@ api.interceptors.response.use(
     if (error.config?.silent) {
       return Promise.reject(error)
     }
-    const msg =
-      error.response?.data?.message ??
-      error.response?.data ??
-      error.message ??
-      'Erro desconhecido'
-    toast.error(String(msg))
+    toast.error(mensagemDeErro(error))
     return Promise.reject(error)
   }
 )

@@ -54,6 +54,8 @@ export default function ProdutosPage() {
       if (el && ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return
       setBusca(codigo)
       buscaRef.current?.focus()
+      // depois de renderizar o código: selecionado, o próximo bipado substitui este
+      setTimeout(() => buscaRef.current?.select())
     },
   })
 
