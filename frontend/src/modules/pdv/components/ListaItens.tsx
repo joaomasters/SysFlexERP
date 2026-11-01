@@ -8,6 +8,9 @@ interface Props {
   onDesconto: (item: ItemVenda) => void
   /** Sem a permissão, o botão fica visível e desabilitado, como o de cancelar venda. */
   podeDescontar: boolean
+  /** Item em que os atalhos F6 e F8 agem. */
+  selecionadoId?: number
+  onSelecionar: (id: number) => void
 }
 
 // Tema escuro proposital — console de operação do caixa (PDV), separado do
@@ -15,7 +18,9 @@ interface Props {
 const brl = formatBRL
 const kg3 = formatWeightDisplay
 
-export default function ListaItens({ itens, onRemover, onDesconto, podeDescontar }: Props) {
+const tecla = 'rounded bg-black/30 px-1 font-mono text-[10px] leading-4'
+
+export default function ListaItens({ itens, onRemover, onDesconto, podeDescontar, selecionadoId, onSelecionar }: Props) {
   if (itens.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">
@@ -38,10 +43,16 @@ export default function ListaItens({ itens, onRemover, onDesconto, podeDescontar
           </tr>
         </thead>
         <tbody>
-          {itens.map((item, idx) => (
+          {itens.map((item, idx) => {
+            const selecionado = item.id === selecionadoId
+            return (
             <tr
               key={item.id}
-              className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors"
+              ref={selecionado ? el => el?.scrollIntoView({ block: 'nearest' }) : undefined}
+              onClick={() => onSelecionar(item.id)}
+              aria-selected={selecionado}
+              className={`border-b border-gray-800 cursor-pointer transition-colors
+                ${selecionado ? 'bg-emerald-900/25 shadow-[inset_3px_0_0_0_#34d399]' : 'hover:bg-gray-800/50'}`}
             >
               <td className="px-4 py-3 text-gray-500">{idx + 1}</td>
               <td className="px-4 py-3 font-medium">{item.produto.nome}</td>
@@ -59,26 +70,33 @@ export default function ListaItens({ itens, onRemover, onDesconto, podeDescontar
                   <span className="block text-xs font-normal text-amber-400">-{brl(item.descontoItem)}</span>
                 )}
               </td>
-              <td className="px-2 py-3 whitespace-nowrap">
+              <td className="px-3 py-2 whitespace-nowrap text-right space-x-2">
                 <button
                   onClick={() => onDesconto(item)}
                   disabled={!podeDescontar}
                   aria-label="Desconto no item"
                   title={podeDescontar ? 'Desconto no item' : 'Seu perfil não pode dar desconto'}
-                  className="p-1.5 rounded text-gray-500 hover:text-amber-400 hover:bg-amber-900/30 transition-colors
-                             disabled:text-gray-700 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/50 bg-amber-500/15 px-2.5 py-1.5
+                             text-xs font-semibold text-amber-300 hover:bg-amber-500/30 transition-colors
+                             disabled:border-gray-700 disabled:bg-transparent disabled:text-gray-600 disabled:cursor-not-allowed"
                 >
-                  <Percent size={14} />
+                  <Percent size={13} /> Desconto
+                  {selecionado && podeDescontar && <kbd className={tecla}>F6</kbd>}
                 </button>
                 <button
                   onClick={() => onRemover(item.id)}
-                  className="p-1.5 rounded text-gray-500 hover:text-red-400 hover:bg-red-900/30 transition-colors"
+                  aria-label="Excluir item"
+                  title="Excluir item"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/50 bg-red-500/15 px-2.5 py-1.5
+                             text-xs font-semibold text-red-300 hover:bg-red-500/30 transition-colors"
                 >
-                  <Trash2 size={14} />
+                  <Trash2 size={13} /> Excluir
+                  {selecionado && <kbd className={tecla}>F8</kbd>}
                 </button>
               </td>
             </tr>
-          ))}
+            )
+          })}
         </tbody>
       </table>
     </div>

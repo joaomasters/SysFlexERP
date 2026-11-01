@@ -61,6 +61,8 @@ export default function PDVPage() {
   const [autorizando, setAutorizando] = useState(false)
   const [showNovaComanda, setShowNovaComanda] = useState(false)
   const [descontando, setDescontando] = useState<ItemVenda | null>(null)
+  const [excluindo, setExcluindo] = useState<ItemVenda | null>(null)
+  const [selecionadoId, setSelecionadoId] = useState<number | null>(null)
   const [hora, setHora]           = useState(new Date())
   const [valorAbertura, setValorAbertura] = useState(0)
   const [abrindo, setAbrindo]     = useState(false)
@@ -112,6 +114,12 @@ export default function PDVPage() {
   // O botão fica visível mas desabilitado pro operador entender que a
   // função existe, só que precisa de um administrador.
   const podeCancelarVenda = podeExcluir('PDV')
+  const podeDescontar = podeEditar('PDV')
+
+  // Item em que F6 e F8 agem: o escolhido ou, por padrão, o último lançado
+  const itens = venda?.itens ?? []
+  const itemSelecionado = itens.find(i => i.id === selecionadoId) ?? itens[itens.length - 1]
+  useEffect(() => { setSelecionadoId(null) }, [venda?.id, itens.length])
 
   // Relógio
   useEffect(() => {
@@ -159,9 +167,46 @@ export default function PDVPage() {
   const sairRef = useRef(sairDaComandaAberta)
   sairRef.current = sairDaComandaAberta
 
+  // F6 = Desconto, F8 = Excluir (pede confirmação), ↑ ↓ ou PgUp PgDn = escolher o item.
+  // As setas ficam de fora nos campos: na busca, elas navegam a lista de produtos.
+  function atalhoDoItem(e: KeyboardEvent) {
+    if (showPagto || limitePendente || pesando || perguntarImpressao || showNovaComanda || showFechar) return
+    const el = document.activeElement
+    const emCampo = Boolean(el && ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName))
+    const sobe = e.key === 'PageUp' || (e.key === 'ArrowUp' && !emCampo)
+    const desce = e.key === 'PageDown' || (e.key === 'ArrowDown' && !emCampo)
+
+    if (e.key === 'F6') {
+      e.preventDefault()
+      if (!itemSelecionado) return
+      if (podeDescontar) setDescontando(itemSelecionado)
+      else toast.error('Seu perfil não pode dar desconto.')
+    } else if (e.key === 'F8') {
+      e.preventDefault()
+      if (itemSelecionado) setExcluindo(itemSelecionado)
+    } else if ((sobe || desce) && itemSelecionado) {
+      e.preventDefault()
+      const novo = itens[itens.indexOf(itemSelecionado) + (sobe ? -1 : 1)]
+      if (novo) setSelecionadoId(novo.id)
+    }
+  }
+  const atalhoRef = useRef(atalhoDoItem)
+  atalhoRef.current = atalhoDoItem
+
+  async function confirmarExclusao() {
+    if (!excluindo) return
+    try {
+      await removerItem(excluindo.id)
+    } catch {
+      // erro já mostrado pelo interceptor do axios
+    }
+    setExcluindo(null)
+  }
+
   // Atalhos de teclado (F2 = Buscar produto, F4 = Sair da comanda, F10 = Finalizar, Escape = Cancelar)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      atalhoRef.current(e)
       if (e.key === 'F4') { e.preventDefault(); sairRef.current() }
       if (e.key === 'F10') { e.preventDefault(); setShowPagto(true) }
       if (e.key === 'F2') { e.preventDefault(); buscaRef.current?.focus() }
@@ -178,7 +223,7 @@ export default function PDVPage() {
       if (el && ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return // evita lançar em dobro
       adicionarItem(codigo)
     },
-    enabled: !showPagto && !semCaixa && !pesando && !perguntarImpressao && !descontando,
+    enabled: !showPagto && !semCaixa && !pesando && !perguntarImpressao && !descontando && !excluindo,
   })
 
   const handleAbrirCaixa = async () => {
@@ -336,14 +381,19 @@ export default function PDVPage() {
             />
           </div>
           <ListaItens
-            itens={venda?.itens ?? []}
+            itens={itens}
             onRemover={removerItem}
             onDesconto={setDescontando}
-            podeDescontar={podeEditar('PDV')}
+            podeDescontar={podeDescontar}
+            selecionadoId={itemSelecionado?.id}
+            onSelecionar={setSelecionadoId}
           />
           {/* Rodapé da lista */}
           <div className="px-4 py-3 bg-gray-900 border-t border-gray-800 flex justify-between text-sm text-gray-400">
             <span>{venda?.itens?.length ?? 0} iten(s)</span>
+            {itens.length > 0 && (
+              <span className="text-xs text-gray-500">↑ ↓ escolher item · F6 desconto · F8 excluir</span>
+            )}
             {(venda?.desconto ?? 0) > 0 && (
               <span>Desconto: -{brl(venda?.desconto ?? 0)}</span>
             )}
@@ -446,6 +496,30 @@ export default function PDVPage() {
               <button autoFocus onClick={imprimirUltimo}
                 className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-sm">
                 Imprimir <span className="opacity-70 font-normal">[Enter]</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Exclusão pelo atalho F8: tecla errada não pode apagar item sem confirmar */}
+      {excluindo && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+             onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape') setExcluindo(null) }}>
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-sm p-6 space-y-4 text-center">
+            <Trash2 size={32} className="mx-auto text-red-400" />
+            <div>
+              <h2 className="text-lg font-bold">Excluir item?</h2>
+              <p className="text-sm text-gray-400">{excluindo.produto.nome} · {brl(excluindo.totalItem)}</p>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setExcluindo(null)}
+                className="flex-1 py-3 rounded-xl bg-gray-700 hover:bg-gray-600 text-sm font-medium">
+                Manter <span className="opacity-60">[Esc]</span>
+              </button>
+              <button autoFocus onClick={confirmarExclusao}
+                className="flex-1 py-3 rounded-xl bg-red-700 hover:bg-red-600 font-bold text-sm">
+                Excluir <span className="opacity-70 font-normal">[Enter]</span>
               </button>
             </div>
           </div>

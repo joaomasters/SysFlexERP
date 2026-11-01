@@ -5,7 +5,7 @@ import type { APIRequestContext, Browser, Page } from '@playwright/test'
 const brl = (v: number) => `R$ ${v.toFixed(2).replace('.', ',')}`
 
 /** Comanda aberta pela API, com um produto de estoque real dos dados iniciais. */
-async function abrirComanda(request: APIRequestContext, token: string, quantidade = 2) {
+async function abrirComanda(request: APIRequestContext, token: string, quantidade = 2, segundoItem = false) {
     const headers = { Authorization: `Bearer ${token}` }
     const usuarioId = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString()).usuarioId
     let caixa = await request.get(`/api/pdv/caixa/aberto?operadorId=${usuarioId}`, { headers })
@@ -19,13 +19,20 @@ async function abrirComanda(request: APIRequestContext, token: string, quantidad
     const comItem = await (await request.post(`/api/pdv/vendas/${venda.id}/itens`, {
         headers, data: { produtoId: produto.id, quantidade, tipoEntrada: 'MANUAL' },
     })).json()
-    return { vendaId: venda.id as number, total: comItem.total as number }
+    if (segundoItem) {
+        const outro = produtos.find((p: { nome: string }) => p.nome !== 'Picanha')
+        await request.post(`/api/pdv/vendas/${venda.id}/itens`, {
+            headers, data: { produtoId: outro.id, quantidade: 1, tipoEntrada: 'MANUAL' },
+        })
+        return { vendaId: venda.id as number, total: comItem.total as number, nomeSegundo: outro.nome as string }
+    }
+    return { vendaId: venda.id as number, total: comItem.total as number, nomeSegundo: '' }
 }
 
 async function entrarNaComanda(page: Page, vendaId: number) {
     await page.goto('/pdv')
     await page.getByRole('button', { name: new RegExp(`Comanda #${vendaId}\\b`) }).click()
-    await expect(page.getByRole('button', { name: 'Desconto no item' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Desconto no item' }).first()).toBeVisible()
 }
 
 const modal = (page: Page) => page.locator('form').filter({ hasText: 'Desconto no item' })
@@ -79,6 +86,79 @@ test.describe('Desconto no item do PDV', () => {
         await page.keyboard.press('Escape')
         await expect(modal(page)).toHaveCount(0)
         await expect(page.getByRole('button', { name: 'Desconto no item' })).toBeVisible()
+    })
+})
+
+test.describe('Atalhos do item no PDV', () => {
+    const linhaSelecionada = (page: Page) => page.locator('tr[aria-selected="true"]')
+
+    test('F6 abre o desconto do item selecionado, e as setas trocam o item', async ({ page, request }) => {
+        const { vendaId, nomeSegundo } = await abrirComanda(request, process.env.E2E_TOKEN!, 2, true)
+        await entrarNaComanda(page, vendaId)
+
+        // Por padrão, o último lançado
+        await expect(linhaSelecionada(page)).toContainText(nomeSegundo)
+        await page.keyboard.press('F6')
+        await expect(modal(page)).toContainText(nomeSegundo)
+        await page.keyboard.press('Escape')
+
+        await page.keyboard.press('ArrowUp')
+        await expect(linhaSelecionada(page)).toContainText('Picanha')
+        await page.keyboard.press('F6')
+        await expect(modal(page)).toContainText('Picanha')
+        await modal(page).locator('input').fill('100')
+        await page.keyboard.press('Enter')
+        await expect(modal(page)).toHaveCount(0)
+
+        // Item com desconto continua na mesma posição, e selecionado
+        const linhas = page.locator('tbody tr')
+        await expect(linhas.nth(0)).toContainText('Picanha')
+        await expect(linhas.nth(1)).toContainText(nomeSegundo)
+        await expect(linhaSelecionada(page)).toContainText('Picanha')
+
+        // PageDown funciona mesmo com o foco no campo de busca
+        await page.keyboard.press('F2')
+        await page.keyboard.press('Escape')
+        await page.keyboard.press('PageDown')
+        await expect(linhaSelecionada(page)).toContainText(nomeSegundo)
+
+        // Clique também escolhe o item
+        await linhas.nth(0).locator('td').nth(1).click()
+        await expect(linhaSelecionada(page)).toContainText('Picanha')
+        await page.screenshot({ path: test.info().outputPath('itens.png') })
+    })
+
+    test('F8 pede confirmação: Esc mantém e Enter exclui', async ({ page, request }) => {
+        const { vendaId, nomeSegundo } = await abrirComanda(request, process.env.E2E_TOKEN!, 2, true)
+        await entrarNaComanda(page, vendaId)
+        const linhas = page.locator('tbody tr')
+
+        await page.keyboard.press('F8')
+        await expect(page.getByRole('heading', { name: 'Excluir item?' })).toBeVisible()
+        await page.screenshot({ path: test.info().outputPath('excluir.png') })
+        await page.keyboard.press('Escape')
+        await expect(page.getByRole('heading', { name: 'Excluir item?' })).toHaveCount(0)
+        await expect(linhas).toHaveCount(2)
+
+        await page.keyboard.press('F8')
+        await page.keyboard.press('F10')
+        await expect(page.getByRole('heading', { name: 'Pagamento' })).toHaveCount(0)
+        await page.keyboard.press('Enter')
+        await expect(linhas).toHaveCount(1)
+        await expect(linhas.nth(0)).toContainText('Picanha')
+        await expect(linhas.nth(0)).not.toContainText(nomeSegundo)
+    })
+
+    test('Atalhos não agem com o Pagamento aberto', async ({ page, request }) => {
+        const { vendaId } = await abrirComanda(request, process.env.E2E_TOKEN!)
+        await entrarNaComanda(page, vendaId)
+
+        await page.keyboard.press('F10')
+        await expect(page.getByRole('heading', { name: 'Pagamento' })).toBeVisible()
+        await page.keyboard.press('F6')
+        await page.keyboard.press('F8')
+        await expect(modal(page)).toHaveCount(0)
+        await expect(page.getByRole('heading', { name: 'Excluir item?' })).toHaveCount(0)
     })
 })
 
@@ -168,5 +248,9 @@ test.describe('Permissão de desconto', () => {
         const botao = pagina.getByRole('button', { name: 'Desconto no item' })
         await expect(botao).toBeDisabled()
         await expect(botao).toHaveAttribute('title', 'Seu perfil não pode dar desconto')
+
+        await pagina.keyboard.press('F6')
+        await expect(pagina.getByRole('status').filter({ hasText: 'Seu perfil não pode dar desconto.' })).toBeVisible()
+        await expect(modal(pagina)).toHaveCount(0)
     })
 })
