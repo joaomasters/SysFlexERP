@@ -39,6 +39,12 @@ export const removeSessao = (): void => {
   localStorage.removeItem(SESSAO_KEY)
 }
 
+// A sessão é compartilhada entre as abas: login ou logout em uma recarrega as outras,
+// para nenhuma ficar mostrando uma empresa enquanto grava em outra.
+window.addEventListener('storage', (e) => {
+  if (e.key === SESSAO_KEY || e.key === null) window.location.reload()
+})
+
 // Mantidos por compatibilidade com código existente que só precisa do token
 export const getToken = (): string | null => getSessao()?.token ?? null
 export const removeToken = (): void => removeSessao()
