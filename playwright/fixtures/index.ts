@@ -1,7 +1,7 @@
 import { test as base } from '@playwright/test'
 import { Toast } from '../components/Toast'
 import { ConfirmDialog } from '../components/ConfirmDialog'
-import { ProdutosPage } from '../pages/estoque/produtos/ProdutosPage'
+import { ProdutosPage } from '../pages/produtos/ProdutosPage'
 import { ProdutosApi } from '../api/estoque/produtos/ProdutosApi'
 
 type Fixtures = {
