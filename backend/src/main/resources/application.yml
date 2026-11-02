@@ -55,6 +55,28 @@ logging:
     # INFO em produção: DEBUG registra detalhes de requisições que não devem ficar em log
     com.acougue: ${LOG_LEVEL_APP:INFO}
     org.hibernate.SQL: WARN
+# Assistente de perguntas (Gemini). Sem GEMINI_API_KEY, fica desligado e some da tela.
+assistente:
+  gemini:
+    chave: ${GEMINI_API_KEY:}
+    # 3.8 Flash recusava por "alta demanda" na camada gratuita (nov/2026)
+    modelo: ${GEMINI_MODELO:gemini-3.6-flash}
+    url: ${GEMINI_URL:https://generativelanguage.googleapis.com/v1beta}
+  limite:
+    # A cota gratuita é uma só para todas as empresas
+    por-usuario-hora: ${ASSISTENTE_LIMITE_USUARIO_HORA:20}
+    por-empresa-dia: ${ASSISTENTE_LIMITE_EMPRESA_DIA:100}
+    # Somando todas as empresas. Cada pergunta faz 2 ou mais chamadas, e a camada gratuita
+    # recusava (403/429) já com poucas por minuto nos testes de nov/2026
+    por-minuto: ${ASSISTENTE_LIMITE_MINUTO:2}
+
+# Acesso da plataforma (código 000). Sem as três variáveis, fica desligado.
+jarvis:
+  login: ${JARVIS_LOGIN:}
+  senha: ${JARVIS_SENHA:}
+  # Segredo Base32 do app autenticador (mínimo de 16 bytes)
+  totp-segredo: ${JARVIS_TOTP_SEGREDO:}
+
 seguranca:
   jwt:
     # OBRIGATÓRIA: segredo que assina os tokens de login. Sem ela a aplicação

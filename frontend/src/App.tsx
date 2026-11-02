@@ -29,6 +29,7 @@ import TenantsPage from './modules/acesso/TenantsPage'
 import MaquininhasPage from './modules/pagamento/MaquininhasPage'
 import ComprovantePage from './modules/acesso/ComprovantePage'
 import HomePage from './modules/home/HomePage'
+import JarvisPage from './modules/jarvis/JarvisPage'
 
 // Produtos saiu de /estoque/produtos: mantém favoritos e links antigos funcionando.
 function RedirecionarProdutos() {
@@ -46,6 +47,7 @@ export default function App() {
         {/* PDV sem sidebar (autenticado mas sem Layout) */}
         <Route element={<PrivateRoute />}>
           <Route path="/pdv" element={<PDVPage />} />
+          <Route path="/jarvis" element={<JarvisPage />} />
         </Route>
 
         {/* Back-office: autenticado + Layout com sidebar */}

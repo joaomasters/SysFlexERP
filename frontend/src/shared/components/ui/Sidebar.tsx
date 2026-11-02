@@ -1,5 +1,5 @@
 
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink } from 'react-router-dom'
 import {
   ShoppingCart, Package, Scissors, DollarSign,
   CreditCard, BarChart2, Scale, AlertTriangle,
@@ -58,7 +58,6 @@ const nav = [
 ]
 
 export default function Sidebar() {
-  const navigate = useNavigate()
   const { podeVer, isSuperAdmin, isAdministradorPlataforma } = usePermissao()
 
   const podeVerBalanca = isSuperAdmin || podeVer('CARGA_BALANCA')
@@ -75,7 +74,9 @@ export default function Sidebar() {
 
   const logout = () => {
     removeSessao()
-    navigate('/login')
+    // Recarrega de propósito: o cache de consultas fica em memória e, numa troca
+    // de rota comum, a próxima empresa veria os dados da anterior
+    window.location.href = '/login'
   }
 
   // Filtra os itens pelo que o perfil pode VER, e depois remove separadores

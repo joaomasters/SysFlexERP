@@ -18,6 +18,7 @@ import { CurrencyInput, WeightInput, BuscaProduto } from '@/shared/components/ui
 import type { ProdutoBuscavel } from '@/shared/components/ui'
 import { casasDaUnidade } from '@/shared/utils/mask'
 import FaixaAmbiente from '@/shared/components/ui/FaixaAmbiente'
+import FaixaJarvis from '@/shared/components/ui/FaixaJarvis'
 import { imprimirComprovante } from './imprimirComprovante'
 import type { ConfiguracaoComprovante, PagamentoCupom } from '@/types/comprovante'
 import type { ItemVenda, Venda } from '@/types/venda'
@@ -258,6 +259,7 @@ export default function PDVPage() {
   return (
     <div className="h-screen flex flex-col bg-gray-950 text-white select-none overflow-hidden">
       <FaixaAmbiente />
+      <FaixaJarvis />
 
       {/* ── Topbar ── */}
       <header className="flex items-center justify-between px-6 py-3 bg-gray-900 border-b border-gray-800">
