@@ -2,8 +2,9 @@ import { defineConfig, devices } from '@playwright/test';
 import dotenv from 'dotenv';
 import path from 'node:path';
 
-// Carregado aqui porque o config é lido antes de tudo (inclusive do globalSetup)
-dotenv.config({ path: path.resolve(import.meta.dirname, '.env') });
+// Carregado aqui porque o config é lido antes de tudo (inclusive do globalSetup).
+// Para trocar de ambiente (local, develop...), altere as variáveis do .env
+dotenv.config({ path: path.resolve(import.meta.dirname, '.env'), quiet: true });
 
 /**
  * See https://playwright.dev/docs/test-configuration.
