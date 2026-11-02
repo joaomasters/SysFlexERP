@@ -5,7 +5,7 @@ import { CheckCircle2, XCircle, Filter, Printer } from 'lucide-react'
 import { formatQuantidade, casasDaUnidade } from '@/shared/utils/mask'
 import { PageHeader, Card, Button, StatusBadge, WeightInput, baseInputClass } from '@/shared/components/ui'
 import type { BadgeTone } from '@/shared/components/ui'
-import RelatorioEstoqueModal from './components/RelatorioEstoqueModal'
+import RelatorioEstoqueModal from '@/modules/produtos/components/RelatorioEstoqueModal'
 import { usePermissao } from '@/shared/hooks/usePermissao'
 
 interface Inventario {
