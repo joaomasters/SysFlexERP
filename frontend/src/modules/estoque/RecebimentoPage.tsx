@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, FileText, X, ChevronDown, ChevronUp, Upload, Filter, Ban, AlertTriangle, ScanBarcode } from 'lucide-react'
 import { api } from '@/shared/api/axios'
 import toast from 'react-hot-toast'
-import { formatBRL, formatQuantidade, casasDaUnidade } from '@/shared/utils/mask'
+import { formatBRL, formatQuantidade, casasDaUnidade, somenteNumeros } from '@/shared/utils/mask'
 import { PageHeader, Card, Modal, Button, CurrencyInput, WeightInput, Field, baseInputClass, BuscaProduto, produtoPorCodigo } from '@/shared/components/ui'
 import type { ProdutoBuscavel } from '@/shared/components/ui'
 import { useBarcodeScan } from '@/shared/hooks/useBarcodeScan'
@@ -117,7 +117,7 @@ export default function RecebimentoPage() {
   // Cancelamento (até 7 dias): estorna o estoque. Opcionalmente reabre o formulário
   // com os mesmos itens para lançar de novo já com a validade.
   function relancar(r: Recebimento) {
-    setFornecedor(r.fornecedor ?? ''); setNumeroNf(r.numeroNf ?? ''); setSerieNf(r.serieNf ?? '1')
+    setFornecedor(r.fornecedor ?? ''); setNumeroNf(somenteNumeros(r.numeroNf ?? '')); setSerieNf(r.serieNf ?? '1')
     setChaveNf(r.chaveNf ?? ''); setDataEmissao(r.dataEmissao ?? ''); setValorTotal(r.valorTotal ?? 0)
     setObservacao(r.observacao ?? ''); setXmlNf(r.xmlNf ?? '')
     setTentouSalvar(false)
@@ -226,7 +226,7 @@ export default function RecebimentoPage() {
   // Todos os campos da entrada são obrigatórios.
   const erros = {
     fornecedor:  fornecedor.trim() ? '' : 'Informe o fornecedor.',
-    numeroNf:    numeroNf.trim() ? '' : 'Informe o número da NF.',
+    numeroNf:    numeroNf ? '' : 'Informe o número da NF (somente números).',
     serieNf:     serieNf.trim() ? '' : 'Informe a série.',
     chaveNf:     /^\d{44}$/.test(chaveNf) ? '' : `A chave deve ter 44 dígitos (${chaveNf.length}/44).`,
     dataEmissao: dataEmissao ? '' : 'Informe a data de emissão.',
@@ -480,7 +480,8 @@ export default function RecebimentoPage() {
                 className={`${baseInputClass} ${campoErro(erros.fornecedor)}`} placeholder="Nome do fornecedor" />
             </Field>
             <Field label="Número NF *" error={mostrar(erros.numeroNf)}>
-              <input value={numeroNf} onChange={e => setNumeroNf(e.target.value)}
+              <input value={numeroNf} onChange={e => setNumeroNf(somenteNumeros(e.target.value))}
+                inputMode="numeric" maxLength={9} autoComplete="off"
                 className={`${baseInputClass} ${campoErro(erros.numeroNf)}`} placeholder="000001" />
             </Field>
             <Field label="Série *" error={mostrar(erros.serieNf)}>

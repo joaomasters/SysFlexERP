@@ -106,3 +106,8 @@ export function formatPercent(value: number, decimals = 1): string {
     maximumFractionDigits: decimals,
   })}%`
 }
+
+/** Mantém só os dígitos (digitado ou colado) e limita o tamanho — ex.: número de NF. */
+export function somenteNumeros(valor: string, max = 9): string {
+  return valor.replace(/\D/g, '').slice(0, max)
+}
