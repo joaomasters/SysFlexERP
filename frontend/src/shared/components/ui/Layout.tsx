@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import NotificacaoEstoque from './NotificacaoEstoque'
 import FaixaAmbiente from './FaixaAmbiente'
+import FaixaJarvis from './FaixaJarvis'
 
 export default function Layout() {
   return (
@@ -9,6 +10,7 @@ export default function Layout() {
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <FaixaAmbiente />
+        <FaixaJarvis />
         <header className="h-14 bg-white border-b border-osso-300 flex items-center justify-end px-5 shrink-0">
           <NotificacaoEstoque />
         </header>

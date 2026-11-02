@@ -62,6 +62,7 @@ public class TenantResolvingFilter extends OncePerRequestFilter {
             if (jwtUtil.isValid(token)) {
                 try {
                     UsuarioAutenticado usuario = jwtUtil.extractUsuarioAutenticado(token);
+                    TenantContext.setSomenteLeitura(usuario.isSomenteLeitura());
                     return usuario.getTenantSchema();
                 } catch (Exception ignored) {
                     // token antigo/inválido — JwtAuthFilter trata o 401 depois

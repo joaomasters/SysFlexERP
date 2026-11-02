@@ -20,6 +20,7 @@ import java.util.Map;
 public class JwtUtil {
 
     private static final long EXPIRATION_MS = 12L * 60 * 60 * 1000; // 12h — um turno de trabalho
+    private static final long EXPIRATION_JARVIS_MS = 60L * 60 * 1000; // 1h
     private static final int TAMANHO_MINIMO_SEGREDO = 32;
 
     private final Key key;
@@ -76,6 +77,27 @@ public class JwtUtil {
                 .compact();
     }
 
+    /**
+     * Token do JARVIS: dura pouco e não pertence a nenhum usuário de empresa (usuarioId 0).
+     * Na visualização, superAdmin libera as telas e somenteLeitura barra as ações.
+     */
+    public String generateTokenJarvis(String login, String tenantSchema, boolean somenteLeitura) {
+        return Jwts.builder()
+                .setSubject(login)
+                .claim("usuarioId", 0)
+                .claim("nome", "JARVIS")
+                .claim("perfil", "JARVIS")
+                .claim("superAdmin", somenteLeitura)
+                .claim("permissoes", Map.of())
+                .claim("tenantSchema", tenantSchema)
+                .claim("jarvis", true)
+                .claim("somenteLeitura", somenteLeitura)
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION_JARVIS_MS))
+                .signWith(key, SignatureAlgorithm.HS256)
+                .compact();
+    }
+
     public boolean isValid(String token) {
         try {
             Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token);
@@ -122,7 +144,9 @@ public class JwtUtil {
                 (String) claims.get("perfil"),
                 Boolean.TRUE.equals(claims.get("superAdmin")),
                 permissoes,
-                tenantSchema
+                tenantSchema,
+                Boolean.TRUE.equals(claims.get("jarvis")),
+                Boolean.TRUE.equals(claims.get("somenteLeitura"))
         );
     }
 }
