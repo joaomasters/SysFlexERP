@@ -3,6 +3,7 @@ import Sidebar from './Sidebar'
 import NotificacaoEstoque from './NotificacaoEstoque'
 import FaixaAmbiente from './FaixaAmbiente'
 import FaixaJarvis from './FaixaJarvis'
+import AssistenteChat from './AssistenteChat'
 
 export default function Layout() {
   return (
@@ -12,6 +13,7 @@ export default function Layout() {
         <FaixaAmbiente />
         <FaixaJarvis />
         <header className="h-14 bg-white border-b border-osso-300 flex items-center justify-end px-5 shrink-0">
+          <AssistenteChat />
           <NotificacaoEstoque />
         </header>
         <main className="flex-1 overflow-auto">

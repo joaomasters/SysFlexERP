@@ -42,6 +42,7 @@ services:
       JARVIS_LOGIN:               ${JARVIS_LOGIN:-}
       JARVIS_SENHA:               ${JARVIS_SENHA:-}
       JARVIS_TOTP_SEGREDO:        ${JARVIS_TOTP_SEGREDO:-}
+      GEMINI_API_KEY:             ${GEMINI_API_KEY:-}
       MP_ACCESS_TOKEN:            ${MP_ACCESS_TOKEN:-}
     ports:
       - "8080:8080"       # remove em produção se usar só pelo nginx
