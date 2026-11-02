@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { FileText, Plus, X, ChevronDown, ChevronUp, Upload, Download, Printer, CheckCircle, XCircle, Filter } from 'lucide-react'
 import { api } from '@/shared/api/axios'
 import toast from 'react-hot-toast'
-import { formatBRL, formatWeightDisplay, formatQuantidade, casasDaUnidade } from '@/shared/utils/mask'
+import { formatBRL, formatWeightDisplay, formatQuantidade, casasDaUnidade, somenteNumeros } from '@/shared/utils/mask'
 import { PageHeader, Card, Modal, Button, StatusBadge, CurrencyInput, WeightInput, Field, baseInputClass, ConfirmDialog } from '@/shared/components/ui'
 import type { BadgeTone } from '@/shared/components/ui'
 import ImpressaoNFModal from './components/ImpressaoNFModal'
@@ -226,7 +226,7 @@ export default function NotaFiscalPage() {
   // Todos os campos da NF são obrigatórios.
   const erros = {
     cliente:    clienteId ? '' : 'Selecione o cliente.',
-    numeroNf:   numeroNf.trim() ? '' : 'Informe o número da NF.',
+    numeroNf:   numeroNf ? '' : 'Informe o número da NF (somente números).',
     serieNf:    serieNf.trim() ? '' : 'Informe a série.',
     natureza:   natureza ? '' : 'Selecione a natureza da operação.',
     observacao: observacao.trim() ? '' : 'Informe a observação.',
@@ -470,7 +470,8 @@ export default function NotaFiscalPage() {
               </select>
             </Field>
             <Field label="Número NF *" error={mostrar(erros.numeroNf)}>
-              <input value={numeroNf} onChange={e => setNumeroNf(e.target.value)}
+              <input value={numeroNf} onChange={e => setNumeroNf(somenteNumeros(e.target.value))}
+                inputMode="numeric" maxLength={9} autoComplete="off"
                 className={`${baseInputClass} ${campoErro(erros.numeroNf)}`} placeholder="000001" />
             </Field>
             <Field label="Série *" error={mostrar(erros.serieNf)}>
