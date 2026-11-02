@@ -1,10 +1,11 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import Layout from './shared/components/ui/Layout'
 import PrivateRoute from './shared/components/ui/PrivateRoute'
 import LoginPage from './modules/auth/LoginPage'
 import PDVPage from './modules/pdv/PDVPage'
 import SangriaPage from './modules/pdv/SangriaPage'
 import ProdutosPage from './modules/estoque/ProdutosPage'
+import ProdutoCadastroPage from './modules/estoque/ProdutoCadastroPage'
 import FornecedoresPage from './modules/estoque/FornecedoresPage'
 import DesossaPage from './modules/estoque/DesossaPage'
 import InventarioPage from './modules/estoque/InventarioPage'
@@ -29,6 +30,12 @@ import MaquininhasPage from './modules/pagamento/MaquininhasPage'
 import ComprovantePage from './modules/acesso/ComprovantePage'
 import HomePage from './modules/home/HomePage'
 
+// Produtos saiu de /estoque/produtos: mantém favoritos e links antigos funcionando.
+function RedirecionarProdutos() {
+  const { pathname, search } = useLocation()
+  return <Navigate to={pathname.replace(/^\/estoque\/produtos/, '/produtos') + search} replace />
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -47,7 +54,10 @@ export default function App() {
             <Route index element={<HomePage />} />
             <Route path="/inicio" element={<HomePage />} />
             <Route path="/pdv/sangria"               element={<SangriaPage />} />
-            <Route path="/estoque/produtos"          element={<ProdutosPage />} />
+            <Route path="/produtos"                  element={<ProdutosPage />} />
+            <Route path="/produtos/novo"             element={<ProdutoCadastroPage />} />
+            <Route path="/produtos/:id/editar"       element={<ProdutoCadastroPage />} />
+            <Route path="/estoque/produtos/*"        element={<RedirecionarProdutos />} />
             <Route path="/estoque/fornecedores"      element={<FornecedoresPage />} />
             <Route path="/estoque/desossa"           element={<DesossaPage />} />
             <Route path="/estoque/inventario"        element={<InventarioPage />} />

@@ -13,7 +13,7 @@ import { usePermissao } from '@/shared/hooks/usePermissao'
 const atalhos = [
   { label: 'PDV / Caixa',          href: '/pdv',                       icon: ShoppingCart,    modulo: 'PDV',            cor: 'bg-talho-600' },
   { label: 'Sangria / Suprimento', href: '/pdv/sangria',               icon: ArrowDownCircle, modulo: 'SANGRIA',        cor: 'bg-red-500' },
-  { label: 'Produtos',             href: '/estoque/produtos',          icon: Package,         modulo: 'PRODUTOS',       cor: 'bg-blue-600' },
+  { label: 'Produtos',             href: '/produtos',          icon: Package,         modulo: 'PRODUTOS',       cor: 'bg-blue-600' },
   { label: 'Fornecedores',         href: '/estoque/fornecedores',      icon: Store,           modulo: 'FORNECEDORES',   cor: 'bg-blue-400' },
   { label: 'Recebimento',          href: '/estoque/recebimento',       icon: Truck,           modulo: 'RECEBIMENTO',    cor: 'bg-blue-500' },
   { label: 'Fichas Desossa',       href: '/estoque/fichas-desossa',    icon: ClipboardList,   modulo: 'FICHAS_DESOSSA', cor: 'bg-indigo-500' },

@@ -19,8 +19,10 @@ const nav = [
   { label: 'PDV / Caixa',          href: '/pdv',              icon: ShoppingCart,   external: true, modulo: 'PDV' },
   { label: 'Sangria / Suprimento', href: '/pdv/sangria',      icon: ArrowDownCircle, modulo: 'SANGRIA' },
 
+  { separator: 'Produtos' },
+  { label: 'Produtos',          href: '/produtos',       icon: Package,        modulo: 'PRODUTOS' },
+
   { separator: 'Estoque' },
-  { label: 'Produtos',          href: '/estoque/produtos',       icon: Package,        modulo: 'PRODUTOS' },
   { label: 'Fornecedores',      href: '/estoque/fornecedores',   icon: Store,          modulo: 'FORNECEDORES' },
   { label: 'Recebimento',       href: '/estoque/recebimento',    icon: Truck,          modulo: 'RECEBIMENTO' },
   { label: 'Fichas Desossa',    href: '/estoque/fichas-desossa', icon: ClipboardList,  modulo: 'FICHAS_DESOSSA' },
