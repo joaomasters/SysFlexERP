@@ -14,6 +14,7 @@ public class TenantContext {
 
     private static final String DEFAULT_SCHEMA = "public";
     private static final ThreadLocal<String> ATUAL = new ThreadLocal<>();
+    private static final ThreadLocal<Boolean> SOMENTE_LEITURA = new ThreadLocal<>();
 
     private TenantContext() {}
 
@@ -26,7 +27,17 @@ public class TenantContext {
         ATUAL.set(schema != null ? schema : DEFAULT_SCHEMA);
     }
 
+    /** Visualização do JARVIS: as conexões da requisição abrem sem poder gravar. */
+    public static boolean isSomenteLeitura() {
+        return Boolean.TRUE.equals(SOMENTE_LEITURA.get());
+    }
+
+    public static void setSomenteLeitura(boolean somenteLeitura) {
+        SOMENTE_LEITURA.set(somenteLeitura);
+    }
+
     public static void clear() {
         ATUAL.remove();
+        SOMENTE_LEITURA.remove();
     }
 }

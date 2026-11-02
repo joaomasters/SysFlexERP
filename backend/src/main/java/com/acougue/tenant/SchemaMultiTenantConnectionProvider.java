@@ -5,6 +5,7 @@ import org.hibernate.engine.jdbc.connections.spi.MultiTenantConnectionProvider;
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.Statement;
 
 /*
  Um único Postgres, um único pool Hikari, N schemas (um por tenant).
@@ -43,6 +44,9 @@ public class SchemaMultiTenantConnectionProvider implements MultiTenantConnectio
     public Connection getConnection(String tenantIdentifier) throws SQLException {
         Connection connection = dataSource.getConnection();
         connection.setSchema(tenantIdentifier);
+        if (TenantContext.isSomenteLeitura()) {
+            definirSomenteLeitura(connection, true);
+        }
         return connection;
     }
 
@@ -50,8 +54,22 @@ public class SchemaMultiTenantConnectionProvider implements MultiTenantConnectio
     public void releaseConnection(String tenantIdentifier, Connection connection) throws SQLException {
         // Reseta antes de devolver ao pool — defesa extra contra uma conexão
         // reaproveitada carregar o search_path do tenant anterior.
-        connection.setSchema(SCHEMA_PADRAO);
-        connection.close();
+        try {
+            connection.setSchema(SCHEMA_PADRAO);
+            if (TenantContext.isSomenteLeitura()) {
+                definirSomenteLeitura(connection, false);
+            }
+        } finally {
+            connection.close();
+        }
+    }
+
+    // Comando do Postgres, não Connection.setReadOnly: com autocommit ligado o
+    // driver ignora o setReadOnly, e a leitura fora de transação ficaria sem trava.
+    private static void definirSomenteLeitura(Connection connection, boolean ligado) throws SQLException {
+        try (Statement st = connection.createStatement()) {
+            st.execute("SET default_transaction_read_only = " + (ligado ? "on" : "off"));
+        }
     }
 
     @Override
