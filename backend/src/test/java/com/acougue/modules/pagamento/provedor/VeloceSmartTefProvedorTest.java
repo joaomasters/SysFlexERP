@@ -122,6 +122,22 @@ class VeloceSmartTefProvedorTest {
         }
 
         @Test
+        @DisplayName("usa as rotas em /api/v1 (o manual em PDF diz /v1, que responde 404)")
+        void enderecoDaApi() {
+            assertThat(VeloceSmartTefProvedor.BASE).isEqualTo("https://api.veloce.tech/api/v1");
+        }
+
+        @Test
+        @DisplayName("resposta sem mensagem mostra o código HTTP em vez de sair em branco")
+        void mensagemVazia() throws Exception {
+            when(http.enviar(eq("POST"), eq(VeloceSmartTefProvedor.BASE + "/acessar"), any(), any()))
+                    .thenReturn(resposta(404, "{\"message\":\"\"}"));
+
+            assertThatThrownBy(() -> provedor.iniciar(cobranca("DEBITO", 1), CREDENCIAL))
+                    .isInstanceOf(BusinessException.class).hasMessageEndingWith("HTTP 404");
+        }
+
+        @Test
         @DisplayName("login recusado e credencial incompleta dão mensagens claras")
         void credenciais() throws Exception {
             when(http.enviar(eq("POST"), eq(VeloceSmartTefProvedor.BASE + "/acessar"), any(), any()))

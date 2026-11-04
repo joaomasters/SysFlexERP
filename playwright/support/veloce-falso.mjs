@@ -1,6 +1,6 @@
 // Imitação mínima da API Smart TEF da Veloce (manual v1027), para os testes da
 // maquininha rodarem sem a máquina. Uso: node support/veloce-falso.mjs [porta]
-// e o backend com PAGAMENTO_VELOCE_URL=http://127.0.0.1:<porta>/v1.
+// e o backend com PAGAMENTO_VELOCE_URL=http://127.0.0.1:<porta>/api/v1.
 //
 // - Login aceita qualquer e-mail; a senha "errada" é recusada.
 // - Só existe o dispositivo de token EOIVM.
@@ -42,13 +42,13 @@ createServer((req, res) => {
 
     if (req.method === 'GET' && url.pathname === '/ultimo') return responder(res, 200, { pagamento: ultimo, aviso: ultimoAviso })
 
-    if (req.method === 'POST' && url.pathname === '/v1/acessar') {
+    if (req.method === 'POST' && url.pathname === '/api/v1/acessar') {
       if (corpo.senha === 'errada') return responder(res, 400, { ok: false, message: 'Senha incorreta', result: [] })
       return responder(res, 200, { ok: true, message: 'Acesso permitido', result: { token: TOKEN_API } })
     }
     if (!autenticado) return responder(res, 401, { ok: false, message: 'Token inválido', result: null })
 
-    if (req.method === 'POST' && url.pathname === '/v1/pagamento/criar') {
+    if (req.method === 'POST' && url.pathname === '/api/v1/pagamento/criar') {
       if (corpo.token !== 'EOIVM') return responder(res, 404, { ok: false, message: 'Token de dispositivo não encontrado', result: null })
       const p = {
         id_tbl_pagamento: pagamentos.length + 1, pagamento_id: corpo.pagamento_id, indice: corpo.indice,
@@ -73,7 +73,7 @@ createServer((req, res) => {
       return responder(res, 200, { ok: true, message: 'Sucesso ao criar pagamento', result: p })
     }
 
-    if (req.method === 'GET' && url.pathname === '/v1/pagamento/listar') {
+    if (req.method === 'GET' && url.pathname === '/api/v1/pagamento/listar') {
       const daEmpresa = pagamentos.filter(p => p.cnpj === url.searchParams.get('cnpj'))
       if (!url.searchParams.get('dt_incial') || !url.searchParams.get('dt_final')) {
         return responder(res, 400, { ok: false, message: 'Período obrigatório', result: [] })
@@ -83,7 +83,7 @@ createServer((req, res) => {
         : responder(res, 404, { ok: false, message: 'A pesquisa não retornou resultados', result: [] })
     }
 
-    if (req.method === 'POST' && url.pathname === '/v1/pagamento/rejeitar') {
+    if (req.method === 'POST' && url.pathname === '/api/v1/pagamento/rejeitar') {
       const p = pagamentos.find(x => x.pagamento_id === corpo.pagamento_id && x.token === corpo.token)
       if (!p) return responder(res, 404, { ok: false, message: 'Token de dispositivo não encontrado', result: null })
       if (p.status === 2 || p.dt_exclusao) return responder(res, 422, { ok: false, message: 'Pagamento já realizado ou rejeitado', result: null })
