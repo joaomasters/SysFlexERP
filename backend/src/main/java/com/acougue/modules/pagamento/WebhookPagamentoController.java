@@ -2,11 +2,15 @@ package com.acougue.modules.pagamento;
 
 import com.acougue.entity.ProvedorPagamento;
 import com.acougue.modules.pdv.PixService;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Optional;
@@ -25,6 +29,7 @@ import java.util.Set;
  URLs para cadastrar nos painéis (troque <codigo> pelo código da empresa):
    Mercado Pago: https://<backend>/api/pagamento/webhook/mercadopago?tenant=<codigo>
    Stone:        https://<backend>/api/pagamento/webhook/stone?tenant=<codigo>
+   Veloce:       não precisa cadastrar; a URL vai em cada cobrança (ver VeloceSmartTefProvedor)
  */
 @Slf4j
 @RestController
@@ -35,6 +40,7 @@ public class WebhookPagamentoController {
     private final TransacaoTerminalService transacaoService;
     private final CredenciaisPagamentoService credenciais;
     private final PixService pixService;
+    private final ObjectMapper objectMapper;
 
     @PostMapping("/mercadopago")
     public ResponseEntity<Void> mercadoPago(
@@ -66,6 +72,32 @@ public class WebhookPagamentoController {
         if (payload.get("id") != null) candidatos.add(payload.get("id").toString());
         candidatos.forEach(id -> transacaoService.processarNotificacao(ProvedorPagamento.MERCADO_PAGO, id));
 
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * Veloce Smart TEF: POST com todos os atributos do pagamento, para a url_retorno enviada em
+     * cada cobrança. Aceita JSON ou formulário, porque o manual não diz qual dos dois.
+     */
+    @PostMapping("/veloce")
+    public ResponseEntity<Void> veloce(HttpServletRequest req) {
+        Map<String, String> dados = new java.util.HashMap<>();
+        req.getParameterMap().forEach((k, v) -> { if (v.length > 0) dados.put(k, v[0]); });
+        try {
+            String corpo = new String(req.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            if (!corpo.isBlank() && corpo.trim().startsWith("{")) {
+                JsonNode n = objectMapper.readTree(corpo);
+                JsonNode p = n.has("result") ? n.path("result") : n;
+                p.fields().forEachRemaining(e -> dados.put(e.getKey(), e.getValue().asText()));
+            }
+        } catch (Exception e) {
+            log.warn("Webhook Veloce com corpo ilegível: {}", e.getMessage());
+        }
+        String idTabela = dados.get("id_tbl_pagamento");
+        String pagamentoId = dados.get("pagamento_id");
+        if (idTabela != null && pagamentoId != null) {
+            transacaoService.processarNotificacao(ProvedorPagamento.VELOCE, idTabela + ":" + pagamentoId);
+        }
         return ResponseEntity.ok().build();
     }
 

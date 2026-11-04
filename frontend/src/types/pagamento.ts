@@ -1,4 +1,4 @@
-export type ProvedorPagamento = 'STONE' | 'MERCADO_PAGO' | 'SICREDI'
+export type ProvedorPagamento = 'STONE' | 'MERCADO_PAGO' | 'SICREDI' | 'VELOCE'
 export type ModoIntegracao = 'API_NUVEM' | 'AGENTE_LOCAL' | 'MANUAL'
 export type StatusTransacao = 'PENDENTE' | 'APROVADA' | 'NEGADA' | 'CANCELADA' | 'ERRO'
 
@@ -6,6 +6,7 @@ export const ROTULO_PROVEDOR: Record<ProvedorPagamento, string> = {
   STONE: 'Stone',
   MERCADO_PAGO: 'Mercado Pago',
   SICREDI: 'Sicredi',
+  VELOCE: 'Veloce Smart TEF',
 }
 
 export const ROTULO_MODO: Record<ModoIntegracao, string> = {

@@ -29,7 +29,7 @@ Cada maquininha é cadastrada com um modo de integração:
 
 | Modo | Como funciona | Precisa instalar algo no caixa? | Disponível para |
 |---|---|---|---|
-| **API em nuvem** | O servidor envia a cobrança pela internet e a maquininha "acorda" pedindo o cartão. O PDV acompanha até aprovar ou negar. | Não | Mercado Pago (Point), Stone (Stone Connect) |
+| **API em nuvem** | O servidor envia a cobrança pela internet e a maquininha "acorda" pedindo o cartão. O PDV acompanha até aprovar ou negar. | Não | Mercado Pago (Point), Stone (Stone Connect), Veloce Smart TEF (ex.: Máquina Smart Sicredi) |
 | **Agente local (TEF)** | O navegador do caixa chama um programa TEF instalado no computador, ligado à maquininha. | Sim, o agente TEF (ver seção 6) | Stone, Sicredi, Mercado Pago |
 | **Manual** | Maquininha não integrada: o operador digita o valor nela e informa NSU e autorização no PDV. | Não | Todas |
 
@@ -79,12 +79,42 @@ Se a Stone fornecer um TEF instalado no computador (maquininha ligada por USB ou
 
 ## 5. Sicredi
 
-A Sicredi **não oferece API em nuvem** para maquininhas. Há dois caminhos:
+A Sicredi **não oferece API em nuvem própria**. Há três caminhos:
 
+- **Máquina Smart (Ingenico Axium DX8000) com o app Smart TEF da Veloce:** integração em nuvem, sem instalar nada no caixa. Veja a seção 5a.
 - **Agente local (TEF):** peça à Sicredi o TEF homologado para PDV (normalmente via PayGo ou SiTef), instale no computador do caixa junto com o agente da seção 6 e cadastre a maquininha em modo **Agente local**.
 - **Manual:** cadastre em modo **Manual**. O operador passa o cartão na maquininha e informa NSU e autorização no PDV.
 
 Em **Maquininhas → Sicredi → Configurar**, basta marcar como ativa e, se quiser, preencher o código do estabelecimento (campo informativo).
+
+### 5a. Máquina Smart Sicredi via Veloce Smart TEF (API em nuvem)
+
+O app **Smart TEF** (Cloudpar/Veloce) fica aberto na maquininha em "Aguardando pagamento". O SysFlex manda a cobrança para a API da Veloce, a maquininha pede o cartão e paga pelo **M-SiTef** da Sicredi.
+
+**Na maquininha:**
+1. Na loja de aplicativos da máquina, instale o **M-SiTef** e o **Smart TEF**.
+2. Em **Informações do TEF**, faça o **Cadastro TEF** com o CNPJ da loja. Sem ele, o SiTef recusa as cobranças.
+
+**No painel da Veloce (painel.veloce.tech, cadastro gratuito):**
+1. **Configurações → Empresas:** a empresa com o CNPJ da loja.
+2. **Configurações → Dispositivos → Novo:**
+
+   | Campo | Valor |
+   |---|---|
+   | Identificador do Dispositivo | O **Id dispositivo** que o app Smart TEF mostra na maquininha |
+   | Número lógico | O "Nº lógico do estabelecimento" da tela Informações do TEF |
+   | Token | Botão **Gerar token** (ex.: `EOIVM`). É o token digitado no app da maquininha |
+   | Adquirente | **Sitef** (a Sicredi não aparece na lista porque o painel lista o motor de pagamento) |
+   | Habilitado | Marcado |
+
+3. No app Smart TEF da maquininha, digite o token e confirme. A tela passa a mostrar "Aguardando pagamento..." com o token e o CNPJ.
+4. **Configurações → Usuários → Novo:** um **administrador** só para a integração, com e-mail próprio (ex.: `integracao.sysflex@...`).
+
+**No SysFlex:**
+1. **Maquininhas → Veloce Smart TEF → Configurar:** marque como ativa e informe o e-mail e a senha do usuário de integração e o CNPJ da loja. Use **Testar conexão**.
+2. **Nova maquininha:** adquirente **Veloce Smart TEF**, integração **API em nuvem** e, em **Token do dispositivo**, o token do painel (ex.: `EOIVM`).
+
+O resultado volta de dois jeitos: a Veloce chama `…/api/pagamento/webhook/veloce?tenant=<código>`, endereço que vai em cada cobrança e não precisa ser cadastrado, e o PDV também consulta a lista de pagamentos enquanto espera. A URL de retorno usa o endereço pelo qual o PDV chamou a API; para fixar outro, defina `PAGAMENTO_WEBHOOK_BASE_URL` no backend.
 
 ---
 
@@ -163,3 +193,4 @@ Se o agente não responder, o PDV oferece **Tentar de novo**, **Concluir manualm
 | Validação no fechamento da venda | `PdvService.fecharVenda` → `TransacaoTerminalService.validarParaPagamento` |
 | Tela de configuração | `frontend/src/modules/pagamento/MaquininhasPage.tsx` |
 | Painel de cartão no PDV | `frontend/src/modules/pdv/components/PainelCartao.tsx` |
+| Veloce Smart TEF | `provedor/VeloceSmartTefProvedor.java`, migration `V32__provedor_veloce.sql`; testes com a Veloce falsa em `playwright/support/veloce-falso.mjs` (`PAGAMENTO_VELOCE_URL` no backend e `E2E_VELOCE_FALSO` no Playwright) |
