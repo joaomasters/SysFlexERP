@@ -48,7 +48,8 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class VeloceSmartTefProvedor implements ProvedorTerminalNuvem {
 
-    static final String BASE = "https://api.veloce.tech/v1";
+    // O manual em PDF (v1027) diz /v1, mas as rotas estão em /api/v1: em /v1 tudo responde 404
+    static final String BASE = "https://api.veloce.tech/api/v1";
     private final String base;
     private static final ZoneId FUSO = ZoneId.of("America/Sao_Paulo");
     private static final DateTimeFormatter DATA_API = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
@@ -251,8 +252,7 @@ public class VeloceSmartTefProvedor implements ProvedorTerminalNuvem {
                 Map.of("login", cred.login(), "senha", cred.senha()));
         String token = r.json() != null ? texto(r.json().path("result").path("token")) : null;
         if (!r.sucesso() || token == null) {
-            throw new BusinessException("Veloce recusou o login de integração: "
-                    + (r.json() != null ? r.json().path("message").asText("HTTP " + r.status()) : "HTTP " + r.status()));
+            throw new BusinessException("Veloce recusou o login de integração: " + mensagemOuStatus(r));
         }
         tokens.put(cred.login(), token);
         return token;
@@ -302,7 +302,13 @@ public class VeloceSmartTefProvedor implements ProvedorTerminalNuvem {
         if (msg.contains("Pagamento existente")) {
             return "Veloce: já existe um pagamento com este número. Tente cobrar de novo.";
         }
-        return "Veloce: falha ao " + acao + " (HTTP " + r.status() + ")" + (msg.isEmpty() ? "" : ": " + msg);
+        return "Veloce: falha ao " + acao + " (HTTP " + r.status() + ")" + (msg.isBlank() ? "" : ": " + msg);
+    }
+
+    /** Mensagem da Veloce ou, se ela não mandar texto, o código HTTP: o erro nunca sai em branco. */
+    private static String mensagemOuStatus(Resposta r) {
+        String msg = r.json() != null ? r.json().path("message").asText("") : "";
+        return msg.isBlank() ? "HTTP " + r.status() : msg;
     }
 
     private static String primeiro(String a, String b) {
