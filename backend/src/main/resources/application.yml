@@ -120,6 +120,10 @@ pagamento:
     # Fallback do PIX quando a empresa não cadastrou o Access Token do
     # Mercado Pago na tela Maquininhas (comportamento anterior).
     mp-access-token: ${MP_ACCESS_TOKEN:}
+  webhook:
+    # Endereço público para as adquirentes avisarem pagamentos (ex.: Veloce).
+    # Vazio = usa o endereço pelo qual o PDV chamou a API (o rewrite /api do Vercel).
+    base-url: ${PAGAMENTO_WEBHOOK_BASE_URL:}
 
 balanca:
   scheduler:

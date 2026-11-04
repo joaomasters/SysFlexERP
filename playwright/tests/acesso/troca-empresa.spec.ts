@@ -50,13 +50,16 @@ test.describe('Troca de empresa no mesmo navegador', () => {
         expect(criado.ok()).toBeTruthy()
 
         await produtosPage.abrir()
+        // A lista é paginada: busca para achar o produto (a lista inteira fica no cache do mesmo jeito)
+        await produtosPage.buscar(nome)
         await expect(produtosPage.linha(nome)).toHaveCount(1)
 
         await page.getByRole('button', { name: 'Sair' }).click()
         await entrar(page, empresa.codigo, adminLogin, senha)
         await irParaProdutos(page)
 
-        await expect(page.getByText('Nenhum produto encontrado.')).toBeVisible()
+        // Empresa nova, sem produtos: lista vazia, e não a da empresa anterior
+        await expect(page.getByText('Nenhum produto cadastrado ainda.')).toBeVisible()
         await expect(produtosPage.linha(nome)).toHaveCount(0)
     })
 
@@ -69,6 +72,6 @@ test.describe('Troca de empresa no mesmo navegador', () => {
         await entrar(outraAba, empresa.codigo, adminLogin, senha)
 
         await irParaProdutos(page)
-        await expect(page.getByText('Nenhum produto encontrado.')).toBeVisible()
+        await expect(page.getByText('Nenhum produto cadastrado ainda.')).toBeVisible()
     })
 })

@@ -106,10 +106,12 @@ export default function TerminalModal({ terminal, provedores, onClose }: Props) 
 
       {modo === 'API_NUVEM' && (
         <Field
-          label="Identificador da maquininha *"
+          label={provedor === 'VELOCE' ? 'Token do dispositivo *' : 'Identificador da maquininha *'}
           hint={provedor === 'MERCADO_PAGO'
             ? 'device_id da Point, ex: PAX_A910__SMARTPOS1234567 (use o botão “Dispositivos” para listar).'
-            : 'Número de série da POS Stone (etiqueta atrás da maquininha).'}
+            : provedor === 'VELOCE'
+              ? 'Token gerado em painel.veloce.tech → Configurações → Dispositivos, o mesmo digitado no app Smart TEF (ex: EOIVM).'
+              : 'Número de série da POS Stone (etiqueta atrás da maquininha).'}
         >
           <input value={identificador} onChange={e => setIdentificador(e.target.value)} className={`${baseInputClass} font-mono`} />
         </Field>
