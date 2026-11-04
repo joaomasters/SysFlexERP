@@ -1,6 +1,7 @@
 package com.acougue.modules.pagamento;
 
 import com.acougue.entity.ModoIntegracaoTerminal;
+import com.acougue.entity.ProvedorPagamento;
 import com.acougue.entity.TerminalPagamento;
 import com.acougue.exception.BusinessException;
 import com.acougue.modules.pagamento.dto.SalvarTerminalDTO;
@@ -62,12 +63,17 @@ public class TerminalPagamentoService {
         t.setAceitaDebito(dto.isAceitaDebito());
         t.setAceitaCredito(dto.isAceitaCredito());
         t.setMaxParcelas(dto.isAceitaCredito() ? dto.getMaxParcelas() : 1);
+        t.setAceitaPix(dto.isAceitaPix());
         t.setAtivo(dto.isAtivo());
     }
 
     static void validar(SalvarTerminalDTO dto) {
         if (!dto.isAceitaDebito() && !dto.isAceitaCredito()) {
             throw new BusinessException("A maquininha precisa aceitar débito, crédito ou ambos.");
+        }
+        if (dto.isAceitaPix() && (dto.getProvedor() != ProvedorPagamento.VELOCE
+                || dto.getModoIntegracao() != ModoIntegracaoTerminal.API_NUVEM)) {
+            throw new BusinessException("PIX na maquininha só funciona com a Veloce Smart TEF em API em nuvem.");
         }
         switch (dto.getModoIntegracao()) {
             case API_NUVEM -> {

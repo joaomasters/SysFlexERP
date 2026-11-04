@@ -33,7 +33,10 @@ export default function TerminalModal({ terminal, provedores, onClose }: Props) 
   const [aceitaDebito, setAceitaDebito] = useState(terminal.aceitaDebito ?? true)
   const [aceitaCredito, setAceitaCredito] = useState(terminal.aceitaCredito ?? true)
   const [maxParcelas, setMaxParcelas] = useState(terminal.maxParcelas ?? 12)
+  const [aceitaPix, setAceitaPix] = useState(terminal.aceitaPix ?? false)
   const [ativo, setAtivo] = useState(terminal.ativo ?? true)
+  // PIX com QR na tela da maquininha: só a Veloce manda PIX pela API
+  const podePix = provedor === 'VELOCE' && modo === 'API_NUVEM'
 
   const suportaNuvem = provedores.find(p => p.provedor === provedor)?.suportaApiNuvem ?? false
   const modosDisponiveis: ModoIntegracao[] = suportaNuvem
@@ -52,7 +55,7 @@ export default function TerminalModal({ terminal, provedores, onClose }: Props) 
         nome, provedor, modoIntegracao: modo,
         identificadorDispositivo: identificador || null,
         agenteUrl: agenteUrl || null,
-        aceitaDebito, aceitaCredito, maxParcelas, ativo,
+        aceitaDebito, aceitaCredito, maxParcelas, aceitaPix: podePix && aceitaPix, ativo,
       }
       return editando
         ? api.put(`/maquininhas/terminais/${terminal.id}`, corpo)
@@ -136,6 +139,11 @@ export default function TerminalModal({ terminal, provedores, onClose }: Props) 
               {Array.from({ length: 18 }, (_, i) => i + 1).map(n => <option key={n} value={n}>{n}x</option>)}
             </select>
           </Field>
+        )}
+        {podePix && (
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={aceitaPix} onChange={e => setAceitaPix(e.target.checked)} /> PIX
+          </label>
         )}
         <label className="flex items-center gap-2 text-sm ml-auto">
           <input type="checkbox" checked={ativo} onChange={e => setAtivo(e.target.checked)} /> Ativa

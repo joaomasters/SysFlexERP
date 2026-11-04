@@ -25,12 +25,12 @@ async function configurarPelaTela(page: Page, senha: string) {
     return cartao
 }
 
-async function criarMaquininha(request: APIRequestContext, token = 'EOIVM') {
+async function criarMaquininha(request: APIRequestContext, token = 'EOIVM', aceitaPix = false) {
     const resp = await request.post('/api/maquininhas/terminais', {
         headers,
         data: {
             nome: `Smart Sicredi ${faker.string.alphanumeric(5)}`, provedor: 'VELOCE', modoIntegracao: 'API_NUVEM',
-            identificadorDispositivo: token, aceitaDebito: true, aceitaCredito: true, maxParcelas: 6, ativo: true,
+            identificadorDispositivo: token, aceitaDebito: true, aceitaCredito: true, maxParcelas: 6, aceitaPix, ativo: true,
         },
     })
     expect(resp.ok()).toBeTruthy()
@@ -90,6 +90,25 @@ test.describe('Maquininha Veloce Smart TEF', () => {
         await expect.poll(async () => (await consultar(request, t.id)).status, { timeout: 15_000 }).toBe('APROVADA')
         const aprovada = await consultar(request, t.id)
         expect(aprovada).toMatchObject({ nsu: '882342', autorizacao: '076442', bandeira: 'MASTERCARD' })
+    })
+
+    test('Deve cobrar PIX na maquininha só quando ela aceita PIX', async ({ request }) => {
+        const vendaId = await abrirVenda(request)
+
+        const semPix = await criarMaquininha(request)
+        const recusa = await request.post('/api/pagamento/transacoes', {
+            headers, data: { terminalId: semPix, vendaId, tipo: 'PIX', parcelas: 1, valor: 10 },
+        })
+        expect(recusa.status()).toBe(422)
+
+        const comPix = await criarMaquininha(request, 'EOIVM', true)
+        const t = await cobrar(request, comPix, vendaId, 10, 'PIX', 1)
+        expect(t.status).toBe('PENDENTE')
+        const enviado = (await (await request.get(`${falso}/ultimo`)).json()).pagamento
+        expect(enviado).toMatchObject({ tipo: 3, parcelas: '1', token: 'EOIVM' })
+
+        await expect.poll(async () => (await consultar(request, t.id)).status, { timeout: 15_000 }).toBe('APROVADA')
+        expect((await consultar(request, t.id)).tipo).toBe('PIX')
     })
 
     test('Deve mostrar a recusa do cartão', async ({ request }) => {

@@ -40,6 +40,11 @@ public class TerminalPagamento {
     @Column(name = "aceita_credito", nullable = false)
     private Boolean aceitaCredito = true;
 
+    /** PIX com QR na tela da maquininha — só Veloce Smart TEF em API_NUVEM. */
+    @Builder.Default
+    @Column(name = "aceita_pix", nullable = false)
+    private Boolean aceitaPix = false;
+
     @Builder.Default
     @Column(name = "max_parcelas", nullable = false)
     private Integer maxParcelas = 12;

@@ -128,6 +128,15 @@ public class VeloceSmartTefProvedor implements ProvedorTerminalNuvem {
         return RetornoProvedor.pendente(id.texto(), r.corpo());
     }
 
+    /** 0 débito, 1 crédito, 3 PIX (QR na tela da maquininha); 2 voucher não é usado. */
+    static int tipoVeloce(String tipo) {
+        return switch (tipo) {
+            case "CREDITO" -> 1;
+            case "PIX" -> 3;
+            default -> 0;
+        };
+    }
+
     static Map<String, Object> montarPagamento(CobrancaTerminal c, long pagamentoId, String cnpj, String urlRetorno) {
         boolean credito = "CREDITO".equals(c.tipo());
         Map<String, Object> corpo = new LinkedHashMap<>();
@@ -137,7 +146,7 @@ public class VeloceSmartTefProvedor implements ProvedorTerminalNuvem {
         corpo.put("pagamento_id", pagamentoId);
         corpo.put("url_retorno", urlRetorno);
         corpo.put("cnpj", cnpj);
-        corpo.put("tipo", credito ? 1 : 0); // 0 débito, 1 crédito (2 voucher, 3 PIX não usados aqui)
+        corpo.put("tipo", tipoVeloce(c.tipo()));
         corpo.put("parcelas", String.valueOf(credito ? c.parcelas() : 1));
         if (c.vendaId() != null) corpo.put("pedido", c.vendaId());
         return corpo;
