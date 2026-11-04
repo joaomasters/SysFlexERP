@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { setSessao } from '../../shared/auth'
 import { API_BASE_URL } from '../../shared/api/ambiente'
 import FaixaAmbiente from '../../shared/components/ui/FaixaAmbiente'
-import { Building2, Lock, User } from 'lucide-react'
+import { Building2, Lock, ShieldCheck, User } from 'lucide-react'
 import logo from '../../assets/sysflex-logo.png'
 
 export default function LoginPage() {
@@ -12,8 +12,10 @@ export default function LoginPage() {
   const [codigoEmpresa, setCodigoEmpresa] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [codigoVerificacao, setCodigoVerificacao] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const ehJarvis = codigoEmpresa.trim() === '000'
 
   // Código nunca é lembrado (localStorage, sessão, nada) — precisa ser
   // digitado em todo login, de propósito, inclusive pelo Açougue do Zé
@@ -25,11 +27,11 @@ export default function LoginPage() {
     try {
       const res = await axios.post(
         `${API_BASE_URL}/auth/login`,
-        { username, password },
+        ehJarvis ? { username, password, codigoVerificacao } : { username, password },
         { headers: { 'X-Tenant-Codigo': codigoEmpresa.trim() } }
       )
       setSessao(res.data)
-      navigate('/inicio')
+      navigate(res.data.jarvis ? '/jarvis' : '/inicio')
     } catch (e: unknown) {
       const resp = (e as { response?: { status?: number; data?: { message?: string } } }).response
       // 429 = login bloqueado temporariamente por excesso de tentativas
@@ -107,6 +109,26 @@ export default function LoginPage() {
                 />
               </div>
             </div>
+
+            {ehJarvis && (
+              <div>
+                <label className="text-xs text-white/50 font-medium">Código do autenticador</label>
+                <div className="relative mt-1">
+                  <ShieldCheck size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={codigoVerificacao}
+                    onChange={e => setCodigoVerificacao(e.target.value.replace(/\D/g, ''))}
+                    className="block w-full bg-aco-900 border border-white/15 rounded-lg pl-9 pr-3 py-2.5 text-white placeholder-white/30 text-sm focus:outline-none focus:border-talho-600 transition"
+                    placeholder="6 dígitos"
+                    autoComplete="one-time-code"
+                    required
+                  />
+                </div>
+              </div>
+            )}
 
             {error && (
               <div className="bg-talho-600/10 border border-talho-600/40 rounded-lg px-3 py-2">

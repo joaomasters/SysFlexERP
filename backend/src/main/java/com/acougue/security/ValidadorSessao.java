@@ -1,5 +1,6 @@
 package com.acougue.security;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
@@ -26,6 +27,9 @@ public class ValidadorSessao {
     private final JdbcTemplate jdbc;
     private final Map<String, long[]> cache = new ConcurrentHashMap<>(); // chave -> [ativo(1/0), expiraEm]
 
+    @Value("${jarvis.login:}")
+    private String loginJarvis = "";
+
     public ValidadorSessao(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
     }
@@ -36,15 +40,29 @@ public class ValidadorSessao {
         if (schema == null || usuarioId == null || !SCHEMA_VALIDO.matcher(schema).matches()) {
             return false;
         }
+        if (usuario.isJarvis() && (loginJarvis.isBlank() || !loginJarvis.trim().equals(usuario.getLogin()))) {
+            return false; // tirar JARVIS_LOGIN do ambiente corta as sessões abertas
+        }
         String chave = schema + ":" + usuarioId;
         long agora = System.currentTimeMillis();
         long[] emCache = cache.get(chave);
         if (emCache != null && emCache[1] > agora) {
             return emCache[0] == 1;
         }
-        boolean ativa = consultar(schema, usuarioId);
+        boolean ativa = usuario.isJarvis() ? empresaExiste(schema) : consultar(schema, usuarioId);
         cache.put(chave, new long[]{ativa ? 1 : 0, agora + CACHE_MS});
         return ativa;
+    }
+
+    // O JARVIS não tem linha em usuarios e também vê empresa inativa, para dar suporte
+    private boolean empresaExiste(String schema) {
+        try {
+            Integer total = jdbc.queryForObject(
+                    "SELECT COUNT(*) FROM public.tenants WHERE schema_name = ?", Integer.class, schema);
+            return total != null && total > 0;
+        } catch (Exception e) {
+            return false; // na dúvida, não autentica
+        }
     }
 
     private boolean consultar(String schema, Long usuarioId) {

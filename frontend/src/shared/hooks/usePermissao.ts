@@ -16,6 +16,7 @@ export function usePermissao() {
 
   function pode(modulo: string, acao: Acao): boolean {
     if (!sessao) return false
+    if (sessao.somenteLeitura) return acao === 'ver'
     if (sessao.superAdmin) return true
     const permissao = sessao.permissoes.find(p => p.modulo === modulo)
     if (!permissao) return false
@@ -43,7 +44,7 @@ export function usePermissao() {
     podeCriar,
     podeEditar,
     podeExcluir,
-    isSuperAdmin: sessao?.superAdmin ?? false,
+    isSuperAdmin: (sessao?.superAdmin && !sessao.somenteLeitura) ?? false,
     /** Gerencia as empresas da plataforma (espelha TenantAdminController no backend). */
     isAdministradorPlataforma: sessao?.administradorPlataforma ?? false,
     perfil: sessao?.perfil ?? null,

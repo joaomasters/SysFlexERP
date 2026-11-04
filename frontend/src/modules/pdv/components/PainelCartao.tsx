@@ -11,7 +11,7 @@ import { ROTULO_PROVEDOR, type TerminalPagamento, type TransacaoTerminal } from 
  Pagamento com cartão no PDV (tema escuro do console de operação).
 
  Fluxo, conforme o modo do terminal escolhido:
-  - API_NUVEM:    backend envia para a maquininha (Mercado Pago Point / Stone Connect);
+  - API_NUVEM:    backend envia para a maquininha (Mercado Pago Point / Stone Connect / Veloce Smart TEF);
                   aqui só fazemos polling da transação até sair de PENDENTE.
   - AGENTE_LOCAL: o navegador chama o agente TEF do computador (contrato em
                   docs/MAQUININHAS.md) e repassa a resposta ao backend.

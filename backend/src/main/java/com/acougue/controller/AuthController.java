@@ -3,6 +3,8 @@ package com.acougue.controller;
 import com.acougue.config.JwtUtil;
 import com.acougue.entity.PerfilPermissao;
 import com.acougue.entity.Usuario;
+import com.acougue.modules.jarvis.JarvisAutenticacao;
+import com.acougue.modules.jarvis.JarvisPainelService;
 import com.acougue.repository.PerfilPermissaoRepository;
 import com.acougue.repository.UsuarioRepository;
 import com.acougue.security.LimitadorTentativasLogin;
@@ -26,18 +28,23 @@ public class AuthController {
     private final PasswordEncoder passwordEncoder;
     private final TenantRepository tenantRepository;
     private final LimitadorTentativasLogin limitador;
+    private final JarvisAutenticacao jarvisAutenticacao;
+    private final JarvisPainelService jarvisPainel;
     /** Hash BCrypt de uma senha aleatória descartada — só para igualar o tempo de resposta. */
     private final String hashFalso;
 
     public AuthController(JwtUtil jwtUtil, UsuarioRepository usuarioRepo,
                           PerfilPermissaoRepository permissaoRepo, PasswordEncoder passwordEncoder,
-                          TenantRepository tenantRepository, LimitadorTentativasLogin limitador) {
+                          TenantRepository tenantRepository, LimitadorTentativasLogin limitador,
+                          JarvisAutenticacao jarvisAutenticacao, JarvisPainelService jarvisPainel) {
         this.jwtUtil = jwtUtil;
         this.usuarioRepo = usuarioRepo;
         this.permissaoRepo = permissaoRepo;
         this.passwordEncoder = passwordEncoder;
         this.tenantRepository = tenantRepository;
         this.limitador = limitador;
+        this.jarvisAutenticacao = jarvisAutenticacao;
+        this.jarvisPainel = jarvisPainel;
         this.hashFalso = passwordEncoder.encode(java.util.UUID.randomUUID().toString());
     }
 
@@ -62,6 +69,10 @@ public class AuthController {
         if (minutosBloqueado > 0) {
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of("message",
                     "Muitas tentativas incorretas. Tente novamente em " + minutosBloqueado + " minuto(s)."));
+        }
+
+        if (codigoEmpresa != null && JarvisAutenticacao.CODIGO_ACESSO.equals(codigoEmpresa.trim())) {
+            return loginJarvis(codigoEmpresa, login, senha, body.get("codigoVerificacao"));
         }
 
         if (codigoEmpresa == null || codigoEmpresa.isBlank()
@@ -113,5 +124,16 @@ public class AuthController {
                 "administradorPlataforma", usuario.getPerfil().isSuperAdmin() && "public".equals(TenantContext.get()),
                 "permissoes", permissoesResposta
         ));
+    }
+
+    private ResponseEntity<?> loginJarvis(String codigoEmpresa, String login, String senha, String codigoVerificacao) {
+        if (!jarvisAutenticacao.autenticar(login, senha, codigoVerificacao)) {
+            limitador.registrarFalha(codigoEmpresa, login);
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Usuário ou senha inválidos"));
+        }
+        limitador.registrarSucesso(codigoEmpresa, login);
+        jarvisPainel.registrarLogin(login.trim());
+        return ResponseEntity.ok(jarvisAutenticacao.sessaoPainel());
     }
 }

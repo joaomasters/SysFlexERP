@@ -1,11 +1,13 @@
 package com.acougue.config;
 
+import com.acougue.security.RestricaoJarvis;
 import com.acougue.security.UsuarioAutenticado;
 import com.acougue.security.ValidadorSessao;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -13,6 +15,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 @Component
@@ -41,6 +44,14 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 }
                 // Usuário ou empresa desativados depois do login perdem o acesso (ver ValidadorSessao)
                 if (usuario != null && validadorSessao.sessaoAtiva(usuario)) {
+                    String caminho = req.getRequestURI().substring(req.getContextPath().length());
+                    if (!RestricaoJarvis.permitido(usuario, req.getMethod(), caminho)) {
+                        res.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                        res.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                        res.setCharacterEncoding(StandardCharsets.UTF_8.name());
+                        res.getWriter().write("{\"message\":\"O JARVIS é somente leitura: esta ação não está disponível.\"}");
+                        return;
+                    }
                     UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
                             usuario, null, List.of(new SimpleGrantedAuthority("ROLE_USUARIO")));
                     SecurityContextHolder.getContext().setAuthentication(auth);

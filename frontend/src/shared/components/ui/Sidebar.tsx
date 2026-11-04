@@ -1,5 +1,5 @@
 
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink } from 'react-router-dom'
 import {
   ShoppingCart, Package, Scissors, DollarSign,
   CreditCard, BarChart2, Scale, AlertTriangle,
@@ -19,8 +19,10 @@ const nav = [
   { label: 'PDV / Caixa',          href: '/pdv',              icon: ShoppingCart,   external: true, modulo: 'PDV' },
   { label: 'Sangria / Suprimento', href: '/pdv/sangria',      icon: ArrowDownCircle, modulo: 'SANGRIA' },
 
+  { separator: 'Produtos' },
+  { label: 'Produtos',          href: '/produtos',       icon: Package,        modulo: 'PRODUTOS' },
+
   { separator: 'Estoque' },
-  { label: 'Produtos',          href: '/estoque/produtos',       icon: Package,        modulo: 'PRODUTOS' },
   { label: 'Fornecedores',      href: '/estoque/fornecedores',   icon: Store,          modulo: 'FORNECEDORES' },
   { label: 'Recebimento',       href: '/estoque/recebimento',    icon: Truck,          modulo: 'RECEBIMENTO' },
   { label: 'Fichas Desossa',    href: '/estoque/fichas-desossa', icon: ClipboardList,  modulo: 'FICHAS_DESOSSA' },
@@ -56,7 +58,6 @@ const nav = [
 ]
 
 export default function Sidebar() {
-  const navigate = useNavigate()
   const { podeVer, isSuperAdmin, isAdministradorPlataforma } = usePermissao()
 
   const podeVerBalanca = isSuperAdmin || podeVer('CARGA_BALANCA')
@@ -73,7 +74,9 @@ export default function Sidebar() {
 
   const logout = () => {
     removeSessao()
-    navigate('/login')
+    // Recarrega de propósito: o cache de consultas fica em memória e, numa troca
+    // de rota comum, a próxima empresa veria os dados da anterior
+    window.location.href = '/login'
   }
 
   // Filtra os itens pelo que o perfil pode VER, e depois remove separadores
@@ -90,12 +93,13 @@ export default function Sidebar() {
   })
 
   return (
-    <aside className="w-60 bg-aco-900 text-white flex flex-col min-h-screen">
+    <aside className="w-60 shrink-0 bg-aco-900 text-white flex flex-col h-screen">
       <div className="px-5 py-5 border-b border-white/10">
         <img src={logo} alt="SysFlex ERP" className="h-9 w-auto" />
       </div>
 
-      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+      {/* Rola com roda/toque, mas sem barra visível (Firefox e Chrome/Edge) */}
+      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {navFiltrado.map((item, i) => {
           if ('separator' in item) {
             return (

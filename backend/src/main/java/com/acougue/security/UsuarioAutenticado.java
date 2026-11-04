@@ -22,6 +22,8 @@ public class UsuarioAutenticado {
     private final boolean superAdmin;
     private final Map<Modulo, Permissoes> permissoes;
     private final String tenantSchema;
+    private final boolean jarvis;
+    private final boolean somenteLeitura;
 
     public record Permissoes(boolean ver, boolean criar, boolean editar, boolean excluir) {}
 
@@ -35,6 +37,12 @@ public class UsuarioAutenticado {
 
     public UsuarioAutenticado(Long usuarioId, String login, String nome, String perfilNome,
                               boolean superAdmin, Map<Modulo, Permissoes> permissoes, String tenantSchema) {
+        this(usuarioId, login, nome, perfilNome, superAdmin, permissoes, tenantSchema, false, false);
+    }
+
+    public UsuarioAutenticado(Long usuarioId, String login, String nome, String perfilNome,
+                              boolean superAdmin, Map<Modulo, Permissoes> permissoes, String tenantSchema,
+                              boolean jarvis, boolean somenteLeitura) {
         this.usuarioId = usuarioId;
         this.login = login;
         this.nome = nome;
@@ -42,9 +50,12 @@ public class UsuarioAutenticado {
         this.superAdmin = superAdmin;
         this.permissoes = permissoes;
         this.tenantSchema = tenantSchema;
+        this.jarvis = jarvis;
+        this.somenteLeitura = somenteLeitura;
     }
 
     public boolean pode(Modulo modulo, Acao acao) {
+        if (somenteLeitura && acao != Acao.VER) return false;
         if (superAdmin) return true;
         Permissoes p = permissoes.get(modulo);
         if (p == null) return false;
@@ -76,4 +87,6 @@ public class UsuarioAutenticado {
     public boolean isSuperAdmin()  { return superAdmin; }
     public Map<Modulo, Permissoes> getPermissoes() { return permissoes; }
     public String getTenantSchema() { return tenantSchema; }
+    public boolean isJarvis()       { return jarvis; }
+    public boolean isSomenteLeitura() { return somenteLeitura; }
 }
