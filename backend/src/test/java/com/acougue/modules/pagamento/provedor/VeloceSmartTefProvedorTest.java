@@ -85,6 +85,13 @@ class VeloceSmartTefProvedorTest {
         }
 
         @Test
+        @DisplayName("PIX vai como tipo 3 e à vista")
+        void pix() {
+            Map<String, Object> corpo = VeloceSmartTefProvedor.montarPagamento(cobranca("PIX", 1), 123L, CNPJ, "u");
+            assertThat(corpo).containsEntry("tipo", 3).containsEntry("parcelas", "1");
+        }
+
+        @Test
         @DisplayName("token da maquininha errado vira mensagem que diz onde conferir")
         void tokenDispositivoErrado() throws Exception {
             loginDevolve("tok-1");

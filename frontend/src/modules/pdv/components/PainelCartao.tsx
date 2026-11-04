@@ -22,7 +22,7 @@ import { ROTULO_PROVEDOR, type TerminalPagamento, type TransacaoTerminal } from 
  fechamento da venda que a transação foi mesmo APROVADA.
 */
 
-type Metodo = 'DEBITO' | 'CREDITO'
+type Metodo = 'DEBITO' | 'CREDITO' | 'PIX'
 type Estado = 'idle' | 'enviando' | 'aguardando' | 'confirmar_manual' | 'aprovado' | 'negado' | 'erro_agente'
 
 const SEM_TERMINAL = 0
@@ -72,7 +72,8 @@ export default function PainelCartao({ metodo, valor, setValor, vendaId, onAprov
     staleTime: 60_000,
   })
 
-  const compativeis = terminais.filter(t => (metodo === 'DEBITO' ? t.aceitaDebito : t.aceitaCredito))
+  const compativeis = terminais.filter(t =>
+    metodo === 'PIX' ? t.aceitaPix : metodo === 'DEBITO' ? t.aceitaDebito : t.aceitaCredito)
   const terminal = compativeis.find(t => t.id === terminalId) ?? null
   const maxParcelas = terminal ? terminal.maxParcelas : 12
   const ocupado = estado === 'enviando' || estado === 'aguardando' || estado === 'confirmar_manual' || estado === 'erro_agente'
@@ -169,7 +170,9 @@ export default function PainelCartao({ metodo, valor, setValor, vendaId, onAprov
 
       if (t.modoIntegracao === 'API_NUVEM') {
         setEstado('aguardando')
-        setMensagem(`Aguardando cartão na maquininha ${t.terminalNome}...`)
+        setMensagem(metodo === 'PIX'
+          ? `Aguardando o cliente pagar o PIX na maquininha ${t.terminalNome}...`
+          : `Aguardando cartão na maquininha ${t.terminalNome}...`)
         pollRef.current = setInterval(async () => {
           try {
             const { data } = await api.get<TransacaoTerminal>(`/pagamento/transacoes/${t.id}`, { silent: true } as never)
@@ -282,7 +285,7 @@ export default function PainelCartao({ metodo, valor, setValor, vendaId, onAprov
           {compativeis.map(t => (
             <option key={t.id} value={t.id}>{t.nome} · {ROTULO_PROVEDOR[t.provedor]}</option>
           ))}
-          <option value={SEM_TERMINAL}>Maquininha não integrada (registrar manualmente)</option>
+          {metodo !== 'PIX' && <option value={SEM_TERMINAL}>Maquininha não integrada (registrar manualmente)</option>}
         </select>
       )}
 

@@ -42,7 +42,7 @@ public interface ProvedorTerminalNuvem {
             Long transacaoId,
             Long vendaId,
             String identificadorDispositivo,
-            String tipo,          // DEBITO | CREDITO
+            String tipo,          // DEBITO | CREDITO | PIX (PIX só na Veloce)
             int parcelas,
             BigDecimal valor
     ) {
