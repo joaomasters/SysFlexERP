@@ -133,5 +133,18 @@ class SegurancaPagamentoTest {
             d.setAceitaCredito(false);
             assertThatThrownBy(() -> TerminalPagamentoService.validar(d)).hasMessageContaining("débito, crédito");
         }
+
+        @Test
+        @DisplayName("PIX na maquininha só na Veloce em API em nuvem")
+        void pixSoNaVeloce() {
+            SalvarTerminalDTO manual = dto(ProvedorPagamento.SICREDI, ModoIntegracaoTerminal.MANUAL);
+            manual.setAceitaPix(true);
+            assertThatThrownBy(() -> TerminalPagamentoService.validar(manual)).hasMessageContaining("Veloce");
+
+            SalvarTerminalDTO veloce = dto(ProvedorPagamento.VELOCE, ModoIntegracaoTerminal.API_NUVEM);
+            veloce.setIdentificadorDispositivo("EOIVM");
+            veloce.setAceitaPix(true);
+            assertThatCode(() -> TerminalPagamentoService.validar(veloce)).doesNotThrowAnyException();
+        }
     }
 }

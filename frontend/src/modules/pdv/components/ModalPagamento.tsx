@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import {
   X, Banknote, CreditCard, Smartphone, BookOpen, FileCheck,
   CheckCircle, Loader2, Trash2, Copy,
@@ -6,6 +7,7 @@ import {
 import { api } from '@/shared/api/axios'
 import toast from 'react-hot-toast'
 import type { PagamentoDTO } from '@/types/venda'
+import type { TerminalPagamento } from '@/types/pagamento'
 import { formatBRL } from '@/shared/utils/mask'
 import { CurrencyInput } from '@/shared/components/ui'
 import PainelCartao from './PainelCartao'
@@ -58,6 +60,16 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
   const [pixImg,      setPixImg]      = useState('')           // base64
   const [pixMpId,     setPixMpId]     = useState('')
   const pixPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  // Maquininha que aceita PIX (Veloce): o QR aparece nela e o dinheiro cai na adquirente.
+  // Mesma consulta do PainelCartao, então vem do cache.
+  const { data: terminais = [] } = useQuery<TerminalPagamento[]>({
+    queryKey: ['pdv-terminais'],
+    queryFn: () => api.get('/pagamento/terminais/disponiveis', { silent: true } as never).then(r => r.data),
+    staleTime: 60_000,
+  })
+  const temPixMaquininha = terminais.some(t => t.aceitaPix)
+  const [pixNaTela, setPixNaTela] = useState(false)
+  const pixNaMaquininha = temPixMaquininha && !pixNaTela
 
   const totalPago = pagamentos.reduce((s: number, p: PagamentoDTO) => s + p.valor, 0)
   const restante  = Math.max(0, totalVenda - totalPago)
@@ -329,7 +341,33 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
               )}
 
               {/* ── Painel PIX ─────────────────────────────────────────── */}
-              {metodo === 'PIX' && (
+              {metodo === 'PIX' && temPixMaquininha && (
+                <div className="grid grid-cols-2 gap-1 bg-gray-800 rounded-lg p-1 text-sm">
+                  {[{ naTela: false, rotulo: 'Na maquininha' }, { naTela: true, rotulo: 'QR na tela' }].map(o => (
+                    <button
+                      key={o.rotulo}
+                      onClick={() => setPixNaTela(o.naTela)}
+                      disabled={cartaoOcupado || pixSt === 'aguardando'}
+                      className={`py-1.5 rounded-md font-medium transition-colors disabled:opacity-50 ${
+                        pixNaTela === o.naTela ? 'bg-teal-600 text-white' : 'text-gray-400 hover:text-white'}`}
+                    >
+                      {o.rotulo}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {metodo === 'PIX' && pixNaMaquininha && (
+                <PainelCartao
+                  key="PIX"
+                  metodo="PIX"
+                  valor={valor}
+                  setValor={setValor}
+                  vendaId={vendaId}
+                  onAprovado={cartaoAprovado}
+                  onOcupado={setCartaoOcupado}
+                />
+              )}
+              {metodo === 'PIX' && !pixNaMaquininha && (
                 <div className="space-y-3">
                   <div className="flex gap-2">
                     <CurrencyInput
@@ -412,7 +450,7 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
 
                   {pixSt === 'erro' && (
                     <p className="text-sm text-red-400 text-center">
-                      Erro ao gerar PIX. Verifique se MP_ACCESS_TOKEN está configurado no Railway.
+                      Não foi possível gerar o PIX. Veja o motivo na mensagem acima.
                     </p>
                   )}
                 </div>
