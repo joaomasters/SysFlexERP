@@ -161,6 +161,12 @@ export default function ProdutoCadastroPage() {
       fornecedorId: produto.fornecedorId ?? null,
       marca: produto.marca ?? '',
       validadePadraoDias: produto.validadePadraoDias != null ? String(produto.validadePadraoDias) : '',
+      estoqueMaximo: produto.estoqueMaximo ?? 0,
+      ncm: produto.ncm ?? '',
+      cest: produto.cest ?? '',
+      cfop: produto.cfop ?? '',
+      origem: produto.origem ?? '0',
+      csosn: produto.csosn ?? '',
     }
     setForm(carregado)
     setInicial(carregado)

@@ -65,6 +65,8 @@ test.describe('JARVIS', () => {
         await expect(page.getByText(/JARVIS — somente leitura: 001/)).toBeVisible()
 
         await page.getByRole('navigation').getByRole('link', { name: 'Produtos' }).click()
+        // A lista é paginada: busca o produto pelo nome
+        await page.getByPlaceholder('Buscar por nome, código ou código de barras...').fill(nome)
         await expect(page.getByRole('row').filter({ hasText: nome })).toHaveCount(1)
 
         const token = await page.evaluate(() => JSON.parse(sessionStorage.getItem('jarvis_visualizacao')!).token)
