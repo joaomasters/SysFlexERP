@@ -44,8 +44,15 @@ public interface ProvedorTerminalNuvem {
             String identificadorDispositivo,
             String tipo,          // DEBITO | CREDITO | PIX (PIX só na Veloce)
             int parcelas,
-            BigDecimal valor
+            BigDecimal valor,
+            String pagadorDocumento, // CPF/CNPJ do cliente da venda, só dígitos; null se não houver
+            String pagadorNome
     ) {
+        public CobrancaTerminal(Long transacaoId, Long vendaId, String identificadorDispositivo,
+                                String tipo, int parcelas, BigDecimal valor) {
+            this(transacaoId, vendaId, identificadorDispositivo, tipo, parcelas, valor, null, null);
+        }
+
         /** Referência única da cobrança na adquirente — também serve de chave de idempotência. */
         public String referencia() {
             return "SYSFLEX-TT-" + transacaoId;

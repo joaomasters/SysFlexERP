@@ -110,9 +110,15 @@ public class TransacaoTerminalService {
 
         if (t.getModoIntegracao() == ModoIntegracaoTerminal.API_NUVEM) {
             try {
+                Cliente cliente = venda.getCliente();
+                String documento = cliente != null && cliente.getCpfCnpj() != null
+                        ? cliente.getCpfCnpj().replaceAll("\\D", "") : "";
+                boolean documentoValido = documento.length() == 11 || documento.length() == 14;
                 RetornoProvedor r = provedorNuvem(t.getProvedor()).iniciar(new CobrancaTerminal(
                         t.getId(), venda.getId(), terminal.getIdentificadorDispositivo(),
-                        t.getTipo(), parcelas, valor), credencial);
+                        t.getTipo(), parcelas, valor,
+                        documentoValido ? documento : null,
+                        documentoValido ? cliente.getNome() : null), credencial);
                 aplicar(t, r);
             } catch (BusinessException e) {
                 // Grava o ERRO (em vez de propagar e dar rollback) para ficar o rastro

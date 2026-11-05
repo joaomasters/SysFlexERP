@@ -87,8 +87,27 @@ class VeloceSmartTefProvedorTest {
         @Test
         @DisplayName("PIX vai como tipo 3 e à vista")
         void pix() {
-            Map<String, Object> corpo = VeloceSmartTefProvedor.montarPagamento(cobranca("PIX", 1), 123L, CNPJ, "u");
-            assertThat(corpo).containsEntry("tipo", 3).containsEntry("parcelas", "1");
+            Map<String, Object> corpo = VeloceSmartTefProvedor.montarPagamento(cobranca("PIX", 1), 123L, CNPJ, "u", "Loja X");
+            assertThat(corpo).containsEntry("tipo", 3).containsEntry("parcelas", "1")
+                    // venda sem cliente com documento: identifica a própria loja
+                    .containsEntry("identificador", CNPJ).containsEntry("nome", "Loja X");
+        }
+
+        @Test
+        @DisplayName("PIX usa o CPF e o nome do cliente da venda quando houver")
+        void pixComCliente() {
+            CobrancaTerminal c = new CobrancaTerminal(42L, 7L, "EOIVM", "PIX", 1, new BigDecimal("15.60"),
+                    "12345678909", "Maria Souza");
+            assertThat(VeloceSmartTefProvedor.montarPagamento(c, 123L, CNPJ, "u", "Loja X"))
+                    .containsEntry("identificador", "12345678909").containsEntry("nome", "Maria Souza")
+                    .containsEntry("identificador_cliente", "12345678909");
+        }
+
+        @Test
+        @DisplayName("cartão não manda dados do pagador")
+        void cartaoSemPagador() {
+            assertThat(VeloceSmartTefProvedor.montarPagamento(cobranca("CREDITO", 2), 123L, CNPJ, "u", "Loja X"))
+                    .doesNotContainKeys("identificador", "nome");
         }
 
         @Test
