@@ -283,12 +283,23 @@ export default function PainelCartao({ metodo, valor, setValor, vendaId, onAprov
     if (volta) setTerminalId(volta.id)
   }
 
-  // F7 = Venda manual (os outros F são do ModalPagamento)
+  // Botão principal: Enviar para maquininha / Registrar venda manual / Tentar novamente; na confirmação manual, Aprovado
+  function acaoPrincipal() {
+    if (estado === 'confirmar_manual') { confirmarManual(true); return }
+    if ((estado !== 'idle' && estado !== 'negado') || !valor) return
+    reiniciar()
+    iniciar()
+  }
+
+  // F7 = Venda manual, F8 = botão principal (F1–F6 são do ModalPagamento)
   const alternarRef = useRef(alternarManual)
   alternarRef.current = alternarManual
+  const principalRef = useRef(acaoPrincipal)
+  principalRef.current = acaoPrincipal
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'F7') { e.preventDefault(); alternarRef.current() }
+      if (e.key === 'F8') { e.preventDefault(); principalRef.current() }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -368,11 +379,12 @@ export default function PainelCartao({ metodo, valor, setValor, vendaId, onAprov
             </div>
           )}
           <button
-            onClick={() => { reiniciar(); iniciar() }}
+            onClick={acaoPrincipal}
             disabled={!valor}
             className="w-full py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {estado === 'negado' ? <><RefreshCw size={16} /> Tentar novamente</> : <><CreditCard size={16} /> {terminal ? 'Enviar para maquininha' : 'Registrar venda manual'}</>}
+            <span className="text-xs font-normal opacity-70">[F8]</span>
           </button>
         </>
       )}
@@ -422,7 +434,7 @@ export default function PainelCartao({ metodo, valor, setValor, vendaId, onAprov
               onClick={() => confirmarManual(true)}
               className="flex-1 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-sm font-bold"
             >
-              Aprovado
+              Aprovado <span className="text-xs font-normal opacity-70">[F8]</span>
             </button>
           </div>
         </div>
