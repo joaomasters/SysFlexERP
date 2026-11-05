@@ -76,6 +76,8 @@ public class SecurityConfig {
         }
         config.addAllowedMethod("*");
         config.addAllowedHeader("*");
+        // Sem isto o navegador esconde o cabeçalho do JS quando front e API têm origens diferentes
+        config.addExposedHeader(JwtAuthFilter.CABECALHO_VERSAO_CACHE);
         config.setMaxAge(3600L);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);

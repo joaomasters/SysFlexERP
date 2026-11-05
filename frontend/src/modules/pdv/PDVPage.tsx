@@ -63,6 +63,7 @@ export default function PDVPage() {
   const [showNovaComanda, setShowNovaComanda] = useState(false)
   const [descontando, setDescontando] = useState<ItemVenda | null>(null)
   const [excluindo, setExcluindo] = useState<ItemVenda | null>(null)
+  const [cancelando, setCancelando] = useState(false)
   const [selecionadoId, setSelecionadoId] = useState<number | null>(null)
   const [hora, setHora]           = useState(new Date())
   const [valorAbertura, setValorAbertura] = useState(0)
@@ -204,14 +205,38 @@ export default function PDVPage() {
     setExcluindo(null)
   }
 
-  // Atalhos de teclado (F2 = Buscar produto, F4 = Sair da comanda, F10 = Finalizar, Escape = Cancelar)
+  async function confirmarCancelamento() {
+    try {
+      await cancelarVenda()
+    } catch {
+      // erro já mostrado pelo interceptor do axios
+    }
+    setCancelando(false)
+  }
+
+  // F2 = Buscar produto, F4 = Sair da comanda, F9 = Cancelar venda, F10 = Finalizar.
+  // Com uma janela aberta eles ficam desligados: no pagamento, F1–F7 escolhem a forma.
+  function atalhoDaTela(e: KeyboardEvent) {
+    const janelaAberta = showPagto || limitePendente || pesando || perguntarImpressao || showNovaComanda
+      || showFechar || excluindo || descontando || cancelando
+    if (janelaAberta) return
+    if (e.key === 'F4') { e.preventDefault(); sairRef.current() }
+    if (e.key === 'F10') { e.preventDefault(); if (venda?.itens?.length) setShowPagto(true) }
+    if (e.key === 'F2') { e.preventDefault(); buscaRef.current?.focus() }
+    if (e.key === 'F9') {
+      e.preventDefault()
+      if (!venda) return
+      if (podeCancelarVenda) setCancelando(true)
+      else toast.error('Só um administrador pode cancelar uma venda.')
+    }
+  }
+  const atalhoTelaRef = useRef(atalhoDaTela)
+  atalhoTelaRef.current = atalhoDaTela
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       atalhoRef.current(e)
-      if (e.key === 'F4') { e.preventDefault(); sairRef.current() }
-      if (e.key === 'F10') { e.preventDefault(); setShowPagto(true) }
-      if (e.key === 'F2') { e.preventDefault(); buscaRef.current?.focus() }
-      if (e.key === 'Escape') { e.preventDefault(); /* abre confirmação */ }
+      atalhoTelaRef.current(e)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -445,7 +470,7 @@ export default function PDVPage() {
           </button>
 
           <button
-            onClick={cancelarVenda}
+            onClick={() => setCancelando(true)}
             disabled={!venda || !podeCancelarVenda}
             title={!podeCancelarVenda ? 'Só um administrador pode cancelar uma venda' : undefined}
             className="py-3 rounded-xl text-sm font-medium
@@ -455,6 +480,7 @@ export default function PDVPage() {
           >
             <Trash2 size={15} />
             CANCELAR VENDA
+            <span className="text-xs font-normal opacity-60">[F9]</span>
           </button>
           {venda && !podeCancelarVenda && (
             <p className="text-center text-[11px] text-gray-600 -mt-2">
@@ -522,6 +548,32 @@ export default function PDVPage() {
               <button autoFocus onClick={confirmarExclusao}
                 className="flex-1 py-3 rounded-xl bg-red-700 hover:bg-red-600 font-bold text-sm">
                 Excluir <span className="opacity-70 font-normal">[Enter]</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cancelar venda (botão ou F9): pede confirmação, é a um toque de tecla */}
+      {cancelando && venda && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+             onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape') setCancelando(false) }}>
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-sm p-6 space-y-4 text-center">
+            <Trash2 size={32} className="mx-auto text-red-400" />
+            <div>
+              <h2 className="text-lg font-bold">Cancelar esta venda?</h2>
+              <p className="text-sm text-gray-400">
+                {venda.itens?.length ?? 0} item(ns) · {brl(venda.total ?? 0)}. Não dá para desfazer.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setCancelando(false)}
+                className="flex-1 py-3 rounded-xl bg-gray-700 hover:bg-gray-600 text-sm font-medium">
+                Voltar <span className="opacity-60">[Esc]</span>
+              </button>
+              <button autoFocus onClick={confirmarCancelamento}
+                className="flex-1 py-3 rounded-xl bg-red-700 hover:bg-red-600 font-bold text-sm">
+                Cancelar venda <span className="opacity-70 font-normal">[Enter]</span>
               </button>
             </div>
           </div>
