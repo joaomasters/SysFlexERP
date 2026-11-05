@@ -73,6 +73,35 @@ public class Produto {
     @Builder.Default
     private BigDecimal estoqueMinimo = BigDecimal.ZERO;
 
+    // Opcional; quando informado, nunca menor que o mínimo (ver ProdutoService)
+    @Column(name = "estoque_maximo", precision = 12, scale = 4)
+    @DecimalMin(value = "0", message = "O estoque máximo não pode ser negativo.")
+    private BigDecimal estoqueMaximo;
+
+    // ── Fiscal (aba "Informações Fiscais"). Formatos iguais aos CHECKs da V31. ──
+
+    @Column(length = 8)
+    @Pattern(regexp = "\\d{8}", message = "O NCM deve ter 8 dígitos.")
+    private String ncm;
+
+    @Column(length = 7)
+    @Pattern(regexp = "\\d{7}", message = "O CEST deve ter 7 dígitos.")
+    private String cest;
+
+    @Column(length = 4)
+    @Pattern(regexp = "[1-7]\\d{3}", message = "Informe um CFOP válido (4 dígitos).")
+    private String cfop;
+
+    /** Origem da mercadoria (tabela A do ICMS): 0 = nacional ... 8. */
+    @Column(nullable = false, length = 1)
+    @Pattern(regexp = "[0-8]", message = "Origem da mercadoria inválida.")
+    @Builder.Default
+    private String origem = "0";
+
+    @Column(length = 3)
+    @Pattern(regexp = "101|102|103|201|202|203|300|400|500|900", message = "CSOSN inválido.")
+    private String csosn;
+
     // Prazo de validade padrão (dias). Entradas sem validade explícita geram lote com
     // validade = hoje + este prazo. null = sem controle automático de validade.
     @Column(name = "validade_padrao_dias")

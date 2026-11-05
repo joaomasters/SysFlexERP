@@ -63,6 +63,34 @@ public class ProdutoService {
         return ean13 == null || ean13.isBlank() ? null : ean13.trim();
     }
 
+    private static String vazioParaNulo(String valor) {
+        return valor == null || valor.isBlank() ? null : valor.trim();
+    }
+
+    private void validarEstoqueMaximo(BigDecimal minimo, BigDecimal maximo) {
+        if (maximo != null && minimo != null && maximo.compareTo(minimo) < 0) {
+            throw new BusinessException("O estoque máximo deve ser maior ou igual ao estoque mínimo.");
+        }
+    }
+
+    /** Campos fiscais e estoque máximo, iguais no cadastro e na edição. Origem em branco = 0 (nacional). */
+    private static void copiarFiscal(Produto origem, Produto destino) {
+        destino.setEstoqueMaximo(origem.getEstoqueMaximo());
+        destino.setNcm(vazioParaNulo(origem.getNcm()));
+        destino.setCest(vazioParaNulo(origem.getCest()));
+        destino.setCfop(vazioParaNulo(origem.getCfop()));
+        String origemMercadoria = vazioParaNulo(origem.getOrigem());
+        destino.setOrigem(origemMercadoria == null ? "0" : origemMercadoria);
+        destino.setCsosn(vazioParaNulo(origem.getCsosn()));
+    }
+
+    // O banco já impede repetir (unique), mas com um erro genérico; aqui a mensagem diz qual produto
+    private void validarCodigoInternoUnico(String codigo) {
+        produtoRepo.findByCodigoInterno(codigo).ifPresent(outro -> {
+            throw new BusinessException("Código interno " + codigo + " já cadastrado no produto \"" + outro.getNome() + "\".");
+        });
+    }
+
     // Só bloqueia contra produto ativo: inativos não aparecem na tela, e um código preso num
     // produto inativado impediria recadastrar o item sem o usuário ter como resolver.
     private void validarEanUnico(String ean13, Long idProduto) {
@@ -115,8 +143,14 @@ public class ProdutoService {
         produto.setEan13(normalizarEan(produto.getEan13()));
         validarEanUnico(produto.getEan13(), null);
         aplicarFornecedor(produto, null);
-        if (produto.getCodigoInterno() == null || produto.getCodigoInterno().isBlank()) {
+        validarEstoqueMaximo(produto.getEstoqueMinimo(), produto.getEstoqueMaximo());
+        copiarFiscal(produto, produto);
+        String codigoInterno = vazioParaNulo(produto.getCodigoInterno());
+        if (codigoInterno == null) {
             produto.setCodigoInterno(gerarCodigoInterno());
+        } else {
+            validarCodigoInternoUnico(codigoInterno);
+            produto.setCodigoInterno(codigoInterno);
         }
         return produtoRepo.save(produto);
     }
@@ -149,6 +183,8 @@ public class ProdutoService {
         existente.setCodigoBalanca(dados.getCodigoBalanca());
         existente.setEan13(ean13);
         existente.setEstoqueMinimo(dados.getEstoqueMinimo());
+        validarEstoqueMaximo(dados.getEstoqueMinimo(), dados.getEstoqueMaximo());
+        copiarFiscal(dados, existente);
         validarValidadePadrao(dados.getValidadePadraoDias());
         existente.setValidadePadraoDias(dados.getValidadePadraoDias());
         existente.setCategoria(dados.getCategoria());
