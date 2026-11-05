@@ -121,7 +121,8 @@ public class VeloceSmartTefProvedor implements ProvedorTerminalNuvem {
     public RetornoProvedor iniciar(CobrancaTerminal c, String credencial) {
         Credencial cred = lerCredencial(credencial);
         long pagamentoId = gerarPagamentoId(c.transacaoId(), System.currentTimeMillis());
-        Resposta r = autenticado(cred, "POST", base + "/pagamento/criar", montarPagamento(c, pagamentoId, cred.cnpj(), urlRetorno()));
+        Resposta r = autenticado(cred, "POST", base + "/pagamento/criar", montarPagamento(c, pagamentoId, cred.cnpj(), urlRetorno(),
+                nomeEmpresaAtual()));
         JsonNode corpo = r.json();
         if (!r.sucesso() || corpo == null || !corpo.path("ok").asBoolean(false)) {
             throw new BusinessException(mensagemErro(r, "enviar a cobrança para a maquininha"));
@@ -140,6 +141,11 @@ public class VeloceSmartTefProvedor implements ProvedorTerminalNuvem {
     }
 
     static Map<String, Object> montarPagamento(CobrancaTerminal c, long pagamentoId, String cnpj, String urlRetorno) {
+        return montarPagamento(c, pagamentoId, cnpj, urlRetorno, null);
+    }
+
+    static Map<String, Object> montarPagamento(CobrancaTerminal c, long pagamentoId, String cnpj, String urlRetorno,
+                                               String nomeLoja) {
         boolean credito = "CREDITO".equals(c.tipo());
         Map<String, Object> corpo = new LinkedHashMap<>();
         corpo.put("valor", c.valor());
@@ -151,6 +157,18 @@ public class VeloceSmartTefProvedor implements ProvedorTerminalNuvem {
         corpo.put("tipo", tipoVeloce(c.tipo()));
         corpo.put("parcelas", String.valueOf(credito ? c.parcelas() : 1));
         if (c.vendaId() != null) corpo.put("pedido", c.vendaId());
+        if ("PIX".equals(c.tipo())) {
+            // PIX exige identificador e nome (fora do manual: a API respondeu "Campo obrigatório
+            // identificador / nome"). Sem cliente com CPF/CNPJ na venda, vai a própria loja.
+            String documento = c.pagadorDocumento() != null ? c.pagadorDocumento() : cnpj;
+            String nome = c.pagadorDocumento() != null ? c.pagadorNome()
+                    : (nomeLoja != null && !nomeLoja.isBlank() ? nomeLoja : "Consumidor");
+            corpo.put("identificador", documento);
+            corpo.put("nome", nome);
+            // Os nomes do manual (modo fila), caso a validação use estes
+            corpo.put("identificador_cliente", documento);
+            corpo.put("nome_cliente", nome);
+        }
         return corpo;
     }
 
@@ -291,11 +309,20 @@ public class VeloceSmartTefProvedor implements ProvedorTerminalNuvem {
     }
 
     private String codigoEmpresaAtual() {
+        Tenant t = empresaAtual();
+        return t != null ? t.codigo() : null;
+    }
+
+    private String nomeEmpresaAtual() {
+        Tenant t = empresaAtual();
+        return t != null ? t.nome() : null;
+    }
+
+    private Tenant empresaAtual() {
         try {
             String schema = ContextoUsuario.atual().getTenantSchema();
             return tenantRepository.listarTodos().stream()
                     .filter(t -> t.schemaName().equals(schema))
-                    .map(Tenant::codigo)
                     .findFirst().orElse(null);
         } catch (Exception e) {
             return null;
