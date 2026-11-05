@@ -65,6 +65,23 @@ test.describe('PDV: atalhos do pagamento', () => {
         await expect(metodo(page, 'Cheque')).toHaveClass(/scale-105/)
     })
 
+    test('Deve registrar a venda manual só pelo teclado (F2, F7, F8, F8)', async ({ page, request }) => {
+        await abrirComanda(page, await abrirVenda(request))
+        await page.keyboard.press('F10')
+        await page.keyboard.press('F2')
+        // Sem maquininha de débito o painel já abre no manual; com, o F7 alterna
+        const manual = page.getByRole('button', { name: /Venda manual/ })
+        if (await manual.getAttribute('aria-pressed') === 'false') await page.keyboard.press('F7')
+        await expect(page.getByRole('button', { name: /Registrar venda manual \[F8\]/ })).toBeVisible()
+
+        await page.keyboard.press('F8')
+        await page.getByPlaceholder('NSU / DOC').fill('123456')
+        await page.keyboard.press('F8')
+        // Venda quitada: o pagamento entra na lista e o painel do cartão sai
+        await expect(page.getByText(/NSU 123456/)).toBeVisible()
+        await expect(page.getByRole('button', { name: 'Finalizar Venda' })).toBeEnabled()
+    })
+
     test('Deve cancelar a venda com F9, pedindo confirmação', async ({ page, request }) => {
         await abrirComanda(page, await abrirVenda(request))
         await expect(page.getByRole('button', { name: /CANCELAR VENDA \[F9\]/ })).toBeVisible()
