@@ -14,6 +14,8 @@ spring:
 kafka:
   enabled: false
 seguranca:
+  cors:
+    origens: http://localhost:*,http://127.0.0.1:*
   jwt:
     # Só para desenvolvimento local — produção usa a variável JWT_SECRET
     segredo: dev-local-jwt-segredo-somente-para-maquina-do-desenvolvedor

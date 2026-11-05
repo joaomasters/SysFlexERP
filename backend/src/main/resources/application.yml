@@ -4,7 +4,8 @@ spring:
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/acougue_db}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
-    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+    # Sem valor padrão: sem a variável o banco recusa a conexão, em vez de tentar a senha "postgres"
+    password: ${SPRING_DATASOURCE_PASSWORD:}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 10
@@ -84,8 +85,13 @@ seguranca:
     segredo: ${JWT_SECRET:}
   cors:
     # Origens do navegador que podem chamar a API direto. Produção passa pelo
-    # rewrite do Vercel (mesma origem); o desenvolvimento chama direto.
-    origens: ${CORS_ORIGENS:https://sysflexerp.vercel.app,https://sysflexerpdev.vercel.app,https://sis-meet-house-*-jgp-tech.vercel.app,http://localhost:*}
+    # rewrite do Vercel (mesma origem). Só os domínios reais: localhost fica no
+    # application-local.yml, e previews do Vercel entram via CORS_ORIGENS se precisar.
+    origens: ${CORS_ORIGENS:https://sysflexerp.vercel.app,https://sysflexerpdev.vercel.app}
+  limite:
+    # Requisições por minuto: por usuário logado, e por rota de webhook (sem login). Acima disso, 429.
+    por-usuario-minuto: ${LIMITE_POR_USUARIO_MINUTO:600}
+    webhook-minuto: ${LIMITE_WEBHOOK_MINUTO:300}
   login:
     # Tentativas erradas seguidas para o mesmo login antes de bloquear por alguns minutos
     max-tentativas: 8
