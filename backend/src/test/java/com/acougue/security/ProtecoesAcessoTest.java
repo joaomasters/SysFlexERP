@@ -80,11 +80,16 @@ class ProtecoesAcessoTest {
             return new UsuarioAutenticado(7L, "x", "X", "ADMIN", false, Map.of(), schema);
         }
 
+        /** Linha de public.tenants como o ValidadorSessao lê: ativo + versão do cache. */
+        private List<Map<String, Object>> empresa(boolean ativa, long versaoCache) {
+            return List.of(Map.of("ativo", ativa, "versao_cache", versaoCache));
+        }
+
         @Test
         @DisplayName("empresa desativada derruba a sessão")
         void empresaDesativada() {
             JdbcTemplate jdbc = mock(JdbcTemplate.class);
-            when(jdbc.queryForList(contains("public.tenants"), eq(Boolean.class), any())).thenReturn(List.of(false));
+            when(jdbc.queryForList(contains("public.tenants"), anyString())).thenReturn(empresa(false, 0));
             assertThat(new ValidadorSessao(jdbc).sessaoAtiva(usuario("tenant_dinamus_terere"))).isFalse();
         }
 
@@ -92,7 +97,7 @@ class ProtecoesAcessoTest {
         @DisplayName("usuário desativado derruba a sessão; ativo segue")
         void usuario() {
             JdbcTemplate jdbc = mock(JdbcTemplate.class);
-            when(jdbc.queryForList(contains("public.tenants"), eq(Boolean.class), any())).thenReturn(List.of(true));
+            when(jdbc.queryForList(contains("public.tenants"), anyString())).thenReturn(empresa(true, 0));
             when(jdbc.queryForList(contains("tenant_a.usuarios"), eq(Boolean.class), any())).thenReturn(List.of(false));
             when(jdbc.queryForList(contains("tenant_b.usuarios"), eq(Boolean.class), any())).thenReturn(List.of(true));
             ValidadorSessao v = new ValidadorSessao(jdbc);
@@ -112,12 +117,49 @@ class ProtecoesAcessoTest {
         @DisplayName("resultado fica em cache (não consulta o banco a cada requisição)")
         void cache() {
             JdbcTemplate jdbc = mock(JdbcTemplate.class);
+            when(jdbc.queryForList(contains("public.tenants"), anyString())).thenReturn(empresa(true, 0));
             when(jdbc.queryForList(anyString(), eq(Boolean.class), any())).thenReturn(List.of(true));
             ValidadorSessao v = new ValidadorSessao(jdbc);
             v.sessaoAtiva(usuario("public"));
             v.sessaoAtiva(usuario("public"));
             v.sessaoAtiva(usuario("public"));
-            verify(jdbc, times(2)).queryForList(anyString(), eq(Boolean.class), any()); // 1x empresa + 1x usuário
+            verify(jdbc, times(1)).queryForList(contains("public.tenants"), anyString());
+            verify(jdbc, times(1)).queryForList(anyString(), eq(Boolean.class), any()); // usuário
+        }
+
+        @Test
+        @DisplayName("limpar o cache de uma empresa faz reler a versão só dela")
+        void limparEmpresa() {
+            JdbcTemplate jdbc = mock(JdbcTemplate.class);
+            when(jdbc.queryForList(contains("public.tenants"), eq("tenant_a"))).thenReturn(empresa(true, 3), empresa(true, 4));
+            when(jdbc.queryForList(contains("public.tenants"), eq("tenant_b"))).thenReturn(empresa(true, 9));
+            when(jdbc.queryForList(anyString(), eq(Boolean.class), any())).thenReturn(List.of(true));
+            ValidadorSessao v = new ValidadorSessao(jdbc);
+            v.sessaoAtiva(usuario("tenant_a"));
+            v.sessaoAtiva(usuario("tenant_b"));
+            assertThat(v.versaoCache(usuario("tenant_a"))).isEqualTo(3);
+
+            v.limparEmpresa("tenant_a", "002");
+            v.sessaoAtiva(usuario("tenant_a"));
+            v.sessaoAtiva(usuario("tenant_b"));
+
+            assertThat(v.versaoCache(usuario("tenant_a"))).isEqualTo(4);
+            assertThat(v.versaoCache(usuario("tenant_b"))).isEqualTo(9);
+            verify(jdbc, times(1)).queryForList(contains("public.tenants"), eq("tenant_b"));
+        }
+
+        @Test
+        @DisplayName("limpar o cache desbloqueia os logins só daquela empresa")
+        void desbloqueiaLogins() {
+            LimitadorTentativasLogin limitador = new LimitadorTentativasLogin(1, 15);
+            limitador.registrarFalha("002", "caixa");
+            limitador.registrarFalha("003", "caixa");
+            assertThat(limitador.minutosBloqueado("002", "caixa")).isPositive();
+
+            limitador.limparEmpresa("tenant_b", "002");
+
+            assertThat(limitador.minutosBloqueado("002", "caixa")).isZero();
+            assertThat(limitador.minutosBloqueado("003", "caixa")).isPositive();
         }
     }
 }

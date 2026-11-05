@@ -5,7 +5,7 @@ import {
   CreditCard, BarChart2, Scale, AlertTriangle,
   ClipboardList, TrendingDown, ArrowDownCircle, BarChart, LogOut,
   Truck, FileText, Users, ShieldCheck, Home, Contact,
-  ShieldAlert, CalendarClock, Percent, Building2, Store, Printer
+  ShieldAlert, CalendarClock, Percent, Building2, Store, Printer, Wrench
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import clsx from 'clsx'
@@ -52,13 +52,15 @@ const nav = [
   { label: 'Auditoria', href: '/acesso/auditoria', icon: ShieldAlert, modulo: 'AUDITORIA' },
   { label: 'Maquininhas', href: '/acesso/maquininhas', icon: CreditCard, modulo: 'MAQUININHAS' },
   { label: 'Comprovante', href: '/acesso/comprovante', icon: Printer, modulo: 'COMPROVANTE' },
+  // Sem Modulo: só o SUPER_ADMIN de cada empresa (limpar cache etc.)
+  { label: 'Manutenção', href: '/acesso/manutencao', icon: Wrench, somenteSuperAdmin: true },
   // Sem Modulo no backend de propósito: só o super admin da EMPRESA PRINCIPAL
   // gerencia empresas (o SUPER_ADMIN de cada empresa cliente não vê este item).
   { label: 'Empresas', href: '/acesso/empresas', icon: Building2, somentePlataforma: true },
 ]
 
 export default function Sidebar() {
-  const { podeVer, isSuperAdmin, isAdministradorPlataforma } = usePermissao()
+  const { podeVer, isSuperAdmin, isAdministradorPlataforma, sessao } = usePermissao()
 
   const podeVerBalanca = isSuperAdmin || podeVer('CARGA_BALANCA')
 
@@ -84,6 +86,7 @@ export default function Sidebar() {
   const itensVisiveis = nav.filter(item => {
     if ('separator' in item || item.sempreVisivel) return true
     if (item.somentePlataforma) return isAdministradorPlataforma
+    if (item.somenteSuperAdmin) return isSuperAdmin && !sessao?.somenteLeitura
     return isSuperAdmin || podeVer(item.modulo!)
   })
   const navFiltrado = itensVisiveis.filter((item, i) => {

@@ -19,13 +19,14 @@ import java.util.regex.Pattern;
  banco em toda chamada do PDV; desativar passa a valer em até CACHE_MS.
  */
 @Component
-public class ValidadorSessao {
+public class ValidadorSessao implements CacheDaEmpresa {
 
     static final long CACHE_MS = 30_000;
     private static final Pattern SCHEMA_VALIDO = Pattern.compile("^(public|tenant_[a-z0-9_]+)$");
 
     private final JdbcTemplate jdbc;
-    private final Map<String, long[]> cache = new ConcurrentHashMap<>(); // chave -> [ativo(1/0), expiraEm]
+    // chave -> [ativo(1/0), expiraEm, versaoCache]. A versão vem na mesma consulta, sem custo extra.
+    private final Map<String, long[]> cache = new ConcurrentHashMap<>();
 
     @Value("${jarvis.login:}")
     private String loginJarvis = "";
@@ -49,35 +50,49 @@ public class ValidadorSessao {
         if (emCache != null && emCache[1] > agora) {
             return emCache[0] == 1;
         }
-        boolean ativa = usuario.isJarvis() ? empresaExiste(schema) : consultar(schema, usuarioId);
-        cache.put(chave, new long[]{ativa ? 1 : 0, agora + CACHE_MS});
-        return ativa;
+        long[] r = usuario.isJarvis() ? empresaExiste(schema) : consultar(schema, usuarioId);
+        cache.put(chave, new long[]{r[0], agora + CACHE_MS, r[1]});
+        return r[0] == 1;
+    }
+
+    /** Versão do cache da empresa lida na última checagem desta sessão (ver JwtAuthFilter). */
+    public long versaoCache(UsuarioAutenticado usuario) {
+        long[] emCache = cache.get(usuario.getTenantSchema() + ":" + usuario.getUsuarioId());
+        return emCache != null ? emCache[2] : 0;
+    }
+
+    /** Próxima requisição de cada usuário da empresa relê o banco e já pega a versão nova. */
+    @Override
+    public void limparEmpresa(String schema, String codigo) {
+        cache.keySet().removeIf(chave -> chave.startsWith(schema + ":"));
     }
 
     // O JARVIS não tem linha em usuarios e também vê empresa inativa, para dar suporte
-    private boolean empresaExiste(String schema) {
+    private long[] empresaExiste(String schema) {
         try {
-            Integer total = jdbc.queryForObject(
-                    "SELECT COUNT(*) FROM public.tenants WHERE schema_name = ?", Integer.class, schema);
-            return total != null && total > 0;
+            List<Long> versao = jdbc.queryForList(
+                    "SELECT versao_cache FROM public.tenants WHERE schema_name = ?", Long.class, schema);
+            return versao.isEmpty() ? new long[]{0, 0} : new long[]{1, versao.get(0)};
         } catch (Exception e) {
-            return false; // na dúvida, não autentica
+            return new long[]{0, 0}; // na dúvida, não autentica
         }
     }
 
-    private boolean consultar(String schema, Long usuarioId) {
+    private long[] consultar(String schema, Long usuarioId) {
         try {
-            List<Boolean> empresa = jdbc.queryForList(
-                    "SELECT ativo FROM public.tenants WHERE schema_name = ?", Boolean.class, schema);
-            if (empresa.isEmpty() || !Boolean.TRUE.equals(empresa.get(0))) {
-                return false;
+            List<Map<String, Object>> empresa = jdbc.queryForList(
+                    "SELECT ativo, versao_cache FROM public.tenants WHERE schema_name = ?", schema);
+            if (empresa.isEmpty() || !Boolean.TRUE.equals(empresa.get(0).get("ativo"))) {
+                return new long[]{0, 0};
             }
+            long versao = ((Number) empresa.get(0).get("versao_cache")).longValue();
             // schema validado pelo padrão acima (e vem de um token assinado)
             List<Boolean> usuario = jdbc.queryForList(
                     "SELECT ativo FROM " + schema + ".usuarios WHERE id = ?", Boolean.class, usuarioId);
-            return !usuario.isEmpty() && Boolean.TRUE.equals(usuario.get(0));
+            boolean ativo = !usuario.isEmpty() && Boolean.TRUE.equals(usuario.get(0));
+            return new long[]{ativo ? 1 : 0, versao};
         } catch (Exception e) {
-            return false; // na dúvida, não autentica
+            return new long[]{0, 0}; // na dúvida, não autentica
         }
     }
 }

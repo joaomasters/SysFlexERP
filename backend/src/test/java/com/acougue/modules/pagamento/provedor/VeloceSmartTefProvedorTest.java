@@ -311,6 +311,23 @@ class VeloceSmartTefProvedorTest {
         }
 
         @Test
+        @DisplayName("limpar o cache da empresa descarta só o token de login dela")
+        void limparCache() throws Exception {
+            loginDevolve("tok");
+            when(http.enviar(eq("POST"), eq(VeloceSmartTefProvedor.BASE + "/pagamento/rejeitar"), any(), any()))
+                    .thenReturn(resposta(200, "{\"ok\":true,\"message\":\"Sucesso ao rejeitar pagamento\"}"));
+
+            provedor.cancelar("4:555", "EOIVM", CREDENCIAL);
+            provedor.limparEmpresa("tenant_outra", "003");
+            provedor.cancelar("4:555", "EOIVM", CREDENCIAL);
+            verify(http, times(1)).enviar(eq("POST"), eq(VeloceSmartTefProvedor.BASE + "/acessar"), any(), any());
+
+            provedor.limparEmpresa("public", "001"); // sem empresa no contexto, o TenantContext é public
+            provedor.cancelar("4:555", "EOIVM", CREDENCIAL);
+            verify(http, times(2)).enviar(eq("POST"), eq(VeloceSmartTefProvedor.BASE + "/acessar"), any(), any());
+        }
+
+        @Test
         @DisplayName("teste de conexão confere login e acesso ao CNPJ")
         void testarConexao() throws Exception {
             loginDevolve("tok");

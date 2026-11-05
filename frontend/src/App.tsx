@@ -28,6 +28,7 @@ import PerfisPage from './modules/acesso/PerfisPage'
 import TenantsPage from './modules/acesso/TenantsPage'
 import MaquininhasPage from './modules/pagamento/MaquininhasPage'
 import ComprovantePage from './modules/acesso/ComprovantePage'
+import ManutencaoPage from './modules/acesso/ManutencaoPage'
 import HomePage from './modules/home/HomePage'
 import JarvisPage from './modules/jarvis/JarvisPage'
 
@@ -82,6 +83,7 @@ export default function App() {
             <Route path="/acesso/empresas"           element={<TenantsPage />} />
             <Route path="/acesso/maquininhas"        element={<MaquininhasPage />} />
             <Route path="/acesso/comprovante"        element={<ComprovantePage />} />
+            <Route path="/acesso/manutencao"         element={<ManutencaoPage />} />
           </Route>
         </Route>
 
