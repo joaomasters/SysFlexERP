@@ -30,13 +30,14 @@ interface Props {
 const brl = formatBRL
 
 // ─── metadados dos métodos ────────────────────────────────────────────────────
-const METODOS: { value: Metodo; label: string; icon: React.ElementType; cor: string }[] = [
-  { value: 'DINHEIRO', label: 'Dinheiro',  icon: Banknote,    cor: 'bg-emerald-600' },
-  { value: 'DEBITO',   label: 'Débito',    icon: CreditCard,  cor: 'bg-blue-600'    },
-  { value: 'CREDITO',  label: 'Crédito',   icon: CreditCard,  cor: 'bg-violet-600'  },
-  { value: 'PIX',      label: 'PIX',       icon: Smartphone,  cor: 'bg-teal-600'    },
-  { value: 'CHEQUE',   label: 'Cheque',    icon: FileCheck,   cor: 'bg-amber-600'   },
-  { value: 'FIADO',    label: 'Fiado',     icon: BookOpen,    cor: 'bg-orange-600'  },
+// Atalho = posição na grade (F1 a F6); F7 é a "Venda manual" do PainelCartao
+const METODOS: { value: Metodo; label: string; icon: React.ElementType; cor: string; atalho: string }[] = [
+  { value: 'DINHEIRO', label: 'Dinheiro',  icon: Banknote,    cor: 'bg-emerald-600', atalho: 'F1' },
+  { value: 'DEBITO',   label: 'Débito',    icon: CreditCard,  cor: 'bg-blue-600',    atalho: 'F2' },
+  { value: 'CREDITO',  label: 'Crédito',   icon: CreditCard,  cor: 'bg-violet-600',  atalho: 'F3' },
+  { value: 'PIX',      label: 'PIX',       icon: Smartphone,  cor: 'bg-teal-600',    atalho: 'F4' },
+  { value: 'CHEQUE',   label: 'Cheque',    icon: FileCheck,   cor: 'bg-amber-600',   atalho: 'F5' },
+  { value: 'FIADO',    label: 'Fiado',     icon: BookOpen,    cor: 'bg-orange-600',  atalho: 'F6' },
 ]
 
 export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCancelar }: Props) {
@@ -75,6 +76,22 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
   const restante  = Math.max(0, totalVenda - totalPago)
   const troco     = totalPago > totalVenda ? totalPago - totalVenda : 0
   const pago      = totalPago >= totalVenda - 0.009
+
+  // F1–F6 escolhem o método, como clicar no botão (inclusive travado com cobrança em andamento)
+  const escolherRef = useRef<(tecla: string) => void>(() => undefined)
+  escolherRef.current = (tecla: string) => {
+    const m = METODOS.find(x => x.atalho === tecla)
+    if (m && (!cartaoOcupado || m.value === metodo)) setMetodo(m.value)
+  }
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!METODOS.some(m => m.atalho === e.key)) return
+      e.preventDefault()  // F1 (ajuda) e F5 (recarregar) do navegador não podem disparar aqui
+      escolherRef.current(e.key)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   // Preenche valor com o restante quando muda de método
   useEffect(() => {
@@ -294,7 +311,7 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
                         ${ativo ? m.cor + ' text-white shadow-lg scale-105' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
                     >
                       <Icon size={20} />
-                      {m.label}
+                      <span>{m.label} <span className="font-normal opacity-60">[{m.atalho}]</span></span>
                     </button>
                   )
                 })}

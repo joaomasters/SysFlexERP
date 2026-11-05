@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { CheckCircle, XCircle, Loader2, AlertTriangle, RefreshCw, CreditCard } from 'lucide-react'
+import { CheckCircle, XCircle, Loader2, AlertTriangle, RefreshCw, CreditCard, Keyboard } from 'lucide-react'
 import { api } from '@/shared/api/axios'
 import { formatBRL } from '@/shared/utils/mask'
 import { CurrencyInput } from '@/shared/components/ui'
@@ -269,24 +269,71 @@ export default function PainelCartao({ metodo, valor, setValor, vendaId, onAprov
     }
   }
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  // ── Venda manual (outra maquininha, sem integração) ───────────────────────
   const bloqueado = estado !== 'idle' && estado !== 'negado'
+  const manual = terminalId === SEM_TERMINAL
+  // PIX na maquininha não tem "manual": o QR na tela (Mercado Pago) é a outra opção
+  const permiteManual = metodo !== 'PIX'
+
+  function alternarManual() {
+    if (bloqueado || !permiteManual) return
+    if (!manual) { setTerminalId(SEM_TERMINAL); return }
+    const salvo = lerTerminalSalvo()
+    const volta = compativeis.find(t => t.id === salvo) ?? compativeis[0]
+    if (volta) setTerminalId(volta.id)
+  }
+
+  // F7 = Venda manual (os outros F são do ModalPagamento)
+  const alternarRef = useRef(alternarManual)
+  alternarRef.current = alternarManual
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'F7') { e.preventDefault(); alternarRef.current() }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div className="space-y-3">
       {/* Seleção de maquininha */}
       {!isLoading && (
-        <select
-          value={terminalId ?? SEM_TERMINAL}
-          onChange={e => setTerminalId(Number(e.target.value))}
-          disabled={bloqueado}
-          className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-sm"
-        >
-          {compativeis.map(t => (
-            <option key={t.id} value={t.id}>{t.nome} · {ROTULO_PROVEDOR[t.provedor]}</option>
-          ))}
-          {metodo !== 'PIX' && <option value={SEM_TERMINAL}>Maquininha não integrada (registrar manualmente)</option>}
-        </select>
+        <div className="flex gap-2">
+          {compativeis.length > 0 ? (
+            <select
+              value={terminalId ?? SEM_TERMINAL}
+              onChange={e => setTerminalId(Number(e.target.value))}
+              disabled={bloqueado}
+              className={`flex-1 min-w-0 bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-sm ${manual ? 'text-gray-500' : ''}`}
+            >
+              {manual && <option value={SEM_TERMINAL} disabled>Escolha a maquininha integrada…</option>}
+              {compativeis.map(t => (
+                <option key={t.id} value={t.id}>{t.nome} · {ROTULO_PROVEDOR[t.provedor]}</option>
+              ))}
+            </select>
+          ) : (
+            <p className="flex-1 text-xs text-gray-400 bg-gray-800/60 rounded-lg px-3 py-2">
+              Nenhuma maquininha integrada para este pagamento.
+            </p>
+          )}
+          {permiteManual && (
+            <button
+              type="button"
+              onClick={alternarManual}
+              disabled={bloqueado || (manual && compativeis.length === 0)}
+              aria-pressed={manual}
+              title="Cobrar em outra maquininha e digitar o comprovante (F7)"
+              className={`shrink-0 px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors
+                          disabled:opacity-60 disabled:cursor-not-allowed ${manual
+                            ? 'bg-amber-600 hover:bg-amber-500 text-white'
+                            : 'bg-gray-800 hover:bg-gray-700 border border-gray-600 text-gray-200'}`}
+            >
+              <Keyboard size={14} /> Venda manual <span className="text-xs font-normal opacity-70">[F7]</span>
+            </button>
+          )}
+        </div>
       )}
 
       <div className="flex gap-2">
@@ -325,7 +372,7 @@ export default function PainelCartao({ metodo, valor, setValor, vendaId, onAprov
             disabled={!valor}
             className="w-full py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {estado === 'negado' ? <><RefreshCw size={16} /> Tentar novamente</> : <><CreditCard size={16} /> {terminal ? 'Enviar para maquininha' : 'Registrar cartão'}</>}
+            {estado === 'negado' ? <><RefreshCw size={16} /> Tentar novamente</> : <><CreditCard size={16} /> {terminal ? 'Enviar para maquininha' : 'Registrar venda manual'}</>}
           </button>
         </>
       )}
