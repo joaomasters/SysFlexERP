@@ -48,6 +48,13 @@ export interface Produto {
   ativo: boolean
   criadoPorNome?: string   // só vem para administradores
   validadePadraoDias?: number | null   // prazo de validade padrão (dias) p/ gerar lote automático
+  estoqueMaximo?: number | null
+  // Informações fiscais
+  ncm?: string | null       // 8 dígitos
+  cest?: string | null      // 7 dígitos
+  cfop?: string | null      // ex.: 5102
+  origem?: string           // tabela A do ICMS, '0' a '8'
+  csosn?: string | null     // Simples Nacional
 }
 
 export interface FichaDesossaItem {
