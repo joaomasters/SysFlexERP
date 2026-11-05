@@ -22,7 +22,9 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -311,7 +313,23 @@ public class VeloceSmartTefProvedor implements ProvedorTerminalNuvem {
         if (msg.contains("Pagamento existente")) {
             return "Veloce: já existe um pagamento com este número. Tente cobrar de novo.";
         }
-        return "Veloce: falha ao " + acao + " (HTTP " + r.status() + ")" + (msg.isBlank() ? "" : ": " + msg);
+        return "Veloce: falha ao " + acao + " (HTTP " + r.status() + ")" + (msg.isBlank() ? "" : ": " + msg)
+                + camposRecusados(r);
+    }
+
+    /** No 400, a Veloce lista em result os campos recusados: {"cnpj": ["Campo obrigatório cnpj"], ...}. */
+    private static String camposRecusados(Resposta r) {
+        JsonNode result = r.json() != null ? r.json().path("result") : null;
+        if (result == null || !result.isObject() || result.isEmpty()) return "";
+        List<String> motivos = new ArrayList<>();
+        result.fields().forEachRemaining(e -> {
+            if (e.getValue().isArray() && !e.getValue().isEmpty()) {
+                e.getValue().forEach(m -> motivos.add(m.asText()));
+            } else {
+                motivos.add(e.getKey() + ": " + e.getValue().asText());
+            }
+        });
+        return " (" + String.join("; ", motivos) + ")";
     }
 
     /** Mensagem da Veloce ou, se ela não mandar texto, o código HTTP: o erro nunca sai em branco. */

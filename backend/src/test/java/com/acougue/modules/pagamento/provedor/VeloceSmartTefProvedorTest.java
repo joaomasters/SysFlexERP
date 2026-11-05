@@ -103,6 +103,20 @@ class VeloceSmartTefProvedorTest {
         }
 
         @Test
+        @DisplayName("campos recusados pela Veloce aparecem na mensagem")
+        void camposRecusados() throws Exception {
+            loginDevolve("tok-1");
+            when(http.enviar(eq("POST"), eq(VeloceSmartTefProvedor.BASE + "/pagamento/criar"), any(), any()))
+                    .thenReturn(resposta(400, "{\"ok\":false,\"message\":\"Campos obrigatórios\","
+                            + "\"result\":{\"nome_cliente\":[\"Campo obrigatório nome cliente\"]}}"));
+
+            assertThatThrownBy(() -> provedor.iniciar(cobranca("PIX", 1), CREDENCIAL))
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessageContaining("Campos obrigatórios")
+                    .hasMessageContaining("Campo obrigatório nome cliente");
+        }
+
+        @Test
         @DisplayName("pagamento repetido NÃO vira aprovação, mesmo vindo pago")
         void pagamentoExistente() throws Exception {
             loginDevolve("tok-1");
