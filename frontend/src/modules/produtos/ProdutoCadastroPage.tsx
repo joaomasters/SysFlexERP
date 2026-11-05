@@ -9,7 +9,7 @@ import type { Produto } from '@/types/produto'
 import type { OpcaoFornecedor } from '@/types/fornecedor'
 import { casasDaUnidade } from '@/shared/utils/mask'
 import { usePermissao } from '@/shared/hooks/usePermissao'
-import { margemPct, corMargem } from './produtoUtils'
+import { margemPct, corMargem, precoPorMargem } from './produtoUtils'
 import {
   PageHeader, Card, Button, Field, baseInputClass, disabledInputClass,
   CurrencyInput, WeightInput, ConfirmDialog, LoadingState,
@@ -192,6 +192,17 @@ export default function ProdutoCadastroPage() {
   const casas = casasDaUnidade(form.unidadeMedida)
   const unidade = form.unidadeMedida.toLowerCase()
   const margem = margemPct(form.precoCusto, form.precoVenda)
+  // Margem editável: enquanto digita, guarda o texto e recalcula o preço de venda; fora do foco mostra a calculada
+  const [margemTexto, setMargemTexto] = useState<string | null>(null)
+  const margemDigitada = margemTexto === null ? null : Number(margemTexto.replace(',', '.'))
+  const erroMargem = margemDigitada !== null && margemTexto !== '' && !(margemDigitada >= 0 && margemDigitada < 100)
+    ? 'Use uma margem de 0 a 99,9%.' : undefined
+  function digitarMargem(texto: string) {
+    const limpo = texto.replace(/[^\d,.]/g, '')
+    setMargemTexto(limpo)
+    const preco = precoPorMargem(form.precoCusto, Number(limpo.replace(',', '.')))
+    if (limpo !== '' && preco !== null) set('precoVenda', preco)
+  }
 
   function set<K extends keyof FormState>(campo: K, valor: FormState[K]) {
     setForm(f => ({ ...f, [campo]: valor }))
@@ -453,18 +464,23 @@ export default function ProdutoCadastroPage() {
                   aria-invalid={Boolean(erros.precoVenda)}
                 />
               </Field>
-              <Field label="Margem" className="md:col-span-3">
-                <div
-                  aria-live="polite"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 text-right tabular-nums"
-                >
-                  {margem === null ? (
-                    <span className="text-gray-400">—</span>
-                  ) : (
-                    <span className={`font-semibold ${corMargem(margem)}`}>
-                      {margem.toFixed(1)}%
-                    </span>
-                  )}
+              <Field label="Margem" error={erroMargem} className="md:col-span-3"
+                hint={form.precoCusto > 0 ? 'Sobre o preço de venda. Digite para calcular o preço.' : 'Informe o preço de custo para usar a margem.'}>
+                <div className="relative">
+                  <input
+                    id="produto-margem"
+                    name="margem"
+                    inputMode="decimal"
+                    value={margemTexto ?? (margem === null ? '' : margem.toFixed(1).replace('.', ','))}
+                    onChange={e => digitarMargem(e.target.value)}
+                    onBlur={() => setMargemTexto(null)}
+                    disabled={!(form.precoCusto > 0)}
+                    placeholder="—"
+                    aria-invalid={Boolean(erroMargem)}
+                    className={`${form.precoCusto > 0 ? baseInputClass : disabledInputClass} text-right tabular-nums pr-8 font-semibold ${
+                      margem !== null && margemTexto === null ? corMargem(margem) : ''}`}
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">%</span>
                 </div>
               </Field>
               <Field className="md:col-span-3"
