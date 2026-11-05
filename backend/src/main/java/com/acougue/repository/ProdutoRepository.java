@@ -14,6 +14,10 @@ import java.util.Optional;
 @Repository
 public interface ProdutoRepository extends JpaRepository<Produto, Long> {
 
+    /** Próximo número do código interno automático (V35): único mesmo com cadastros simultâneos. */
+    @Query(value = "SELECT nextval('produto_codigo_interno_seq')", nativeQuery = true)
+    long proximoNumeroCodigoInterno();
+
     /** Renomear um fornecedor atualiza o nome guardado nos produtos vinculados a ele. */
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE Produto p SET p.fornecedor = :nome WHERE p.fornecedorId = :fornecedorId")

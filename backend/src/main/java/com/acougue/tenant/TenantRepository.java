@@ -111,8 +111,11 @@ public class TenantRepository {
     }
 
     // Base pra gerar o próximo código sequencial (001, 002, ...) ao provisionar.
-    public int contarTenants() {
-        Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM public.tenants", Integer.class);
-        return count != null ? count : 0;
+    /** Maior código numérico já usado (000 do JARVIS não está na tabela; 0 se não houver nenhum). */
+    public int maiorCodigo() {
+        Integer maior = jdbc.queryForObject(
+                "SELECT COALESCE(MAX(CAST(codigo AS INTEGER)), 0) FROM public.tenants WHERE codigo ~ '^[0-9]+$'",
+                Integer.class);
+        return maior != null ? maior : 0;
     }
 }

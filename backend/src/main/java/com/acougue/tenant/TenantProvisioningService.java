@@ -1,5 +1,7 @@
 package com.acougue.tenant;
 
+import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -52,12 +54,8 @@ public class TenantProvisioningService {
             throw new IllegalArgumentException("A senha do administrador precisa ter pelo menos 8 caracteres.");
         }
 
-        String slug = slugUnico(nome.trim());
-        String schemaName = "tenant_" + slug.replace('-', '_');
-
-        // Defesa extra — Flyway também cria o schema sozinho via createSchemas(true),
-        // mas deixar explícito não custa nada e documenta a intenção.
-        jdbc.execute("CREATE SCHEMA IF NOT EXISTS " + schemaName);
+        String slug = reservarSchema(nome.trim());
+        String schemaName = schemaDe(slug);
 
         // Mesma configuração usada no boot para manter todas as empresas atualizadas
         MigradorSchemasEmpresas.migrar(dataSource, schemaName);
@@ -67,30 +65,55 @@ public class TenantProvisioningService {
         dadosIniciais.prepararEmpresaNova(schemaName, nome.trim(), adminNome.trim(), adminLogin.trim(),
                 passwordEncoder.encode(adminSenha));
 
-        String codigo = proximoCodigo();
-        tenantRepository.insertInativo(codigo, slug, nome.trim(), schemaName);
+        inserirComCodigoLivre(slug, nome.trim(), schemaName);
 
         return tenantRepository.findBySlug(slug)
                 .orElseThrow(() -> new IllegalStateException("Tenant recém-criado não encontrado: " + slug));
     }
 
+    static final int TENTATIVAS_CODIGO = 10;
+
     // Sequencial, 3 dígitos (001, 002, ...) — curto o bastante pra passar por
     // telefone/WhatsApp pro dono do negócio novo digitar no login.
-    private String proximoCodigo() {
-        return String.format("%03d", tenantRepository.contarTenants() + 1);
+    // Maior código + 1 (antes era a QUANTIDADE + 1: repetia código se uma empresa
+    // sumisse). Duas empresas criadas juntas leem o mesmo maior: a segunda bate na
+    // unique de codigo e tenta o próximo.
+    void inserirComCodigoLivre(String slug, String nome, String schemaName) {
+        for (int i = 0; i < TENTATIVAS_CODIGO; i++) {
+            String codigo = String.format("%03d", tenantRepository.maiorCodigo() + 1);
+            try {
+                tenantRepository.insertInativo(codigo, slug, nome, schemaName);
+                return;
+            } catch (DuplicateKeyException outraEmpresaPegouOCodigo) {
+                // tenta de novo com o maior atualizado
+            }
+        }
+        throw new IllegalStateException("Não foi possível reservar um código para a empresa. Tente de novo.");
     }
 
     // "Padaria da Maria" -> "padaria-da-maria". Se já existir, acrescenta
     // um sufixo numérico (padaria-da-maria-2) até achar um livre — nunca
     // falha por conflito, só o slug muda, o que a pessoa vê é o código.
-    private String slugUnico(String nome) {
+    // O schema é criado aqui SEM "IF NOT EXISTS": é ele que reserva o nome. Antes, duas
+    // empresas de mesmo nome criadas juntas caíam no mesmo schema (e uma sobra de criação
+    // que falhou no meio também era reaproveitada).
+    String reservarSchema(String nome) {
         String base = slugificar(nome);
-        String slug = base;
-        int sufixo = 2;
-        while (tenantRepository.existsBySlug(slug)) {
-            slug = base + "-" + sufixo++;
+        for (int sufixo = 1; sufixo <= 1000; sufixo++) {
+            String slug = sufixo == 1 ? base : base + "-" + sufixo;
+            if (tenantRepository.existsBySlug(slug)) continue;
+            try {
+                jdbc.execute("CREATE SCHEMA " + schemaDe(slug)); // slug só tem [a-z0-9-]
+                return slug;
+            } catch (DataAccessException schemaJaExiste) {
+                // outra criação pegou este nome agora, ou é sobra antiga: próximo sufixo
+            }
         }
-        return slug;
+        throw new IllegalStateException("Não foi possível reservar um nome para a empresa: " + nome);
+    }
+
+    private static String schemaDe(String slug) {
+        return "tenant_" + slug.replace('-', '_');
     }
 
     private String slugificar(String texto) {

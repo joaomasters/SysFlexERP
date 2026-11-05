@@ -118,13 +118,14 @@ class ProdutoServiceCamposFiscaisTest {
     }
 
     @Test
-    @DisplayName("salvar: sem código interno, gera o automático")
+    @DisplayName("salvar: sem código interno, gera o automático pela sequência, pulando o que foi digitado à mão")
     void codigoInternoAutomatico() {
         when(produtoRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        when(produtoRepo.count()).thenReturn(41L);
+        when(produtoRepo.proximoNumeroCodigoInterno()).thenReturn(42L, 43L);
+        when(produtoRepo.findByCodigoInterno("P000042")).thenReturn(Optional.of(produto())); // digitado à mão antes
+        when(produtoRepo.findByCodigoInterno("P000043")).thenReturn(Optional.empty());
 
-        assertThat(service.salvar(produto(), 1L).getCodigoInterno()).isEqualTo("P000042");
-        verify(produtoRepo, never()).findByCodigoInterno(anyString());
+        assertThat(service.salvar(produto(), 1L).getCodigoInterno()).isEqualTo("P000043");
     }
 
     @Test
