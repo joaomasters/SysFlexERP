@@ -5,8 +5,10 @@ import com.acougue.entity.StatusTransacaoTerminal;
 import com.acougue.exception.BusinessException;
 import com.acougue.modules.pagamento.ClienteHttpPagamento;
 import com.acougue.modules.pagamento.ClienteHttpPagamento.Resposta;
+import com.acougue.security.CacheDaEmpresa;
 import com.acougue.security.ContextoUsuario;
 import com.acougue.tenant.Tenant;
+import com.acougue.tenant.TenantContext;
 import com.acougue.tenant.TenantRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -48,7 +50,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * manual "API SmartTEF v1027" (cac.veloce.tech).
  */
 @Component
-public class VeloceSmartTefProvedor implements ProvedorTerminalNuvem {
+public class VeloceSmartTefProvedor implements ProvedorTerminalNuvem, CacheDaEmpresa {
 
     // O manual em PDF (v1027) diz /v1, mas as rotas estão em /api/v1: em /v1 tudo responde 404
     static final String BASE = "https://api.veloce.tech/api/v1";
@@ -62,6 +64,7 @@ public class VeloceSmartTefProvedor implements ProvedorTerminalNuvem {
     private final TenantRepository tenantRepository;
     private final String baseUrlRetorno;
     private final Map<String, String> tokens = new ConcurrentHashMap<>(); // login -> token da API
+    private final Map<String, String> empresaDoLogin = new ConcurrentHashMap<>(); // login -> schema, para o "Limpar cache"
 
     public VeloceSmartTefProvedor(ClienteHttpPagamento http, ObjectMapper json, TenantRepository tenantRepository,
                                   @Value("${pagamento.webhook.base-url:}") String baseUrlRetorno,
@@ -263,6 +266,16 @@ public class VeloceSmartTefProvedor implements ProvedorTerminalNuvem {
         }
     }
 
+    /** "Limpar cache": a próxima cobrança da empresa faz login de novo na Veloce. */
+    @Override
+    public void limparEmpresa(String schema, String codigo) {
+        empresaDoLogin.entrySet().removeIf(e -> {
+            if (!schema.equals(e.getValue())) return false;
+            tokens.remove(e.getKey());
+            return true;
+        });
+    }
+
     // ── Autenticação ───────────────────────────────────────────
 
     private Resposta autenticado(Credencial cred, String metodo, String url, Object corpo) {
@@ -284,6 +297,7 @@ public class VeloceSmartTefProvedor implements ProvedorTerminalNuvem {
             throw new BusinessException("Veloce recusou o login de integração: " + mensagemOuStatus(r));
         }
         tokens.put(cred.login(), token);
+        empresaDoLogin.put(cred.login(), TenantContext.get());
         return token;
     }
 

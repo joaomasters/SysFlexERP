@@ -2,6 +2,7 @@ import axios from 'axios'
 import toast from 'react-hot-toast'
 import { getToken, removeToken } from '../auth'
 import { API_BASE_URL } from './ambiente'
+import { conferirVersaoCache } from '../cacheVersao'
 
 /**
  * Texto do erro para o usuário. Erro de validação vem como { campo: mensagem } em vez de
@@ -26,8 +27,12 @@ api.interceptors.request.use((config) => {
 })
 
 api.interceptors.response.use(
-  (res) => res,
+  (res) => {
+    conferirVersaoCache(res.headers['x-versao-cache'])
+    return res
+  },
   (error) => {
+    conferirVersaoCache(error.response?.headers?.['x-versao-cache'])
     if (error.response?.status === 401) {
       removeToken()
       window.location.href = '/login'

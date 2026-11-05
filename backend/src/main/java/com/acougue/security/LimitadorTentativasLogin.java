@@ -20,7 +20,7 @@ import java.util.concurrent.ConcurrentHashMap;
  caso; com várias, cada uma conta separado (o limite efetivo multiplica).
  */
 @Component
-public class LimitadorTentativasLogin {
+public class LimitadorTentativasLogin implements CacheDaEmpresa {
 
     private final int maxTentativas;
     private final long bloqueioMs;
@@ -55,6 +55,12 @@ public class LimitadorTentativasLogin {
 
     public void registrarSucesso(String empresa, String login) {
         registros.remove(chave(empresa, login));
+    }
+
+    /** "Limpar cache": desbloqueia os logins da empresa (a chave começa pelo código dela). */
+    @Override
+    public void limparEmpresa(String schema, String codigo) {
+        registros.keySet().removeIf(chave -> chave.startsWith(codigo + "|"));
     }
 
     private static String chave(String empresa, String login) {

@@ -14,6 +14,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -176,7 +177,7 @@ class JarvisTest {
         @DisplayName("vale para empresa inativa, sem procurar usuário no schema da empresa")
         void naoProcuraUsuario() {
             JdbcTemplate db = mock(JdbcTemplate.class);
-            when(db.queryForObject(contains("public.tenants"), eq(Integer.class), any())).thenReturn(1);
+            when(db.queryForList(contains("public.tenants"), eq(Long.class), any())).thenReturn(List.of(0L));
             ValidadorSessao validador = new ValidadorSessao(db);
             ReflectionTestUtils.setField(validador, "loginJarvis", "tony");
 

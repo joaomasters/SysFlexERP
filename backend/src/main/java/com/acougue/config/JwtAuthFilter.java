@@ -21,6 +21,8 @@ import java.util.List;
 @Component
 public class JwtAuthFilter extends OncePerRequestFilter {
 
+    public static final String CABECALHO_VERSAO_CACHE = "X-Versao-Cache";
+
     private final JwtUtil jwtUtil;
     private final ValidadorSessao validadorSessao;
 
@@ -52,6 +54,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                         res.getWriter().write("{\"message\":\"O JARVIS é somente leitura: esta ação não está disponível.\"}");
                         return;
                     }
+                    // O front compara com a versão que guardou; se o SUPER_ADMIN limpou o cache, recarrega
+                    res.setHeader(CABECALHO_VERSAO_CACHE, String.valueOf(validadorSessao.versaoCache(usuario)));
                     UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
                             usuario, null, List.of(new SimpleGrantedAuthority("ROLE_USUARIO")));
                     SecurityContextHolder.getContext().setAuthentication(auth);
