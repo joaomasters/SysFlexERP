@@ -24,7 +24,8 @@ public enum Modulo {
     COMISSOES("Comissões"),
     MAQUININHAS("Maquininhas de Cartão"),
     FORNECEDORES("Fornecedores"),
-    COMPROVANTE("Comprovante de Venda");
+    COMPROVANTE("Comprovante de Venda"),
+    FISCAL("Notas Fiscais (NFC-e / NF-e)");
 
     private final String rotulo;
 

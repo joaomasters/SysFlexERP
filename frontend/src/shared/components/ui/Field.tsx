@@ -6,6 +6,8 @@ interface FieldProps {
   hint?: string
   children: ReactNode
   className?: string
+  /** id do campo: liga o rótulo a ele (clique e leitor de tela) */
+  htmlFor?: string
 }
 
 /**
@@ -13,10 +15,10 @@ interface FieldProps {
  * Usar em todo formulário do sistema para manter tipografia e espaçamento
  * consistentes (label 12px/medium/cinza-600, erro 12px vermelho, ajuda 11px cinza-400).
  */
-export default function Field({ label, error, hint, children, className = '' }: FieldProps) {
+export default function Field({ label, error, hint, children, className = '', htmlFor }: FieldProps) {
   return (
     <div className={className}>
-      <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
+      <label htmlFor={htmlFor} className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
       {children}
       {error && <p className="text-danger-600 text-xs mt-1">{error}</p>}
       {!error && hint && <p className="text-[11px] text-gray-400 mt-1">{hint}</p>}
