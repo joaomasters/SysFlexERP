@@ -5,7 +5,7 @@ import {
   CreditCard, BarChart2, Scale, AlertTriangle,
   ClipboardList, TrendingDown, ArrowDownCircle, BarChart, LogOut,
   Truck, FileText, Users, ShieldCheck, Home, Contact,
-  ShieldAlert, CalendarClock, Percent, Building2, Store, Printer, Wrench
+  ShieldAlert, CalendarClock, Percent, Building2, Store, Printer, Wrench, FileKey
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import clsx from 'clsx'
@@ -33,6 +33,7 @@ const nav = [
 
   { separator: 'Fiscal' },
   { label: 'NF de Saída', href: '/fiscal/notas', icon: FileText, modulo: 'NF_SAIDA' },
+  { label: 'Emissão de Notas', href: '/fiscal/emissao', icon: FileKey, modulo: 'FISCAL' },
 
   { separator: 'Financeiro' },
   { label: 'Clientes',         href: '/financeiro/clientes',       icon: Contact,      modulo: 'CLIENTES' },
