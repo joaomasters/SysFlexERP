@@ -59,6 +59,18 @@ public class ProdutoService {
         }
     }
 
+    /**
+     * Limpa o nome digitado: tira espaços do começo/fim e junta os repetidos no meio
+     * ("  Picanha   Maturada " vira "Picanha Maturada"). Nome só com espaços não é nome.
+     */
+    static String normalizarNome(String nome) {
+        String limpo = nome == null ? "" : nome.trim().replaceAll("\\s+", " ");
+        if (limpo.isEmpty()) {
+            throw new BusinessException("Informe a descrição do produto.");
+        }
+        return limpo;
+    }
+
     private static String normalizarEan(String ean13) {
         return ean13 == null || ean13.isBlank() ? null : ean13.trim();
     }
@@ -138,6 +150,7 @@ public class ProdutoService {
         // Cadastro SEMPRE cria: com um "id" no corpo, o save() sobrescrevia um produto
         // existente — quem só tinha permissão de criar alterava preço/estoque de outros.
         produto.setId(null);
+        produto.setNome(normalizarNome(produto.getNome()));
         produto.setCriadoPorId(usuarioId); // autoria vem do token, nunca do corpo da requisição
         validarValidadePadrao(produto.getValidadePadraoDias());
         produto.setEan13(normalizarEan(produto.getEan13()));
@@ -169,7 +182,7 @@ public class ProdutoService {
             validarEanUnico(ean13, id);
         }
 
-        existente.setNome(dados.getNome());
+        existente.setNome(normalizarNome(dados.getNome()));
         existente.setDescricao(dados.getDescricao());
         existente.setPrecoVenda(dados.getPrecoVenda());
         // precoCusto NÃO é editável manualmente — é calculado automaticamente pelo

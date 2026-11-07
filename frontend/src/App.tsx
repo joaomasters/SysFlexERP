@@ -22,6 +22,7 @@ import CargaBalancaPage from './modules/balanca/CargaBalancaPage'
 import RecebimentoPage from './modules/estoque/RecebimentoPage'
 import FichasDesossaPage from './modules/estoque/FichasDesossaPage'
 import NotaFiscalPage from './modules/fiscal/NotaFiscalPage'
+import EmissaoFiscalPage from './modules/fiscal/EmissaoFiscalPage'
 import UsuariosPage from './modules/acesso/UsuariosPage'
 import AuditoriaPage from './modules/acesso/AuditoriaPage'
 import PerfisPage from './modules/acesso/PerfisPage'
@@ -69,6 +70,7 @@ export default function App() {
             <Route path="/estoque/recebimento"         element={<RecebimentoPage />} />
             <Route path="/estoque/fichas-desossa"     element={<FichasDesossaPage />} />
             <Route path="/fiscal/notas"              element={<NotaFiscalPage />} />
+            <Route path="/fiscal/emissao"            element={<EmissaoFiscalPage />} />
             <Route path="/financeiro/clientes"       element={<ClientesPage />} />
             <Route path="/financeiro/faturamento"    element={<FaturamentoPage />} />
             <Route path="/financeiro/contas-receber" element={<ContasReceberPage />} />

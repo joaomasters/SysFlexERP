@@ -96,3 +96,51 @@ test.describe('PDV: atalhos do pagamento', () => {
         await expect(page.getByText('Venda cancelada')).toBeVisible()
     })
 })
+
+test.describe('PDV: troco e quantidade', () => {
+    test('Deve mostrar o troco da nota escolhida e finalizar só pelo teclado (F8, F10)', async ({ page, request }) => {
+        await abrirComanda(page, await abrirVenda(request)) // 1 kg de Picanha a R$ 69,90
+        await page.keyboard.press('F10')
+        await page.keyboard.press('F1')
+        await page.getByRole('button', { name: 'R$ 100,00' }).click()
+        await expect(page.getByText('Troco para o cliente')).toBeVisible()
+        await expect(page.getByText('R$ 30,10').first()).toBeVisible()
+
+        await page.keyboard.press('F8')
+        await expect(page.getByRole('button', { name: /Finalizar Venda · Troco R\$ 30,10/ })).toBeEnabled()
+        await page.keyboard.press('F10')
+        await expect(page.getByText('Imprimir o comprovante para o cliente?')).toBeVisible()
+    })
+
+    test('Esc cancela a janela de pagamento', async ({ page, request }) => {
+        await abrirComanda(page, await abrirVenda(request))
+        await page.keyboard.press('F10')
+        await expect(page.getByText('Pagamento', { exact: true })).toBeVisible()
+        await page.keyboard.press('Escape')
+        await expect(page.getByText('Pagamento', { exact: true })).toHaveCount(0)
+    })
+
+    test('Deve mudar a quantidade do item com + e − e com F7', async ({ page, request, produtosApi }) => {
+        const vendaId = await abrirVenda(request)
+        const espeto = await produtosApi.criar({ nome: `Espeto ${faker.string.alphanumeric(6)}`, precoVenda: 9 })
+        await request.post(`/api/pdv/vendas/${vendaId}/itens`, {
+            headers, data: { produtoId: espeto.id, quantidade: 1, tipoEntrada: 'MANUAL' },
+        })
+        await abrirComanda(page, vendaId)
+        const linha = page.getByRole('row').filter({ hasText: espeto.nome })
+        await linha.click()
+
+        await page.keyboard.press('+')
+        await expect(linha).toContainText('2 un')
+        await expect(linha).toContainText('R$ 18,00')
+
+        await page.keyboard.press('F7')
+        await page.getByLabel('Quantidade', { exact: true }).fill('5')
+        await page.keyboard.press('Enter')
+        await expect(linha).toContainText('5 un')
+
+        await page.keyboard.press('-')
+        await expect(linha).toContainText('4 un')
+        await expect(linha).toContainText('R$ 36,00')
+    })
+})

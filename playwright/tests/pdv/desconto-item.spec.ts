@@ -187,7 +187,7 @@ test.describe('Cupom com desconto', () => {
                 await expect(modal(page)).toHaveCount(0)
 
                 await page.keyboard.press('F10')
-                await page.getByRole('button', { name: '✓' }).click()
+                await page.getByRole('button', { name: 'Lançar pagamento' }).click()
                 await page.getByRole('button', { name: /Finalizar Venda/ }).click()
 
                 await expect(page.getByText(`Venda #${vendaId} finalizada`)).toBeVisible()

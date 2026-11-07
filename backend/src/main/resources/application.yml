@@ -99,9 +99,6 @@ seguranca:
 acougue:
   cors:
     allowed-origins: ${ACOUGUE_CORS_ALLOWED_ORIGINS:http://localhost:5173}
-  nfce:
-    ambiente: 2
-    uf: 35
 kafka:
   enabled: ${KAFKA_ENABLED:false}
   sasl:

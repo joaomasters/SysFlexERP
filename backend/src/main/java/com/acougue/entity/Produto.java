@@ -32,7 +32,7 @@ public class Produto {
     private String ean13;
 
     @Column(nullable = false, length = 150)
-    @NotBlank
+    @NotBlank(message = "Informe a descrição do produto.")
     private String nome;
 
     @Column(columnDefinition = "TEXT")
