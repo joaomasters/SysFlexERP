@@ -17,4 +17,11 @@ public interface FornecedorRepository extends JpaRepository<Fornecedor, Long> {
     /** Mesmo critério do índice único do banco: sem diferenciar maiúsculas nem espaços nas pontas. */
     @Query("SELECT f FROM Fornecedor f WHERE LOWER(TRIM(f.nome)) = LOWER(TRIM(:nome))")
     Optional<Fornecedor> buscarPorNomeExato(@Param("nome") String nome);
+
+    /** CPF/CNPJ comparado só pelos dígitos (o texto gravado pode ter máscara). */
+    @Query("""
+            SELECT f FROM Fornecedor f
+            WHERE REPLACE(REPLACE(REPLACE(f.cpfCnpj, '.', ''), '/', ''), '-', '') = :digitos
+            """)
+    List<Fornecedor> buscarPorCpfCnpjDigitos(@Param("digitos") String digitos);
 }

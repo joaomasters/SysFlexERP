@@ -32,6 +32,7 @@ public class FornecedorService {
     public Fornecedor criar(Fornecedor dados, Long usuarioId) {
         normalizar(dados);
         garantirNomeLivre(dados.getNome(), null);
+        garantirDocumentoLivre(dados.getCpfCnpj(), null);
         dados.setId(null); // criação nunca sobrescreve um existente
         dados.setAtivo(true);
         dados.setCriadoPorId(usuarioId); // autoria vem do token
@@ -43,6 +44,12 @@ public class FornecedorService {
         Fornecedor existente = buscarPorId(id);
         normalizar(dados);
         garantirNomeLivre(dados.getNome(), id);
+        // Só confere quando o documento mudou: fornecedores antigos com documento repetido
+        // continuam editáveis (nome, telefone...) sem serem barrados por um dado legado.
+        if (!DocumentoFiscal.somenteDigitos(dados.getCpfCnpj())
+                .equals(DocumentoFiscal.somenteDigitos(existente.getCpfCnpj()))) {
+            garantirDocumentoLivre(dados.getCpfCnpj(), id);
+        }
 
         boolean renomeado = !existente.getNome().equals(dados.getNome());
         existente.setNome(dados.getNome());
@@ -83,6 +90,43 @@ public class FornecedorService {
         if (f.getTipoPessoa() == null || !List.of("PF", "PJ").contains(f.getTipoPessoa())) {
             f.setTipoPessoa("PJ");
         }
+        f.setEmail(vazioParaNulo(f.getEmail()));
+        f.setContato(vazioParaNulo(f.getContato()));
+        f.setEndereco(vazioParaNulo(f.getEndereco()));
+        normalizarDocumento(f);
+    }
+
+    /** Documento é opcional (fornecedores antigos não têm), mas, se informado, precisa ser válido. */
+    private void normalizarDocumento(Fornecedor f) {
+        String digitos = DocumentoFiscal.somenteDigitos(f.getCpfCnpj());
+        if (digitos.isEmpty()) {
+            f.setCpfCnpj(null);
+            return;
+        }
+        boolean pf = "PF".equals(f.getTipoPessoa());
+        if (pf && !DocumentoFiscal.cpfValido(digitos)) {
+            throw new BusinessException("CPF inválido. Confira os números digitados.");
+        }
+        if (!pf && !DocumentoFiscal.cnpjValido(digitos)) {
+            throw new BusinessException("CNPJ inválido. Confira os números digitados.");
+        }
+        f.setCpfCnpj(DocumentoFiscal.formatar(digitos));
+    }
+
+    private void garantirDocumentoLivre(String cpfCnpj, Long idAtual) {
+        String digitos = DocumentoFiscal.somenteDigitos(cpfCnpj);
+        if (digitos.isEmpty()) return;
+        fornecedorRepo.buscarPorCpfCnpjDigitos(digitos).stream()
+                .filter(outro -> !outro.getId().equals(idAtual))
+                .findFirst()
+                .ifPresent(outro -> {
+                    throw new BusinessException("Este " + (digitos.length() == 11 ? "CPF" : "CNPJ")
+                            + " já está cadastrado para o fornecedor \"" + outro.getNome() + "\".");
+                });
+    }
+
+    private static String vazioParaNulo(String s) {
+        return s == null || s.isBlank() ? null : s.trim();
     }
 
     private void garantirNomeLivre(String nome, Long idAtual) {
