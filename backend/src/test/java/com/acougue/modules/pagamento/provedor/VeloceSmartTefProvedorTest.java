@@ -85,6 +85,14 @@ class VeloceSmartTefProvedorTest {
         }
 
         @Test
+        @DisplayName("voucher (vale-alimentação/refeição) vai como tipo 2, à vista e sem dados do pagador")
+        void voucher() {
+            Map<String, Object> corpo = VeloceSmartTefProvedor.montarPagamento(cobranca("VOUCHER", 3), 123L, CNPJ, "u", "Loja X");
+            assertThat(corpo).containsEntry("tipo", 2).containsEntry("parcelas", "1")
+                    .doesNotContainKeys("identificador", "nome");
+        }
+
+        @Test
         @DisplayName("PIX vai como tipo 3 e à vista")
         void pix() {
             Map<String, Object> corpo = VeloceSmartTefProvedor.montarPagamento(cobranca("PIX", 1), 123L, CNPJ, "u", "Loja X");

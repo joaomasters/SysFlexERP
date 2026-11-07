@@ -71,11 +71,17 @@ public class TransacaoTerminalService {
         boolean aceita = switch (dto.getTipo()) {
             case "CREDITO" -> terminal.getAceitaCredito();
             case "PIX" -> terminal.getAceitaPix();
+            case "VOUCHER" -> terminal.getAceitaVoucher();
             default -> terminal.getAceitaDebito();
         };
         if (!aceita) {
-            throw new BusinessException("Esta maquininha não está configurada para "
-                    + ("PIX".equals(dto.getTipo()) ? "PIX" : credito ? "crédito" : "débito") + ".");
+            String nome = switch (dto.getTipo()) {
+                case "CREDITO" -> "crédito";
+                case "PIX" -> "PIX";
+                case "VOUCHER" -> "voucher";
+                default -> "débito";
+            };
+            throw new BusinessException("Esta maquininha não está configurada para " + nome + ".");
         }
         int parcelas = credito ? dto.getParcelas() : 1;
         if (parcelas > terminal.getMaxParcelas()) {

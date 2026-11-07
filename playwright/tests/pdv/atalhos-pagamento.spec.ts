@@ -82,6 +82,41 @@ test.describe('PDV: atalhos do pagamento', () => {
         await expect(page.getByRole('button', { name: 'Finalizar Venda' })).toBeEnabled()
     })
 
+    test('Deve cobrar no voucher (vale) com F9 na maquininha que aceita voucher', async ({ page, request }) => {
+        const nome = `Vale ${faker.string.alphanumeric(5)}`
+        const terminal = await request.post('/api/maquininhas/terminais', {
+            headers,
+            data: { nome, provedor: 'SICREDI', modoIntegracao: 'MANUAL', aceitaDebito: true, aceitaCredito: true,
+                maxParcelas: 6, aceitaVoucher: true, ativo: true },
+        })
+        expect(terminal.ok()).toBeTruthy()
+        expect((await terminal.json()).aceitaVoucher).toBe(true)
+
+        const vendaId = await abrirVenda(request)
+        const usuarioId = JSON.parse(Buffer.from(process.env.E2E_TOKEN!.split('.')[1], 'base64url').toString()).usuarioId
+        const caixaId = (await (await request.get(`/api/pdv/caixa/aberto?operadorId=${usuarioId}`, { headers })).json()).id
+        const voucherAntes = (await (await request.get(`/api/pdv/caixa/${caixaId}/fechamento`, { headers })).json()).totalVoucher
+        await abrirComanda(page, vendaId)
+        await page.keyboard.press('F10')
+        await page.keyboard.press('F9')
+        await expect(metodo(page, 'Voucher')).toHaveClass(/scale-105/)
+        // O pagamento continua aberto: F9 aqui é Voucher, não "Cancelar venda"
+        await expect(page.getByText('Cancelar esta venda?')).toHaveCount(0)
+
+        await page.locator("select").filter({ hasText: nome }).selectOption({ label: `${nome} · Sicredi` })
+        await page.keyboard.press('F8')
+        await page.getByPlaceholder('NSU / DOC').fill('777001')
+        await page.keyboard.press('F8')
+        await expect(page.getByText(/NSU 777001/)).toBeVisible()
+        await expect(page.getByText('VOUCHER', { exact: true })).toBeVisible()
+
+        await page.keyboard.press('F10')
+        await expect(page.getByText('Imprimir o comprovante para o cliente?')).toBeVisible()
+        // No fechamento do caixa o voucher aparece separado do débito
+        const fechamento = await (await request.get(`/api/pdv/caixa/${caixaId}/fechamento`, { headers })).json()
+        expect(fechamento.totalVoucher).toBeCloseTo(voucherAntes + 69.9, 2)
+    })
+
     test('Deve cancelar a venda com F9, pedindo confirmação', async ({ page, request }) => {
         await abrirComanda(page, await abrirVenda(request))
         await expect(page.getByRole('button', { name: /CANCELAR VENDA \[F9\]/ })).toBeVisible()

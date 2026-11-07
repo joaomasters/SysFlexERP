@@ -79,6 +79,7 @@ public class CaixaService {
         BigDecimal totalDebito   = BigDecimal.ZERO;
         BigDecimal totalPix      = BigDecimal.ZERO;
         BigDecimal totalFiado    = BigDecimal.ZERO;
+        BigDecimal totalVoucher  = BigDecimal.ZERO;
         BigDecimal totalVendas   = BigDecimal.ZERO;
 
         for (Venda venda : vendas) {
@@ -90,6 +91,7 @@ public class CaixaService {
                     case "DEBITO"   -> totalDebito   = totalDebito.add(pag.getValor());
                     case "PIX"      -> totalPix      = totalPix.add(pag.getValor());
                     case "FIADO"    -> totalFiado    = totalFiado.add(pag.getValor());
+                    case "VOUCHER"  -> totalVoucher  = totalVoucher.add(pag.getValor());
                     default -> {}
                 }
             }
@@ -111,6 +113,7 @@ public class CaixaService {
                 .totalDebito(totalDebito)
                 .totalPix(totalPix)
                 .totalFiado(totalFiado)
+                .totalVoucher(totalVoucher)
                 .saldoEsperado(saldoEsperado)
                 .quantidadeVendas(vendas.size())
                 .movimentos(sangriaRepo.findByCaixaIdOrderByCreatedAtDesc(caixaId))

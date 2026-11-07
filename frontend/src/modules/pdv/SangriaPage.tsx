@@ -45,6 +45,7 @@ interface FechamentoDTO {
   totalDebito: number
   totalPix: number
   totalFiado: number
+  totalVoucher: number
   saldoEsperado: number
   quantidadeVendas: number
   movimentos: SangriaItem[]
@@ -347,6 +348,7 @@ export default function SangriaPage() {
                 ['Crédito', fechamento.totalCredito],
                 ['Débito', fechamento.totalDebito],
                 ['PIX', fechamento.totalPix],
+                ['Voucher', fechamento.totalVoucher ?? 0],
                 ['Fiado', fechamento.totalFiado],
                 ['Suprimento (+)', fechamento.totalSuprimento],
                 ['Sangria (-)', fechamento.totalSangria],

@@ -27,6 +27,7 @@ public class SalvarTerminalDTO {
     private boolean aceitaDebito = true;
     private boolean aceitaCredito = true;
     private boolean aceitaPix = false;
+    private boolean aceitaVoucher = false;
 
     @Min(1) @Max(18)
     private int maxParcelas = 12;
