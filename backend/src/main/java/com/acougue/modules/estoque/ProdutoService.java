@@ -220,8 +220,13 @@ public class ProdutoService {
         produtoRepo.save(p);
     }
 
+    // Sequência do banco (V35): dois cadastros ao mesmo tempo nunca recebem o mesmo número.
+    // Pula o que alguém já digitou à mão na mesma faixa (ex.: P000050).
     private String gerarCodigoInterno() {
-        long count = produtoRepo.count() + 1;
-        return String.format("P%06d", count);
+        for (int i = 0; i < 1000; i++) {
+            String codigo = String.format("P%06d", produtoRepo.proximoNumeroCodigoInterno());
+            if (produtoRepo.findByCodigoInterno(codigo).isEmpty()) return codigo;
+        }
+        throw new BusinessException("Não foi possível gerar o código interno. Informe um código.");
     }
 }

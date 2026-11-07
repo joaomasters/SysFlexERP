@@ -26,6 +26,9 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class PixService {
 
+    /** Id de pagamento do Mercado Pago: só dígitos (vai no caminho da URL da API). */
+    private static final String ID_MP = "[0-9]{1,19}";
+
     @Value("${pagamento.pix.mp-access-token:}")
     private String mpAccessToken;
 
@@ -103,6 +106,12 @@ public class PixService {
 
     
     public Map<String, String> verificarStatus(String mpPaymentId) {
+        // Só consulta o Mercado Pago para cobranças que esta empresa gerou: o id vem de fora
+        // (webhook sem login, URL) e era colado direto no caminho da API com o token da loja.
+        if (mpPaymentId == null || !mpPaymentId.matches(ID_MP)
+                || pixRepo.findByMpPaymentId(Long.parseLong(mpPaymentId)).isEmpty()) {
+            return Map.of("status", "ERRO", "message", "Cobrança PIX não encontrada.");
+        }
         String mpAccessToken;
         try {
             mpAccessToken = tokenMercadoPago();
@@ -177,6 +186,31 @@ public class PixService {
     }
 
     
+    /**
+     * Fechamento da venda: um pagamento PIX (Mercado Pago) só entra com a cobrança desta venda,
+     * paga e com o mesmo valor. Antes bastava a tela mandar "PIX" para a venda fechar.
+     */
+    public void validarParaPagamento(String referencia, Long vendaId, BigDecimal valor) {
+        if (referencia == null || !referencia.matches(ID_MP)) {
+            throw new BusinessException("Pagamento PIX sem a cobrança do Mercado Pago. Gere o QR e aguarde a confirmação.");
+        }
+        PagamentoPix pix = pixRepo.findByMpPaymentId(Long.parseLong(referencia))
+                .orElseThrow(() -> new BusinessException("Cobrança PIX " + referencia + " não encontrada."));
+        if (!vendaId.equals(pix.getVendaId())) {
+            throw new BusinessException("A cobrança PIX " + referencia + " pertence a outra venda.");
+        }
+        if (!"APROVADO".equals(pix.getStatus())) {
+            verificarStatus(referencia); // o webhook pode não ter chegado ainda
+            pix = pixRepo.findByMpPaymentId(pix.getMpPaymentId()).orElse(pix);
+        }
+        if (!"APROVADO".equals(pix.getStatus())) {
+            throw new BusinessException("O PIX " + referencia + " ainda não foi pago.");
+        }
+        if (pix.getValor().compareTo(valor) != 0) {
+            throw new BusinessException("O valor do pagamento difere do PIX pago (" + pix.getValor() + ").");
+        }
+    }
+
     public record PixChargeResponse(
         Long   id,
         String mpPaymentId,

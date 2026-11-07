@@ -37,6 +37,7 @@ public class PdvService {
     private final EanBalancaParser         eanParser;
     private final CaixaService             caixaService;
     private final TransacaoTerminalService transacaoTerminalService;
+    private final PixService               pixService;
     private final AutorizacaoAdminService  autorizacaoAdminService;
     private final AuditoriaService         auditoriaService;
 
@@ -286,6 +287,7 @@ public class PdvService {
             conferirLimiteCredito(venda, valorFiado, dto.getAutorizacaoLimite());
         }
 
+        java.util.Set<String> pixUsados = new java.util.HashSet<>();
         for (PagamentoDTO pag : dto.getPagamentos()) {
             PagamentoVenda pagVenda = PagamentoVenda.builder()
                     .venda(venda)
@@ -312,6 +314,12 @@ public class PdvService {
                 pagVenda.setBandeira(t.getBandeira());
                 pagVenda.setParcelas(t.getParcelas());
                 pagVenda.setProvedor(t.getProvedor().name());
+            } else if ("PIX".equals(pag.getFormaPagamento())) {
+                // PIX do QR na tela (Mercado Pago): a cobrança tem de ser desta venda, paga e do mesmo valor
+                if (!pixUsados.add(String.valueOf(pag.getReferenciaExterna()))) {
+                    throw new BusinessException("O mesmo PIX foi lançado duas vezes nesta venda.");
+                }
+                pixService.validarParaPagamento(pag.getReferenciaExterna(), venda.getId(), pag.getValor());
             }
             pagRepo.save(pagVenda);
 

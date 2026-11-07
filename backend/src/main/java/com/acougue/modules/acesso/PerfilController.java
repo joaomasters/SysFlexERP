@@ -21,6 +21,7 @@ public class PerfilController {
     private final PerfilService perfilService;
 
     @GetMapping("/modulos")
+    // Aberto a quem está logado: só os nomes fixos dos módulos (filtro da Auditoria). Perfis e permissões exigem acesso.
     public ResponseEntity<List<Map<String, String>>> listarModulos() {
         List<Map<String, String>> modulos = Arrays.stream(Modulo.values())
                 .map(m -> Map.of("nome", m.name(), "rotulo", m.getRotulo()))
