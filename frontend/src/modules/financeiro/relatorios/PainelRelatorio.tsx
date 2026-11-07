@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Printer } from 'lucide-react'
 import { Card, Button } from '@/shared/components/ui'
 
@@ -87,6 +87,22 @@ export function periodoPadrao() {
 }
 
 export const dataBR = (iso: string) => iso.split('-').reverse().join('/')
+
+/** Período De/Até com o padrão do mês e os campos prontos para a barra de filtros. */
+export function usePeriodo() {
+  const [periodo, setPeriodo] = useState(periodoPadrao)
+  const valido = !!periodo.inicio && !!periodo.fim && periodo.inicio <= periodo.fim
+  const filtros = (
+    <>
+      <FiltroData label="De" value={periodo.inicio} onChange={inicio => setPeriodo(p => ({ ...p, inicio }))} />
+      <FiltroData label="Até" value={periodo.fim} onChange={fim => setPeriodo(p => ({ ...p, fim }))}
+        erro={!valido ? 'Período inválido.' : undefined} />
+    </>
+  )
+  const descricao = valido ? `Período: ${dataBR(periodo.inicio)} a ${dataBR(periodo.fim)}` : undefined
+  const query = `inicio=${periodo.inicio}&fim=${periodo.fim}`
+  return { ...periodo, valido, filtros, descricao, query }
+}
 
 /** Cartão de indicador (número grande + legenda). */
 export function Indicador({ label, valor, icone, cor, detalhe }: {

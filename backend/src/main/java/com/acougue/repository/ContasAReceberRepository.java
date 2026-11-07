@@ -49,6 +49,14 @@ public interface ContasAReceberRepository extends JpaRepository<ContasAReceber, 
     List<Object[]> saldosAbertosPorCliente();
 
     /**
+     * Contas ainda devidas (inadimplência): aberto/parcial e que não foram absorvidas por um
+     * fechamento de faturamento (nesse caso a dívida é a conta do fechamento).
+     */
+    @Query("SELECT c FROM ContasAReceber c JOIN FETCH c.cliente " +
+            "WHERE c.status IN ('ABERTO', 'PARCIAL') AND c.absorvidoPorFaturamento IS NULL")
+    List<ContasAReceber> buscarEmAbertoParaInadimplencia();
+
+    /**
      * Contas de fiado avulso (lançadas pelo PDV por venda) elegíveis pra
      * entrar num fechamento: ainda em aberto/parcial, com venda vinculada
      * dentro do período, e que ainda não foram agrupadas em nenhum outro

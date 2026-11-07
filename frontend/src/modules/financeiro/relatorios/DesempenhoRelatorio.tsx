@@ -24,6 +24,24 @@ const rotuloForma: Record<string, string> = {
 }
 const nomeForma = (f: string) => rotuloForma[f] ?? f
 
+const isoLocal = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
+
+/** Mesmo número de dias, logo antes do período escolhido. */
+function periodoAnterior(inicio: string, fim: string) {
+  const dia = 86_400_000
+  const ini = new Date(`${inicio}T12:00`)
+  const dias = Math.round((new Date(`${fim}T12:00`).getTime() - ini.getTime()) / dia) + 1
+  return { inicio: isoLocal(new Date(ini.getTime() - dias * dia)), fim: isoLocal(new Date(ini.getTime() - dia)) }
+}
+
+/** "▲ 12,3% vs 17/10–31/10"; sem base de comparação, nada. */
+function variacao(atual?: number, antes?: number, periodo?: { inicio: string; fim: string } | null) {
+  if (atual == null || antes == null || !periodo || antes === 0) return undefined
+  const v = ((atual - antes) / Math.abs(antes)) * 100
+  const seta = v > 0.05 ? '▲' : v < -0.05 ? '▼' : '='
+  return `${seta} ${pct(Math.abs(v))} vs ${dataBR(periodo.inicio).slice(0, 5)}–${dataBR(periodo.fim).slice(0, 5)}`
+}
+
 /** Visão geral: vendas, margem, formas de pagamento, vendas por dia, top produtos e fluxo de caixa. */
 export default function DesempenhoRelatorio() {
   const padrao = periodoPadrao()
@@ -41,6 +59,16 @@ export default function DesempenhoRelatorio() {
     queryFn: () => api.get(`/financeiro/relatorios/fluxo-caixa?inicio=${inicio}&fim=${fim}`).then(r => r.data),
     enabled: periodoValido,
   })
+
+  // Período anterior do mesmo tamanho, terminando na véspera do início (ex.: 1–15/11 compara com 17–31/10)
+  const anterior = periodoValido ? periodoAnterior(inicio, fim) : null
+  const vendasAnt = useQuery<RelatorioVendas>({
+    queryKey: ['rel-vendas', anterior?.inicio, anterior?.fim],
+    queryFn: () => api.get(`/financeiro/relatorios/vendas?inicio=${anterior!.inicio}&fim=${anterior!.fim}`).then(r => r.data),
+    enabled: !!anterior,
+  })
+  const ant = vendasAnt.data
+  const comparar = (atual?: number, antes?: number) => variacao(atual, antes, anterior)
 
   const v = vendas.data
   const saldoPositivo = (fluxo.data?.saldo ?? 0) >= 0
@@ -61,13 +89,16 @@ export default function DesempenhoRelatorio() {
     >
       {/* Indicadores */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 print:grid-cols-4 print:gap-2">
-        <Indicador label="Total de Vendas" valor={fmt(v?.totalVendas ?? 0)} icone={<TrendingUp size={20} />} cor="text-success-600 bg-success-50" />
-        <Indicador label="Qtd. Vendas" valor={v?.quantidadeVendas ?? 0} icone={<ShoppingBag size={20} />} cor="text-info-600 bg-info-50" />
-        <Indicador label="Ticket Médio" valor={fmt(v?.ticketMedio ?? 0)} icone={<BarChart2 size={20} />} cor="text-purple-600 bg-purple-50" />
+        <Indicador label="Total de Vendas" valor={fmt(v?.totalVendas ?? 0)} detalhe={comparar(v?.totalVendas, ant?.totalVendas)}
+          icone={<TrendingUp size={20} />} cor="text-success-600 bg-success-50" />
+        <Indicador label="Qtd. Vendas" valor={v?.quantidadeVendas ?? 0} detalhe={comparar(v?.quantidadeVendas, ant?.quantidadeVendas)}
+          icone={<ShoppingBag size={20} />} cor="text-info-600 bg-info-50" />
+        <Indicador label="Ticket Médio" valor={fmt(v?.ticketMedio ?? 0)} detalhe={comparar(v?.ticketMedio, ant?.ticketMedio)}
+          icone={<BarChart2 size={20} />} cor="text-purple-600 bg-purple-50" />
         <Indicador label="Total Perdas" valor={fmt(v?.totalPerdas ?? 0)} icone={<TrendingDown size={20} />} cor="text-danger-600 bg-danger-50" />
         <Indicador label="Custo das mercadorias vendidas (CMV)" valor={fmt(v?.totalCMV ?? 0)} icone={<Package size={20} />} cor="text-warning-600 bg-warning-50" />
         <Indicador
-          label="Margem bruta" valor={fmt(v?.margemBruta ?? 0)}
+          label="Margem bruta" valor={fmt(v?.margemBruta ?? 0)} detalhe={comparar(v?.margemBruta, ant?.margemBruta)}
           icone={<Wallet size={20} />}
           cor={margemPositiva ? 'text-success-600 bg-success-50' : 'text-danger-600 bg-danger-50'}
         />
