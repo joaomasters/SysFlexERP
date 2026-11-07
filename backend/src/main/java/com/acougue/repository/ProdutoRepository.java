@@ -23,7 +23,18 @@ public interface ProdutoRepository extends JpaRepository<Produto, Long> {
     @Query("UPDATE Produto p SET p.fornecedor = :nome WHERE p.fornecedorId = :fornecedorId")
     int atualizarNomeFornecedor(@Param("fornecedorId") Long fornecedorId, @Param("nome") String nome);
 
-    Optional<Produto> findByCodigoBalanca(Integer codigoBalanca);
+    /**
+     * Com PLU repetido (cadastros antigos ou produto inativado), prefere o produto ativo —
+     * antes, dois produtos com o mesmo PLU derrubavam a leitura da etiqueta com erro 500.
+     */
+    default Optional<Produto> findByCodigoBalanca(Integer codigoBalanca) {
+        return findFirstByCodigoBalancaOrderByAtivoDescIdAsc(codigoBalanca);
+    }
+
+    Optional<Produto> findFirstByCodigoBalancaOrderByAtivoDescIdAsc(Integer codigoBalanca);
+
+    /** Outro produto ativo com o mesmo PLU da balança (id = 0 no cadastro novo). */
+    Optional<Produto> findFirstByCodigoBalancaAndAtivoTrueAndIdNot(Integer codigoBalanca, Long id);
 
     /** Com código repetido (cadastros antigos ou produto inativado), prefere o produto ativo. */
     default Optional<Produto> findByEan13(String ean13) {

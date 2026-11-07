@@ -105,6 +105,16 @@ public class ProdutoService {
 
     // Só bloqueia contra produto ativo: inativos não aparecem na tela, e um código preso num
     // produto inativado impediria recadastrar o item sem o usuário ter como resolver.
+    /** O PLU identifica o produto na balança: dois produtos ativos com o mesmo PLU saem duplicados na carga. */
+    private void validarPluUnico(Integer plu, Long idProduto) {
+        if (plu == null) return;
+        produtoRepo.findFirstByCodigoBalancaAndAtivoTrueAndIdNot(plu, idProduto == null ? 0L : idProduto)
+                .ifPresent(outro -> {
+                    throw new BusinessException("PLU " + plu + " já cadastrado no produto \""
+                            + outro.getNome() + "\". Use outro PLU.");
+                });
+    }
+
     private void validarEanUnico(String ean13, Long idProduto) {
         if (ean13 == null) return;
         produtoRepo.findFirstByEan13AndAtivoTrueAndIdNot(ean13, idProduto == null ? 0L : idProduto)
@@ -155,6 +165,7 @@ public class ProdutoService {
         validarValidadePadrao(produto.getValidadePadraoDias());
         produto.setEan13(normalizarEan(produto.getEan13()));
         validarEanUnico(produto.getEan13(), null);
+        validarPluUnico(produto.getCodigoBalanca(), null);
         aplicarFornecedor(produto, null);
         validarEstoqueMaximo(produto.getEstoqueMinimo(), produto.getEstoqueMaximo());
         copiarFiscal(produto, produto);
@@ -180,6 +191,9 @@ public class ProdutoService {
         boolean reativando = !Boolean.TRUE.equals(existente.getAtivo()) && Boolean.TRUE.equals(dados.getAtivo());
         if (reativando || !Objects.equals(ean13, normalizarEan(existente.getEan13()))) {
             validarEanUnico(ean13, id);
+        }
+        if (reativando || !Objects.equals(dados.getCodigoBalanca(), existente.getCodigoBalanca())) {
+            validarPluUnico(dados.getCodigoBalanca(), id);
         }
 
         existente.setNome(normalizarNome(dados.getNome()));
