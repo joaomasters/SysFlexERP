@@ -63,10 +63,16 @@ public class ProdutoService {
      * Limpa o nome digitado: tira espaços do começo/fim e junta os repetidos no meio
      * ("  Picanha   Maturada " vira "Picanha Maturada"). Nome só com espaços não é nome.
      */
+    static final int NOME_MAX = 150;
+
     static String normalizarNome(String nome) {
         String limpo = nome == null ? "" : nome.trim().replaceAll("\\s+", " ");
         if (limpo.isEmpty()) {
             throw new BusinessException("Informe a descrição do produto.");
+        }
+        if (limpo.length() > NOME_MAX) {
+            throw new BusinessException("A descrição do produto deve ter no máximo " + NOME_MAX
+                    + " caracteres (informado: " + limpo.length() + ").");
         }
         return limpo;
     }
