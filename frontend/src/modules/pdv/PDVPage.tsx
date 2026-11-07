@@ -239,7 +239,7 @@ export default function PDVPage() {
   }
 
   // F2 = Buscar produto, F4 = Sair da comanda, F9 = Cancelar venda, F10 = Finalizar.
-  // Com uma janela aberta eles ficam desligados: no pagamento, F1–F7 escolhem a forma.
+  // Com uma janela aberta eles ficam desligados: no pagamento, F1–F6 e F9 escolhem a forma.
   function atalhoDaTela(e: KeyboardEvent) {
     const janelaAberta = showPagto || limitePendente || pesando || perguntarImpressao || showNovaComanda
       || showFechar || excluindo || descontando || quantificando || cancelando

@@ -64,6 +64,7 @@ public class TerminalPagamentoService {
         t.setAceitaCredito(dto.isAceitaCredito());
         t.setMaxParcelas(dto.isAceitaCredito() ? dto.getMaxParcelas() : 1);
         t.setAceitaPix(dto.isAceitaPix());
+        t.setAceitaVoucher(dto.isAceitaVoucher());
         t.setAtivo(dto.isAtivo());
     }
 
@@ -74,6 +75,12 @@ public class TerminalPagamentoService {
         if (dto.isAceitaPix() && (dto.getProvedor() != ProvedorPagamento.VELOCE
                 || dto.getModoIntegracao() != ModoIntegracaoTerminal.API_NUVEM)) {
             throw new BusinessException("PIX na maquininha só funciona com a Veloce Smart TEF em API em nuvem.");
+        }
+        boolean voucherVeloce = dto.getProvedor() == ProvedorPagamento.VELOCE
+                && dto.getModoIntegracao() == ModoIntegracaoTerminal.API_NUVEM;
+        if (dto.isAceitaVoucher() && !voucherVeloce && dto.getModoIntegracao() != ModoIntegracaoTerminal.MANUAL) {
+            throw new BusinessException("Voucher na maquininha só funciona com a Veloce Smart TEF em API em nuvem "
+                    + "ou no modo Manual.");
         }
         switch (dto.getModoIntegracao()) {
             case API_NUVEM -> {

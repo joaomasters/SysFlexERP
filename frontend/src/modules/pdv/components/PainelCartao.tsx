@@ -22,7 +22,7 @@ import { ROTULO_PROVEDOR, type TerminalPagamento, type TransacaoTerminal } from 
  fechamento da venda que a transação foi mesmo APROVADA.
 */
 
-type Metodo = 'DEBITO' | 'CREDITO' | 'PIX'
+type Metodo = 'DEBITO' | 'CREDITO' | 'PIX' | 'VOUCHER'
 type Estado = 'idle' | 'enviando' | 'aguardando' | 'confirmar_manual' | 'aprovado' | 'negado' | 'erro_agente'
 
 const SEM_TERMINAL = 0
@@ -72,8 +72,9 @@ export default function PainelCartao({ metodo, valor, setValor, vendaId, onAprov
     staleTime: 60_000,
   })
 
-  const compativeis = terminais.filter(t =>
-    metodo === 'PIX' ? t.aceitaPix : metodo === 'DEBITO' ? t.aceitaDebito : t.aceitaCredito)
+  const compativeis = terminais.filter(t => ({
+    PIX: t.aceitaPix, DEBITO: t.aceitaDebito, CREDITO: t.aceitaCredito, VOUCHER: t.aceitaVoucher,
+  })[metodo])
   const terminal = compativeis.find(t => t.id === terminalId) ?? null
   const maxParcelas = terminal ? terminal.maxParcelas : 12
   const ocupado = estado === 'enviando' || estado === 'aguardando' || estado === 'confirmar_manual' || estado === 'erro_agente'
@@ -172,7 +173,9 @@ export default function PainelCartao({ metodo, valor, setValor, vendaId, onAprov
         setEstado('aguardando')
         setMensagem(metodo === 'PIX'
           ? `Aguardando o cliente pagar o PIX na maquininha ${t.terminalNome}...`
-          : `Aguardando cartão na maquininha ${t.terminalNome}...`)
+          : metodo === 'VOUCHER'
+            ? `Aguardando o cartão de vale na maquininha ${t.terminalNome}...`
+            : `Aguardando cartão na maquininha ${t.terminalNome}...`)
         pollRef.current = setInterval(async () => {
           try {
             const { data } = await api.get<TransacaoTerminal>(`/pagamento/transacoes/${t.id}`, { silent: true } as never)

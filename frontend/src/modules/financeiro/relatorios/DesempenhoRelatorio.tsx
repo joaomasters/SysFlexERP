@@ -21,6 +21,7 @@ const fmt = formatBRL
 const rotuloForma: Record<string, string> = {
   DINHEIRO: 'Dinheiro', PIX: 'PIX', DEBITO: 'Cartão de débito', CREDITO: 'Cartão de crédito',
   CARTAO_DEBITO: 'Cartão de débito', CARTAO_CREDITO: 'Cartão de crédito', FIADO: 'Fiado / a prazo',
+  VOUCHER: 'Voucher (vale-alimentação/refeição)', CHEQUE: 'Cheque',
 }
 const nomeForma = (f: string) => rotuloForma[f] ?? f
 

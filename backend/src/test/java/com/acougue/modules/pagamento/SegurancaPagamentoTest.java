@@ -146,5 +146,28 @@ class SegurancaPagamentoTest {
             veloce.setAceitaPix(true);
             assertThatCode(() -> TerminalPagamentoService.validar(veloce)).doesNotThrowAnyException();
         }
+
+        @Test
+        @DisplayName("voucher só na Veloce em API em nuvem ou no modo manual")
+        void voucherSoNaVeloceOuManual() {
+            SalvarTerminalDTO mercadoPago = dto(ProvedorPagamento.MERCADO_PAGO, ModoIntegracaoTerminal.API_NUVEM);
+            mercadoPago.setIdentificadorDispositivo("X");
+            mercadoPago.setAceitaVoucher(true);
+            assertThatThrownBy(() -> TerminalPagamentoService.validar(mercadoPago)).hasMessageContaining("Voucher");
+
+            SalvarTerminalDTO agente = dto(ProvedorPagamento.SICREDI, ModoIntegracaoTerminal.AGENTE_LOCAL);
+            agente.setAgenteUrl("http://localhost:12345");
+            agente.setAceitaVoucher(true);
+            assertThatThrownBy(() -> TerminalPagamentoService.validar(agente)).hasMessageContaining("Voucher");
+
+            SalvarTerminalDTO manual = dto(ProvedorPagamento.SICREDI, ModoIntegracaoTerminal.MANUAL);
+            manual.setAceitaVoucher(true);
+            assertThatCode(() -> TerminalPagamentoService.validar(manual)).doesNotThrowAnyException();
+
+            SalvarTerminalDTO veloce = dto(ProvedorPagamento.VELOCE, ModoIntegracaoTerminal.API_NUVEM);
+            veloce.setIdentificadorDispositivo("EOIVM");
+            veloce.setAceitaVoucher(true);
+            assertThatCode(() -> TerminalPagamentoService.validar(veloce)).doesNotThrowAnyException();
+        }
     }
 }

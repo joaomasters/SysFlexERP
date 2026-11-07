@@ -40,6 +40,7 @@ export interface TerminalPagamento {
   aceitaCredito: boolean
   maxParcelas: number
   aceitaPix: boolean
+  aceitaVoucher: boolean
   ativo: boolean
 }
 
@@ -50,7 +51,7 @@ export interface TransacaoTerminal {
   vendaId: number
   provedor: ProvedorPagamento
   modoIntegracao: ModoIntegracao
-  tipo: 'DEBITO' | 'CREDITO' | 'PIX'
+  tipo: 'DEBITO' | 'CREDITO' | 'PIX' | 'VOUCHER'
   parcelas: number
   valor: number
   status: StatusTransacao

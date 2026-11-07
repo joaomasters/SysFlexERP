@@ -130,6 +130,28 @@ class TransacaoTerminalServiceTest {
     }
 
     @Test
+    @DisplayName("iniciar: voucher só em maquininha configurada para voucher, sempre à vista")
+    void iniciar_voucher() {
+        TerminalPagamento semVoucher = terminal(ModoIntegracaoTerminal.MANUAL);
+        when(terminalService.buscar(3L)).thenReturn(semVoucher);
+        assertThatThrownBy(() -> service.iniciar(pedido("VOUCHER", 1, "10.00")))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("voucher");
+
+        TerminalPagamento comVoucher = terminal(ModoIntegracaoTerminal.MANUAL);
+        comVoucher.setAceitaVoucher(true);
+        when(terminalService.buscar(3L)).thenReturn(comVoucher);
+        when(vendaRepo.findById(1L)).thenReturn(Optional.of(vendaAberta));
+        salvarDevolvendoComId();
+
+        TransacaoTerminalDTO r = service.iniciar(pedido("VOUCHER", 4, "30.00"));
+
+        assertThat(r.getStatus()).isEqualTo(StatusTransacaoTerminal.PENDENTE);
+        assertThat(r.getTipo()).isEqualTo("VOUCHER");
+        assertThat(r.getParcelas()).isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("iniciar: valor acima do total da venda é recusado")
     void iniciar_valorAcimaDoTotal() {
         when(terminalService.buscar(3L)).thenReturn(terminal(ModoIntegracaoTerminal.MANUAL));

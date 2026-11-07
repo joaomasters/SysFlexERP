@@ -15,7 +15,7 @@ public class IniciarTransacaoDTO {
     private Long vendaId;
 
     @NotNull
-    @Pattern(regexp = "DEBITO|CREDITO|PIX", message = "Tipo deve ser DEBITO, CREDITO ou PIX")
+    @Pattern(regexp = "DEBITO|CREDITO|PIX|VOUCHER", message = "Tipo deve ser DEBITO, CREDITO, PIX ou VOUCHER")
     private String tipo;
 
     @Min(1) @Max(18)

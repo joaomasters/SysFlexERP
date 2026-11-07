@@ -36,7 +36,7 @@ public class TransacaoTerminal {
     @Column(name = "modo_integracao", nullable = false, length = 20)
     private ModoIntegracaoTerminal modoIntegracao;
 
-    /** DEBITO | CREDITO — mesmo vocabulário de pagamentos_venda.forma_pagamento. */
+    /** DEBITO | CREDITO | PIX | VOUCHER — mesmo vocabulário de pagamentos_venda.forma_pagamento. */
     @Column(nullable = false, length = 10)
     private String tipo;
 

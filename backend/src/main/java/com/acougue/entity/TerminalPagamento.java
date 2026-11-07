@@ -45,6 +45,11 @@ public class TerminalPagamento {
     @Column(name = "aceita_pix", nullable = false)
     private Boolean aceitaPix = false;
 
+    /** Voucher (vale-alimentação/refeição) — Veloce Smart TEF em API_NUVEM, ou modo MANUAL. */
+    @Builder.Default
+    @Column(name = "aceita_voucher", nullable = false)
+    private Boolean aceitaVoucher = false;
+
     @Builder.Default
     @Column(name = "max_parcelas", nullable = false)
     private Integer maxParcelas = 12;
