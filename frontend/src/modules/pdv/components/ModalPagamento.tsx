@@ -28,6 +28,8 @@ interface Props {
 // CurrencyInput (máscara "caixa eletrônico") do resto do sistema, só que
 // com a variante `dark`.
 const brl = formatBRL
+// Atalhos de "valor recebido" no dinheiro: as notas acima do que falta pagar
+const NOTAS = [5, 10, 20, 50, 100, 200]
 
 // ─── metadados dos métodos ────────────────────────────────────────────────────
 // Atalho = posição na grade (F1 a F6); F7 é a "Venda manual" do PainelCartao
@@ -206,11 +208,40 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
   }
 
   // ── Confirmar venda ────────────────────────────────────────────────────────
+  // F10 apertado duas vezes não pode fechar a venda duas vezes
+  const finalizandoRef = useRef(false)
   function confirmarVenda() {
-    if (!pago) return
+    if (!pago || finalizandoRef.current) return
+    finalizandoRef.current = true
     stopPixPoll()
     onConfirmar(pagamentos)
+    setTimeout(() => { finalizandoRef.current = false }, 3000)
   }
+
+  // F8 = botão de confirmar da forma de pagamento (✓ do dinheiro/fiado, cheque, Gerar QR);
+  // no cartão e no PIX na maquininha, o próprio PainelCartao trata o F8.
+  // F10 = Finalizar Venda; Esc = Cancelar (travado durante cobrança na maquininha).
+  const atalhoRodapeRef = useRef<(e: KeyboardEvent) => void>(() => undefined)
+  atalhoRodapeRef.current = (e: KeyboardEvent) => {
+    if (e.key === 'F10') {
+      e.preventDefault()
+      confirmarVenda()
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      if (!cartaoOcupado) onCancelar()
+    } else if (e.key === 'F8' && !pago) {
+      if (metodo === 'DINHEIRO' || metodo === 'FIADO') { e.preventDefault(); confirmarDinheiro() }
+      else if (metodo === 'CHEQUE') { e.preventDefault(); confirmarCheque() }
+      else if (metodo === 'PIX' && !pixNaMaquininha && (pixSt === 'idle' || pixSt === 'erro') && valor) {
+        e.preventDefault(); gerarPix()
+      }
+    }
+  }
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => atalhoRodapeRef.current(e)
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   // ════════════════════════════════════════════════════════════════════════════
   //  RENDER
@@ -320,6 +351,23 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
               {/* ── Painel Dinheiro / Fiado ─────────────────────────────── */}
               {(metodo === 'DINHEIRO' || metodo === 'FIADO') && (
                 <div className="space-y-3">
+                  {metodo === 'DINHEIRO' && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs text-gray-400">Valor recebido do cliente:</span>
+                      <button type="button" onClick={() => setValor(restante)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors
+                          ${valor === restante ? 'bg-emerald-700 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}>
+                        Exato
+                      </button>
+                      {NOTAS.filter(n => n > restante).slice(0, 4).map(n => (
+                        <button key={n} type="button" onClick={() => setValor(n)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-semibold tabular-nums transition-colors
+                            ${valor === n ? 'bg-emerald-700 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}>
+                          {brl(n)}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   <div className="flex gap-2">
                     <CurrencyInput
                       value={valor}
@@ -331,15 +379,18 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
                     />
                     <button
                       onClick={confirmarDinheiro}
-                      className="px-5 bg-emerald-600 hover:bg-emerald-500 rounded-lg font-bold transition-colors"
+                      aria-label="Lançar pagamento"
+                      title="Lançar este valor (Enter ou F8)"
+                      className="px-4 bg-emerald-600 hover:bg-emerald-500 rounded-lg font-bold transition-colors flex items-center gap-1.5"
                     >
-                      ✓
+                      ✓ <span className="text-xs font-normal opacity-70">[F8]</span>
                     </button>
                   </div>
-                  {metodo === 'DINHEIRO' && valor > restante && (
-                    <p className="text-sm text-yellow-400">
-                      Troco: {brl(valor - restante)}
-                    </p>
+                  {metodo === 'DINHEIRO' && valor > restante + 0.009 && (
+                    <div className="flex items-center justify-between rounded-xl border border-yellow-600/60 bg-yellow-900/30 px-4 py-3">
+                      <span className="text-sm text-yellow-200">Troco para o cliente</span>
+                      <span className="text-2xl font-black tabular-nums text-yellow-300">{brl(valor - restante)}</span>
+                    </div>
                   )}
                 </div>
               )}
@@ -400,7 +451,7 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
                         disabled={!valor}
                         className="px-4 bg-teal-600 hover:bg-teal-500 rounded-lg font-bold transition-colors disabled:opacity-50"
                       >
-                        Gerar QR
+                        Gerar QR <span className="text-xs font-normal opacity-70">[F8]</span>
                       </button>
                     ) : null}
                   </div>
@@ -508,7 +559,7 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
                     disabled={!valor || !chequeBanco || !chequeNum}
                     className="w-full py-3 bg-amber-600 hover:bg-amber-500 rounded-xl font-bold transition-colors disabled:opacity-50"
                   >
-                    Registrar Cheque
+                    Registrar Cheque <span className="text-xs font-normal opacity-70">[F8]</span>
                   </button>
                 </div>
               )}
@@ -534,7 +585,7 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
             disabled={cartaoOcupado}
             className="flex-1 py-3 rounded-xl bg-gray-700 hover:bg-gray-600 text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            Cancelar
+            Cancelar <span className="text-xs font-normal opacity-60">[Esc]</span>
           </button>
           <button
             onClick={confirmarVenda}
@@ -544,6 +595,7 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
                        font-bold text-sm transition-colors"
           >
             {pago ? `Finalizar Venda${troco > 0 ? ` · Troco ${brl(troco)}` : ''}` : 'Aguardando pagamento...'}
+            {pago && <span className="ml-1.5 text-xs font-normal opacity-70">[F10]</span>}
           </button>
         </div>
       </div>

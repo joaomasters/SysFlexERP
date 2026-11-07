@@ -35,6 +35,10 @@ public interface ProdutoRepository extends JpaRepository<Produto, Long> {
 
     List<Produto> findByAtivoTrue();
 
+    /** Produtos à venda sem NCM: não saem em NFC-e/NF-e (aviso na configuração fiscal). */
+    @Query("SELECT COUNT(p) FROM Produto p WHERE p.ativo = true AND (p.ncm IS NULL OR p.ncm = '')")
+    long contarAtivosSemNcm();
+
     List<Produto> findByCodigoBalancaIsNotNullAndAtivoTrue();
 
     @Query("SELECT p FROM Produto p WHERE LOWER(p.nome) LIKE LOWER(CONCAT('%', :nome, '%')) AND p.ativo = true")

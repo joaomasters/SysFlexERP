@@ -133,15 +133,27 @@ public class PdvService {
         Produto produto = produtoRepo.findById(dto.getProdutoId())
                 .orElseThrow(() -> new EntityNotFoundException("Produto não encontrado: " + dto.getProdutoId()));
 
-        BigDecimal total = dto.getTotalItem() != null
-                ? dto.getTotalItem()
-                : dto.getQuantidade().multiply(produto.getPrecoVenda()).setScale(2, RoundingMode.HALF_UP);
+        // Valor e quantidade sempre calculados aqui: antes o total vinha da tela, e uma requisição
+        // alterada vendia o produto por qualquer preço. Etiqueta de balança: relida no servidor.
+        BigDecimal quantidade = dto.getQuantidade();
+        BigDecimal total;
+        if (ehEtiquetaBalanca(dto.getEan13Lido())) {
+            ItemVendaDTO lido = processarEanBalanca(dto.getEan13Lido());
+            if (!produto.getId().equals(lido.getProdutoId())) {
+                throw new BusinessException("A etiqueta da balança é de outro produto.");
+            }
+            quantidade = lido.getQuantidade();
+            total = lido.getTotalItem();
+        } else {
+            validarQuantidade(produto, quantidade);
+            total = quantidade.multiply(produto.getPrecoVenda()).setScale(2, RoundingMode.HALF_UP);
+        }
 
         ItensVenda item = ItensVenda.builder()
                 .venda(venda)
                 .produto(produto)
                 .ean13Lido(dto.getEan13Lido())
-                .quantidade(dto.getQuantidade())
+                .quantidade(quantidade)
                 .precoUnitario(produto.getPrecoVenda())
                 .descontoItem(BigDecimal.ZERO)
                 .totalItem(total)
@@ -157,9 +169,62 @@ public class PdvService {
     @Transactional
     public Venda removerItem(Long vendaId, Long itemId) {
         Venda venda = buscarVendaAberta(vendaId);
-        itensRepo.deleteById(itemId);
+        // Só itens desta comanda (antes apagava pelo id qualquer item, até de outra venda)
+        itensRepo.delete(itemDaVenda(vendaId, itemId));
         recalcularTotais(venda);
         return vendaRepo.save(venda);
+    }
+
+    /**
+     * Troca a quantidade de um item da comanda (ex.: 1 → 2 unidades do mesmo produto).
+     * O peso de etiqueta de balança não muda aqui: vem da etiqueta. Um desconto já dado continua,
+     * desde que fique menor que o novo valor do item.
+     */
+    @Transactional
+    public Venda alterarQuantidadeItem(Long vendaId, Long itemId, BigDecimal quantidade) {
+        Venda venda = buscarVendaAberta(vendaId);
+        ItensVenda item = itemDaVenda(vendaId, itemId);
+        if (ehEtiquetaBalanca(item.getEan13Lido())) {
+            throw new BusinessException("O peso vem da etiqueta da balança. Para mudar, exclua o item e bipe outra etiqueta.");
+        }
+        validarQuantidade(item.getProduto(), quantidade);
+
+        BigDecimal desconto = item.getDescontoItem() == null ? BigDecimal.ZERO : item.getDescontoItem();
+        BigDecimal valorCheio = quantidade.multiply(item.getPrecoUnitario()).setScale(2, RoundingMode.HALF_UP);
+        if (desconto.compareTo(valorCheio) >= 0) {
+            throw new BusinessException(String.format(
+                    "O desconto do item (R$ %.2f) ficaria maior que o novo valor. Tire o desconto antes.", desconto));
+        }
+        item.setQuantidade(quantidade);
+        item.setTotalItem(valorCheio.subtract(desconto));
+        itensRepo.save(item);
+
+        recalcularTotais(venda);
+        return vendaRepo.save(venda);
+    }
+
+    private ItensVenda itemDaVenda(Long vendaId, Long itemId) {
+        return itensRepo.findById(itemId)
+                .filter(i -> i.getVenda().getId().equals(vendaId))
+                .orElseThrow(() -> new EntityNotFoundException("Item não encontrado nesta venda: " + itemId));
+    }
+
+    private static boolean ehEtiquetaBalanca(String ean13) {
+        return ean13 != null && ean13.length() == 13 && ean13.startsWith("2");
+    }
+
+    /** Maior que zero, até 3 casas; produto em unidade (UN/CX) só aceita número inteiro. */
+    private static void validarQuantidade(Produto produto, BigDecimal quantidade) {
+        if (quantidade == null || quantidade.signum() <= 0) {
+            throw new BusinessException("A quantidade deve ser maior que zero.");
+        }
+        if (quantidade.compareTo(new BigDecimal("9999")) > 0 || quantidade.stripTrailingZeros().scale() > 3) {
+            throw new BusinessException("Quantidade inválida.");
+        }
+        String unidade = produto.getUnidadeMedida();
+        if (("UN".equals(unidade) || "CX".equals(unidade)) && quantidade.stripTrailingZeros().scale() > 0) {
+            throw new BusinessException("Este produto é vendido por unidade: use um número inteiro.");
+        }
     }
 
     /**
