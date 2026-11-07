@@ -10,7 +10,9 @@ import com.acougue.modules.acesso.dto.PermissaoItemDTO;
 import com.acougue.repository.PerfilPermissaoRepository;
 import com.acougue.repository.PerfilRepository;
 import com.acougue.repository.UsuarioRepository;
+import com.acougue.security.Acao;
 import com.acougue.security.ContextoUsuario;
+import com.acougue.security.UsuarioAutenticado;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
@@ -38,11 +40,21 @@ public class PerfilService {
         }
     }
 
+    /** Ver perfis e permissões: quem cuida de Perfis ou de Usuários (que escolhe o perfil de cada um). */
+    public void exigirVerPerfis() {
+        UsuarioAutenticado u = ContextoUsuario.atual();
+        if (!u.pode(Modulo.PERFIS, Acao.VER) && !u.pode(Modulo.USUARIOS, Acao.VER)) {
+            throw new AccessDeniedException("Sem permissão para ver perfis.");
+        }
+    }
+
     public List<Perfil> listar() {
+        exigirVerPerfis();
         return perfilRepo.findAll();
     }
 
     public Perfil buscarPorId(Long id) {
+        exigirVerPerfis();
         return perfilRepo.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Perfil não encontrado: " + id));
     }

@@ -14,6 +14,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import com.acougue.security.LimitadorRequisicoes;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -42,7 +43,9 @@ public class SecurityConfig {
                         .requestMatchers("/pagamento/webhook/**").permitAll()   // adquirentes não enviam token (ver WebhookPagamentoController)
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                // Depois do JwtAuthFilter: já sabe quem é o usuário (ver LimitadorRequisicoes)
+                .addFilterAfter(new LimitadorRequisicoes(limitePorUsuario, limitePorWebhook), JwtAuthFilter.class);
         return http.build();
     }
 
@@ -65,6 +68,12 @@ public class SecurityConfig {
      (lista em seguranca.cors.origens / CORS_ORIGENS). Antes era "*": qualquer
      site aberto no navegador de um operador podia disparar chamadas à API.
      */
+    @Value("${seguranca.limite.por-usuario-minuto:600}")
+    private int limitePorUsuario;
+
+    @Value("${seguranca.limite.webhook-minuto:300}")
+    private int limitePorWebhook;
+
     @Value("${seguranca.cors.origens:}")
     private String origensPermitidas;
 

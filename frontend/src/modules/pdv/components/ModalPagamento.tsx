@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
-  X, Banknote, CreditCard, Smartphone, BookOpen, FileCheck,
+  X, Banknote, CreditCard, Smartphone, BookOpen, FileCheck, Ticket,
   CheckCircle, Loader2, Trash2, Copy,
 } from 'lucide-react'
 import { api } from '@/shared/api/axios'
@@ -13,7 +13,7 @@ import { CurrencyInput } from '@/shared/components/ui'
 import PainelCartao from './PainelCartao'
 
 // ─── tipos internos ──────────────────────────────────────────────────────────
-type Metodo  = 'DINHEIRO' | 'DEBITO' | 'CREDITO' | 'PIX' | 'CHEQUE' | 'FIADO'
+type Metodo  = 'DINHEIRO' | 'DEBITO' | 'CREDITO' | 'VOUCHER' | 'PIX' | 'CHEQUE' | 'FIADO'
 type PixStatus   = 'idle' | 'gerando' | 'aguardando' | 'aprovado' | 'erro'
 
 interface Props {
@@ -32,11 +32,13 @@ const brl = formatBRL
 const NOTAS = [5, 10, 20, 50, 100, 200]
 
 // ─── metadados dos métodos ────────────────────────────────────────────────────
-// Atalho = posição na grade (F1 a F6); F7 é a "Venda manual" do PainelCartao
+// F1 a F6 na ordem antiga; o Voucher (vale-alimentação/refeição) veio depois e ficou com o F9,
+// porque F7 é a "Venda manual" do PainelCartao e F8 o botão de confirmar
 const METODOS: { value: Metodo; label: string; icon: React.ElementType; cor: string; atalho: string }[] = [
   { value: 'DINHEIRO', label: 'Dinheiro',  icon: Banknote,    cor: 'bg-emerald-600', atalho: 'F1' },
   { value: 'DEBITO',   label: 'Débito',    icon: CreditCard,  cor: 'bg-blue-600',    atalho: 'F2' },
   { value: 'CREDITO',  label: 'Crédito',   icon: CreditCard,  cor: 'bg-violet-600',  atalho: 'F3' },
+  { value: 'VOUCHER',  label: 'Voucher',   icon: Ticket,      cor: 'bg-rose-600',    atalho: 'F9' },
   { value: 'PIX',      label: 'PIX',       icon: Smartphone,  cor: 'bg-teal-600',    atalho: 'F4' },
   { value: 'CHEQUE',   label: 'Cheque',    icon: FileCheck,   cor: 'bg-amber-600',   atalho: 'F5' },
   { value: 'FIADO',    label: 'Fiado',     icon: BookOpen,    cor: 'bg-orange-600',  atalho: 'F6' },
@@ -79,7 +81,7 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
   const troco     = totalPago > totalVenda ? totalPago - totalVenda : 0
   const pago      = totalPago >= totalVenda - 0.009
 
-  // F1–F6 escolhem o método, como clicar no botão (inclusive travado com cobrança em andamento)
+  // F1–F6 e F9 escolhem o método, como clicar no botão (inclusive travado com cobrança em andamento)
   const escolherRef = useRef<(tecla: string) => void>(() => undefined)
   escolherRef.current = (tecla: string) => {
     const m = METODOS.find(x => x.atalho === tecla)
@@ -328,7 +330,7 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
           {/* ── Seletor de método ────────────────────────────────────────── */}
           {!pago && (
             <>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-4 gap-2">
                 {METODOS.map(m => {
                   const Icon = m.icon
                   const ativo = metodo === m.value
@@ -395,8 +397,8 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
                 </div>
               )}
 
-              {/* ── Painel Cartão (Débito / Crédito) ───────────────────── */}
-              {(metodo === 'DEBITO' || metodo === 'CREDITO') && (
+              {/* ── Painel Cartão (Débito / Crédito / Voucher) ─────────── */}
+              {(metodo === 'DEBITO' || metodo === 'CREDITO' || metodo === 'VOUCHER') && (
                 <PainelCartao
                   key={metodo}
                   metodo={metodo}

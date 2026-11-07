@@ -34,9 +34,12 @@ export default function TerminalModal({ terminal, provedores, onClose }: Props) 
   const [aceitaCredito, setAceitaCredito] = useState(terminal.aceitaCredito ?? true)
   const [maxParcelas, setMaxParcelas] = useState(terminal.maxParcelas ?? 12)
   const [aceitaPix, setAceitaPix] = useState(terminal.aceitaPix ?? false)
+  const [aceitaVoucher, setAceitaVoucher] = useState(terminal.aceitaVoucher ?? false)
   const [ativo, setAtivo] = useState(terminal.ativo ?? true)
   // PIX com QR na tela da maquininha: só a Veloce manda PIX pela API
   const podePix = provedor === 'VELOCE' && modo === 'API_NUVEM'
+  // Voucher (vale-alimentação/refeição): a Veloce manda pela API; no modo Manual o operador confirma
+  const podeVoucher = podePix || modo === 'MANUAL'
 
   const suportaNuvem = provedores.find(p => p.provedor === provedor)?.suportaApiNuvem ?? false
   const modosDisponiveis: ModoIntegracao[] = suportaNuvem
@@ -55,7 +58,8 @@ export default function TerminalModal({ terminal, provedores, onClose }: Props) 
         nome, provedor, modoIntegracao: modo,
         identificadorDispositivo: identificador || null,
         agenteUrl: agenteUrl || null,
-        aceitaDebito, aceitaCredito, maxParcelas, aceitaPix: podePix && aceitaPix, ativo,
+        aceitaDebito, aceitaCredito, maxParcelas, aceitaPix: podePix && aceitaPix,
+        aceitaVoucher: podeVoucher && aceitaVoucher, ativo,
       }
       return editando
         ? api.put(`/maquininhas/terminais/${terminal.id}`, corpo)
@@ -143,6 +147,11 @@ export default function TerminalModal({ terminal, provedores, onClose }: Props) 
         {podePix && (
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={aceitaPix} onChange={e => setAceitaPix(e.target.checked)} /> PIX
+          </label>
+        )}
+        {podeVoucher && (
+          <label className="flex items-center gap-2 text-sm" title="Vale-alimentação / vale-refeição (Alelo, Pluxee, Ticket, VR)">
+            <input type="checkbox" checked={aceitaVoucher} onChange={e => setAceitaVoucher(e.target.checked)} /> Voucher (vale)
           </label>
         )}
         <label className="flex items-center gap-2 text-sm ml-auto">

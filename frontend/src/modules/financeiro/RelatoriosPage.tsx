@@ -11,9 +11,15 @@ import DesempenhoRelatorio from './relatorios/DesempenhoRelatorio'
 import PosicaoEstoqueRelatorio from './relatorios/PosicaoEstoqueRelatorio'
 import ContasPagarPosicaoRelatorio from './relatorios/ContasPagarPosicaoRelatorio'
 import ComprasFornecedorRelatorio from './relatorios/ComprasFornecedorRelatorio'
+import HorariosRelatorio from './relatorios/HorariosRelatorio'
+import CurvaAbcRelatorio from './relatorios/CurvaAbcRelatorio'
+import MargemTipoRelatorio from './relatorios/MargemTipoRelatorio'
+import OperadoresRelatorio from './relatorios/OperadoresRelatorio'
+import FechamentosCaixaRelatorio from './relatorios/FechamentosCaixaRelatorio'
+import InadimplenciaRelatorio from './relatorios/InadimplenciaRelatorio'
 import { periodoPadrao } from './relatorios/PainelRelatorio'
 
-type Grupo = 'Vendas e desempenho' | 'Estoque' | 'Compras' | 'Financeiro'
+type Grupo = 'Vendas e desempenho' | 'Produtos e margem' | 'Caixa e operadores' | 'Estoque' | 'Compras' | 'Financeiro'
 
 interface Opcao {
   id: string
@@ -21,7 +27,7 @@ interface Opcao {
   titulo: string
   /** Módulo cujo acesso o relatório exige (as chamadas usam as permissões desse módulo). */
   modulo: string
-  /** Relatórios do histórico de pagamentos são restritos a administradores. */
+  /** Relatórios que mostram quem fez (histórico de pagamentos, operadores, caixas): só administradores. */
   somenteAdmin?: boolean
   render: (periodo: { inicio: string; fim: string }) => JSX.Element
 }
@@ -34,8 +40,21 @@ interface Opcao {
 const OPCOES: Opcao[] = [
   { id: 'desempenho', grupo: 'Vendas e desempenho', titulo: 'Desempenho (vendas, margem e fluxo de caixa)', modulo: 'RELATORIOS',
     render: () => <DesempenhoRelatorio /> },
+  { id: 'horarios', grupo: 'Vendas e desempenho', titulo: 'Vendas por horário e dia da semana', modulo: 'RELATORIOS',
+    render: () => <HorariosRelatorio /> },
   { id: 'comissoes', grupo: 'Vendas e desempenho', titulo: 'Comissões', modulo: 'COMISSOES',
     render: p => <RelatorioComissoesModal embedded inicio={p.inicio} fim={p.fim} /> },
+
+  { id: 'curva-abc', grupo: 'Produtos e margem', titulo: 'Curva ABC de produtos', modulo: 'RELATORIOS',
+    render: () => <CurvaAbcRelatorio /> },
+  { id: 'margem-tipo', grupo: 'Produtos e margem', titulo: 'Margem por tipo de produto', modulo: 'RELATORIOS',
+    render: () => <MargemTipoRelatorio /> },
+
+  // Mostram quem operou: só para quem vê a identificação dos usuários (o backend também exige)
+  { id: 'operadores', grupo: 'Caixa e operadores', titulo: 'Vendas por operador (descontos e cancelamentos)', modulo: 'RELATORIOS',
+    somenteAdmin: true, render: () => <OperadoresRelatorio /> },
+  { id: 'fechamentos-caixa', grupo: 'Caixa e operadores', titulo: 'Fechamentos de caixa (sobras e faltas)', modulo: 'RELATORIOS',
+    somenteAdmin: true, render: () => <FechamentosCaixaRelatorio /> },
 
   { id: 'estoque', grupo: 'Estoque', titulo: 'Estoque (produtos)', modulo: 'PRODUTOS',
     render: () => <RelatorioEstoqueModal embedded /> },
@@ -49,6 +68,8 @@ const OPCOES: Opcao[] = [
   { id: 'compras-fornecedor', grupo: 'Compras', titulo: 'Compras por fornecedor', modulo: 'RECEBIMENTO',
     render: () => <ComprasFornecedorRelatorio /> },
 
+  { id: 'inadimplencia', grupo: 'Financeiro', titulo: 'Contas a receber — inadimplência', modulo: 'RELATORIOS',
+    render: () => <InadimplenciaRelatorio /> },
   { id: 'contas-pagar-posicao', grupo: 'Financeiro', titulo: 'Contas a pagar — posição em aberto', modulo: 'RELATORIOS',
     render: () => <ContasPagarPosicaoRelatorio /> },
   { id: 'pagamentos-pagar', grupo: 'Financeiro', titulo: 'Pagamentos realizados (contas a pagar)', modulo: 'CONTAS_PAGAR', somenteAdmin: true,
@@ -57,7 +78,7 @@ const OPCOES: Opcao[] = [
     render: () => <HistoricoPagamentosModal embedded tipo="receber" /> },
 ]
 
-const ORDEM_GRUPOS: Grupo[] = ['Vendas e desempenho', 'Estoque', 'Compras', 'Financeiro']
+const ORDEM_GRUPOS: Grupo[] = ['Vendas e desempenho', 'Produtos e margem', 'Caixa e operadores', 'Estoque', 'Compras', 'Financeiro']
 
 export default function RelatoriosPage() {
   const { podeVer, podeVerIdentificacao, isSuperAdmin } = usePermissao()

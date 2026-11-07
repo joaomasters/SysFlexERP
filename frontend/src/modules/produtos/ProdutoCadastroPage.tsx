@@ -224,7 +224,7 @@ export default function ProdutoCadastroPage() {
       const payload = {
         codigoInterno: f.codigoInterno.trim() || null,
         ean13: f.ean13 || null,
-        nome: f.nome.trim(),
+        nome: f.nome.trim().replace(/\s+/g, ' '),
         unidadeMedida: f.unidadeMedida,
         tipoProduto: f.tipoProduto,
         codigoBalanca: balanca && f.codigoBalanca ? Number(f.codigoBalanca) : null,

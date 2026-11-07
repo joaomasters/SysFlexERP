@@ -134,10 +134,11 @@ public class VeloceSmartTefProvedor implements ProvedorTerminalNuvem, CacheDaEmp
         return RetornoProvedor.pendente(id.texto(), r.corpo());
     }
 
-    /** 0 débito, 1 crédito, 3 PIX (QR na tela da maquininha); 2 voucher não é usado. */
+    /** 0 débito, 1 crédito, 2 voucher (vale-alimentação/refeição), 3 PIX (QR na tela da maquininha). */
     static int tipoVeloce(String tipo) {
         return switch (tipo) {
             case "CREDITO" -> 1;
+            case "VOUCHER" -> 2;
             case "PIX" -> 3;
             default -> 0;
         };

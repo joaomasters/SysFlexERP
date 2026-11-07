@@ -11,6 +11,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 
 @RestControllerAdvice
@@ -60,11 +62,14 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, String>> handleValidation(MethodArgumentNotValidException ex) {
-        Map<String, String> errors = new HashMap<>();
+        Map<String, String> errors = new LinkedHashMap<>();
         ex.getBindingResult().getAllErrors().forEach(error -> {
-            String field = ((FieldError) error).getField();
+            // erro de objeto (não de um campo) não é FieldError: usa o nome do objeto como chave
+            String field = error instanceof FieldError fe ? fe.getField() : error.getObjectName();
             errors.put(field, error.getDefaultMessage());
         });
+        // "message" resume tudo em um texto só — é o que as telas mostram no aviso.
+        errors.put("message", String.join(" ", new LinkedHashSet<>(errors.values())));
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errors);
     }
 

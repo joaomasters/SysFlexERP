@@ -20,6 +20,7 @@ public class FechamentoCaixaDetalhadoDTO {
     private BigDecimal totalDebito;
     private BigDecimal totalPix;
     private BigDecimal totalFiado;
+    private BigDecimal totalVoucher;
     private BigDecimal saldoEsperado;
     private int quantidadeVendas;
     private List<SangriaCaixa> movimentos;

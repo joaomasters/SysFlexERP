@@ -196,7 +196,7 @@ export default function MaquininhasPage() {
                     {t.identificadorDispositivo ?? t.agenteUrl ?? '—'}
                   </TD>
                   <TD className="text-xs text-gray-600">
-                    {[t.aceitaDebito && 'Débito', t.aceitaCredito && `Crédito até ${t.maxParcelas}x`, t.aceitaPix && 'PIX']
+                    {[t.aceitaDebito && 'Débito', t.aceitaCredito && `Crédito até ${t.maxParcelas}x`, t.aceitaPix && 'PIX', t.aceitaVoucher && 'Voucher']
                       .filter(Boolean).join(' · ')}
                   </TD>
                   <TD>
