@@ -9,7 +9,8 @@ import { usePdv, LimiteExcedidoError } from './hooks/usePdv'
 import type { LimiteExcedidoInfo } from './hooks/usePdv'
 import AutorizacaoLimiteModal from './components/AutorizacaoLimiteModal'
 import type { PagamentoDTO } from '@/types/venda'
-import ListaItens from './components/ListaItens'
+import ListaItens, { ehEtiquetaBalanca } from './components/ListaItens'
+import QuantidadeItemModal from './components/QuantidadeItemModal'
 import DescontoItemModal from './components/DescontoItemModal'
 import ModalPagamento from './components/ModalPagamento'
 import NovaComandaModal from './components/NovaComandaModal'
@@ -52,7 +53,7 @@ interface FechamentoResumo {
 export default function PDVPage() {
   const {
     venda, comandas, loading, scanLoading, totalVenda, caixaId, semCaixa,
-    adicionarItem, adicionarProduto, removerItem, aplicarDescontoItem, fecharVenda, cancelarVenda, sairDaComanda,
+    adicionarItem, adicionarProduto, removerItem, aplicarDescontoItem, alterarQuantidadeItem, fecharVenda, cancelarVenda, sairDaComanda,
     iniciarVenda, selecionarComanda, abrirCaixa, fecharCaixa,
   } = usePdv()
 
@@ -62,6 +63,7 @@ export default function PDVPage() {
   const [autorizando, setAutorizando] = useState(false)
   const [showNovaComanda, setShowNovaComanda] = useState(false)
   const [descontando, setDescontando] = useState<ItemVenda | null>(null)
+  const [quantificando, setQuantificando] = useState<ItemVenda | null>(null)
   const [excluindo, setExcluindo] = useState<ItemVenda | null>(null)
   const [cancelando, setCancelando] = useState(false)
   const [selecionadoId, setSelecionadoId] = useState<number | null>(null)
@@ -169,10 +171,11 @@ export default function PDVPage() {
   const sairRef = useRef(sairDaComandaAberta)
   sairRef.current = sairDaComandaAberta
 
-  // F6 = Desconto, F8 = Excluir (pede confirmação), ↑ ↓ ou PgUp PgDn = escolher o item.
+  // F6 = Desconto, F7 = Quantidade, + / − = uma unidade a mais ou a menos, F8 = Excluir (pede confirmação),
+  // ↑ ↓ ou PgUp PgDn = escolher o item.
   // As setas ficam de fora nos campos: na busca, elas navegam a lista de produtos.
   function atalhoDoItem(e: KeyboardEvent) {
-    if (showPagto || limitePendente || pesando || perguntarImpressao || showNovaComanda || showFechar) return
+    if (showPagto || limitePendente || pesando || perguntarImpressao || showNovaComanda || showFechar || quantificando) return
     const el = document.activeElement
     const emCampo = Boolean(el && ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName))
     const sobe = e.key === 'PageUp' || (e.key === 'ArrowUp' && !emCampo)
@@ -183,6 +186,14 @@ export default function PDVPage() {
       if (!itemSelecionado) return
       if (podeDescontar) setDescontando(itemSelecionado)
       else toast.error('Seu perfil não pode dar desconto.')
+    } else if (e.key === 'F7') {
+      e.preventDefault()
+      if (!itemSelecionado) return
+      if (ehEtiquetaBalanca(itemSelecionado)) toast.error('O peso vem da etiqueta da balança.')
+      else setQuantificando(itemSelecionado)
+    } else if ((e.key === '+' || e.key === '-') && !emCampo && itemSelecionado) {
+      e.preventDefault()
+      somarUm(itemSelecionado, e.key === '+' ? 1 : -1)
     } else if (e.key === 'F8') {
       e.preventDefault()
       if (itemSelecionado) setExcluindo(itemSelecionado)
@@ -192,6 +203,19 @@ export default function PDVPage() {
       if (novo) setSelecionadoId(novo.id)
     }
   }
+  // + / − só em produto por unidade; o de peso abre a quantidade (F7) para digitar os kg
+  async function somarUm(item: ItemVenda, delta: number) {
+    if (ehEtiquetaBalanca(item)) { toast.error('O peso vem da etiqueta da balança.'); return }
+    if (item.produto.unidadeMedida === 'KG' || item.produto.unidadeMedida === 'G') { setQuantificando(item); return }
+    const nova = item.quantidade + delta
+    if (nova < 1) { toast('Para tirar o item, use F8 (Excluir).', { icon: 'ℹ️' }); return }
+    try {
+      await alterarQuantidadeItem(item.id, nova)
+    } catch {
+      // erro já mostrado pelo interceptor do axios
+    }
+  }
+
   const atalhoRef = useRef(atalhoDoItem)
   atalhoRef.current = atalhoDoItem
 
@@ -218,7 +242,7 @@ export default function PDVPage() {
   // Com uma janela aberta eles ficam desligados: no pagamento, F1–F7 escolhem a forma.
   function atalhoDaTela(e: KeyboardEvent) {
     const janelaAberta = showPagto || limitePendente || pesando || perguntarImpressao || showNovaComanda
-      || showFechar || excluindo || descontando || cancelando
+      || showFechar || excluindo || descontando || quantificando || cancelando
     if (janelaAberta) return
     if (e.key === 'F4') { e.preventDefault(); sairRef.current() }
     if (e.key === 'F10') { e.preventDefault(); if (venda?.itens?.length) setShowPagto(true) }
@@ -249,7 +273,7 @@ export default function PDVPage() {
       if (el && ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return // evita lançar em dobro
       adicionarItem(codigo)
     },
-    enabled: !showPagto && !semCaixa && !pesando && !perguntarImpressao && !descontando && !excluindo,
+    enabled: !showPagto && !semCaixa && !pesando && !perguntarImpressao && !descontando && !quantificando && !excluindo,
   })
 
   const handleAbrirCaixa = async () => {
@@ -411,6 +435,7 @@ export default function PDVPage() {
             itens={itens}
             onRemover={removerItem}
             onDesconto={setDescontando}
+            onQuantidade={setQuantificando}
             podeDescontar={podeDescontar}
             selecionadoId={itemSelecionado?.id}
             onSelecionar={setSelecionadoId}
@@ -419,7 +444,7 @@ export default function PDVPage() {
           <div className="px-4 py-3 bg-gray-900 border-t border-gray-800 flex justify-between text-sm text-gray-400">
             <span>{venda?.itens?.length ?? 0} iten(s)</span>
             {itens.length > 0 && (
-              <span className="text-xs text-gray-500">↑ ↓ escolher item · F6 desconto · F8 excluir</span>
+              <span className="text-xs text-gray-500">↑ ↓ escolher item · + − quantidade · F6 desconto · F7 qtd · F8 excluir</span>
             )}
             {(venda?.desconto ?? 0) > 0 && (
               <span>Desconto: -{brl(venda?.desconto ?? 0)}</span>
@@ -589,6 +614,18 @@ export default function PDVPage() {
             setDescontando(null)
           }}
           onCancelar={() => setDescontando(null)}
+        />
+      )}
+
+      {/* Quantidade do item (F7) */}
+      {quantificando && (
+        <QuantidadeItemModal
+          item={quantificando}
+          onConfirmar={async quantidade => {
+            await alterarQuantidadeItem(quantificando.id, quantidade)
+            setQuantificando(null)
+          }}
+          onCancelar={() => setQuantificando(null)}
         />
       )}
 
