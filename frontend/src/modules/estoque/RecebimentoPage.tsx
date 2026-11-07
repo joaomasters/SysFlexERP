@@ -9,6 +9,7 @@ import type { ProdutoBuscavel } from '@/shared/components/ui'
 import { useBarcodeScan } from '@/shared/hooks/useBarcodeScan'
 import { usePermissao } from '@/shared/hooks/usePermissao'
 import { limiteValidadeISO, validadeAcimaDoLimite, formatarDataValidade, MAX_ANOS_VALIDADE } from './validadeUtils'
+import { hojeISO } from '@/shared/utils/data'
 
 interface Produto { id: number; nome: string; unidadeMedida: string; codigoInterno?: string | null; ean13?: string | null; codigoBalanca?: number | null }
 interface RecItem { produtoId: number; quantidade: number; custoUnitario: number; dataValidade: string }
@@ -35,8 +36,8 @@ interface Recebimento {
 
 const brl = (v?: number) => formatBRL(v ?? 0)
 
-const hoje = new Date().toISOString().slice(0, 10)
-const trintaDiasAtras = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+const hoje = hojeISO()
+const trintaDiasAtras = hojeISO(-30)
 
 export default function RecebimentoPage() {
   const qc = useQueryClient()

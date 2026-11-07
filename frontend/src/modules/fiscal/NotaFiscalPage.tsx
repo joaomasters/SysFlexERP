@@ -8,6 +8,7 @@ import { PageHeader, Card, Modal, Button, StatusBadge, CurrencyInput, WeightInpu
 import type { BadgeTone } from '@/shared/components/ui'
 import ImpressaoNFModal from './components/ImpressaoNFModal'
 import { usePermissao } from '@/shared/hooks/usePermissao'
+import { hojeISO } from '@/shared/utils/data'
 
 interface Produto  { id: number; nome: string; precoVenda: number; unidadeMedida?: string }
 interface Cliente  { id: number; nome: string }
@@ -54,8 +55,8 @@ const statusTom: Record<string, BadgeTone> = {
 
 // Mesmos padrões de filtro da tela de Recebimento de Mercadoria: por padrão,
 // últimos 30 dias, pra não carregar o histórico inteiro de notas de uma vez.
-const hoje = new Date().toISOString().slice(0, 10)
-const trintaDiasAtras = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+const hoje = hojeISO()
+const trintaDiasAtras = hojeISO(-30)
 
 export default function NotaFiscalPage() {
   const qc = useQueryClient()

@@ -10,6 +10,7 @@ import {
 import type { BadgeTone } from '@/shared/components/ui'
 import { usePermissao } from '@/shared/hooks/usePermissao'
 import RelatorioPerdasModal from './components/RelatorioPerdasModal'
+import { hojeISO } from '@/shared/utils/data'
 
 interface Produto { id: number; nome: string; unidadeMedida: string; precoCusto: number }
 interface Perda {
@@ -37,7 +38,7 @@ const motivoTom: Record<string, BadgeTone> = {
   OUTROS: 'neutral',
 }
 
-const hoje = new Date().toISOString().slice(0, 10)
+const hoje = hojeISO()
 
 export default function PerdasPage() {
   const qc = useQueryClient()

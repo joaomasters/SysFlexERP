@@ -7,6 +7,7 @@ import { PageHeader, Card, Button, StatusBadge, WeightInput, baseInputClass } fr
 import type { BadgeTone } from '@/shared/components/ui'
 import RelatorioEstoqueModal from '@/modules/produtos/components/RelatorioEstoqueModal'
 import { usePermissao } from '@/shared/hooks/usePermissao'
+import { hojeISO } from '@/shared/utils/data'
 
 interface Inventario {
   id: number; status: string; observacao: string
@@ -20,8 +21,8 @@ interface InventarioItem {
   saldoSistema: number; saldoContado: number | null; divergencia: number | null
 }
 
-const hoje = new Date().toISOString().slice(0, 10)
-const trintaDiasAtras = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+const hoje = hojeISO()
+const trintaDiasAtras = hojeISO(-30)
 const kg3 = formatQuantidade
 
 // ABERTO = contagem em andamento (processo, não problema); FINALIZADO = concluído;

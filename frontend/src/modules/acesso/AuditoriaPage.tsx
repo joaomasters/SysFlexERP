@@ -5,9 +5,10 @@ import { api } from '@/shared/api/axios'
 import type { LogAuditoria, ModuloInfo, Usuario } from '@/types/acesso'
 import { PageHeader, Card, StatusBadge, Field, EmptyState, LoadingState } from '@/shared/components/ui'
 import type { BadgeTone } from '@/shared/components/ui'
+import { hojeISO } from '@/shared/utils/data'
 
-const hoje = new Date().toISOString().slice(0, 10)
-const seteDiasAtras = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+const hoje = hojeISO()
+const seteDiasAtras = hojeISO(-7)
 
 // Criar = positivo; Editar = neutro/informativo; Excluir = negativo/atenção.
 const acaoConfig: Record<string, { label: string; tone: BadgeTone; icone: typeof Plus }> = {
