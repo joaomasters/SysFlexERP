@@ -6,6 +6,7 @@ import { api } from '@/shared/api/axios'
 import { formatBRL, formatWeightDisplay } from '@/shared/utils/mask'
 import { Card, Table, THead, TH, TBody, TR, TD } from '@/shared/components/ui'
 import PainelRelatorio, { periodoPadrao, dataBR, Indicador, BarraPercentual, FiltroData, pct } from './PainelRelatorio'
+import { dataISO } from '@/shared/utils/data'
 
 interface RelatorioVendas {
   totalVendas: number; quantidadeVendas: number; ticketMedio: number; totalPerdas: number
@@ -25,7 +26,7 @@ const rotuloForma: Record<string, string> = {
 }
 const nomeForma = (f: string) => rotuloForma[f] ?? f
 
-const isoLocal = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
+const isoLocal = dataISO
 
 /** Mesmo número de dias, logo antes do período escolhido. */
 function periodoAnterior(inicio: string, fim: string) {

@@ -11,6 +11,7 @@ import {
 import type { BadgeTone } from '@/shared/components/ui'
 import { usePermissao } from '@/shared/hooks/usePermissao'
 import HistoricoPagamentosModal from './components/HistoricoPagamentosModal'
+import { hojeISO } from '@/shared/utils/data'
 
 interface ContaPagar {
   id: number; descricao: string; fornecedor: string; valor: number
@@ -46,8 +47,7 @@ const CATEGORIAS_CONTA = [
 
 const NOVO_FORNECEDOR = '__novo__'
 
-const isoDia = (deslocamentoDias: number) =>
-  new Date(Date.now() + deslocamentoDias * 86_400_000).toISOString().slice(0, 10)
+const isoDia = hojeISO
 
 export default function ContasPagarPage() {
   const qc = useQueryClient()

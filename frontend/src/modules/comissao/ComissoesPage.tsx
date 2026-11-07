@@ -12,10 +12,11 @@ import {
   PageHeader, Card, Modal, Button, StatusBadge, Field, FilterTabs,
   Table, THead, TH, TBody, TR, TD, EmptyState, LoadingState,
 } from '@/shared/components/ui'
+import { hojeISO } from '@/shared/utils/data'
 
 type Aba = 'apuracao' | 'percentuais'
 
-const hoje = new Date().toISOString().slice(0, 10)
+const hoje = hojeISO()
 const inicioDoMes = hoje.slice(0, 8) + '01'
 
 const dateClass = 'border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500'

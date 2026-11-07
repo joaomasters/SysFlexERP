@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { Printer } from 'lucide-react'
 import { Card, Button } from '@/shared/components/ui'
+import { dataISO } from '@/shared/utils/data'
 
 interface Props {
   /** id da área impressa — único por relatório (a impressão isola esse elemento). */
@@ -79,7 +80,7 @@ export function FiltroData({ label, value, onChange, erro }: {
 /** Intervalo de datas padrão: do 1º dia do mês até hoje. */
 export function periodoPadrao() {
   const hoje = new Date()
-  const iso = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
+  const iso = dataISO
   return {
     inicio: iso(new Date(hoje.getFullYear(), hoje.getMonth(), 1)),
     fim: iso(hoje),
