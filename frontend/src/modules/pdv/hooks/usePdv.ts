@@ -152,6 +152,13 @@ export function usePdv() {
     atualizarComandaLocal(data)
   }, [venda, atualizarComandaLocal])
 
+  const alterarQuantidadeItem = useCallback(async (itemId: number, quantidade: number) => {
+    if (!venda) return
+    const { data } = await api.put<Venda>(`/pdv/vendas/${venda.id}/itens/${itemId}/quantidade`, { quantidade })
+    setVenda(data)
+    atualizarComandaLocal(data)
+  }, [venda, atualizarComandaLocal])
+
   const aplicarDescontoItem = useCallback(async (itemId: number, valor: number) => {
     if (!venda) return
     const { data } = await api.put<Venda>(`/pdv/vendas/${venda.id}/itens/${itemId}/desconto`, { valor })
@@ -228,6 +235,7 @@ export function usePdv() {
     adicionarProduto,
     removerItem,
     aplicarDescontoItem,
+    alterarQuantidadeItem,
     fecharVenda,
     cancelarVenda,
     sairDaComanda,

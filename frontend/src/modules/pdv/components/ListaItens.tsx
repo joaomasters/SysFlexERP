@@ -1,4 +1,4 @@
-import { Percent, Trash2 } from 'lucide-react'
+import { Hash, Percent, Trash2 } from 'lucide-react'
 import type { ItemVenda } from '@/types/venda'
 import { formatBRL, formatWeightDisplay } from '@/shared/utils/mask'
 
@@ -6,9 +6,10 @@ interface Props {
   itens: ItemVenda[]
   onRemover: (id: number) => void
   onDesconto: (item: ItemVenda) => void
+  onQuantidade: (item: ItemVenda) => void
   /** Sem a permissão, o botão fica visível e desabilitado, como o de cancelar venda. */
   podeDescontar: boolean
-  /** Item em que os atalhos F6 e F8 agem. */
+  /** Item em que os atalhos F6, F7, + / − e F8 agem. */
   selecionadoId?: number
   onSelecionar: (id: number) => void
 }
@@ -20,7 +21,10 @@ const kg3 = formatWeightDisplay
 
 const tecla = 'rounded bg-black/30 px-1 font-mono text-[10px] leading-4'
 
-export default function ListaItens({ itens, onRemover, onDesconto, podeDescontar, selecionadoId, onSelecionar }: Props) {
+/** Peso e valor vêm da etiqueta: a quantidade não muda (o backend também recusa). */
+export const ehEtiquetaBalanca = (item: ItemVenda) => item.ean13Lido?.length === 13 && item.ean13Lido.startsWith('2')
+
+export default function ListaItens({ itens, onRemover, onDesconto, onQuantidade, podeDescontar, selecionadoId, onSelecionar }: Props) {
   if (itens.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">
@@ -71,6 +75,18 @@ export default function ListaItens({ itens, onRemover, onDesconto, podeDescontar
                 )}
               </td>
               <td className="px-3 py-2 whitespace-nowrap text-right space-x-2">
+                <button
+                  onClick={() => onQuantidade(item)}
+                  disabled={ehEtiquetaBalanca(item)}
+                  aria-label="Quantidade do item"
+                  title={ehEtiquetaBalanca(item) ? 'O peso vem da etiqueta da balança' : 'Mudar a quantidade (F7, ou + e −)'}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-sky-500/50 bg-sky-500/15 px-2.5 py-1.5
+                             text-xs font-semibold text-sky-300 hover:bg-sky-500/30 transition-colors
+                             disabled:border-gray-700 disabled:bg-transparent disabled:text-gray-600 disabled:cursor-not-allowed"
+                >
+                  <Hash size={13} /> Qtd
+                  {selecionado && !ehEtiquetaBalanca(item) && <kbd className={tecla}>F7</kbd>}
+                </button>
                 <button
                   onClick={() => onDesconto(item)}
                   disabled={!podeDescontar}
