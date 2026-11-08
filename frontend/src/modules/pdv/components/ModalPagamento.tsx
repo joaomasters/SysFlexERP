@@ -80,6 +80,15 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
   const restante  = Math.max(0, totalVenda - totalPago)
   const troco     = totalPago > totalVenda ? totalPago - totalVenda : 0
   const pago      = totalPago >= totalVenda - 0.009
+  // Pagamento dividido: só dinheiro e cheque podem passar do que falta (o excesso vira troco)
+  const semTroco  = metodo !== 'DINHEIRO' && metodo !== 'CHEQUE'
+  const acimaDoRestante = semTroco && valor > restante + 0.009
+
+  // A cada pagamento lançado, o valor já vem com o que falta para o próximo
+  useEffect(() => {
+    setValor(restante > 0 ? Math.round(restante * 100) / 100 : 0)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totalPago])
 
   // F1–F6 e F9 escolhem o método, como clicar no botão (inclusive travado com cobrança em andamento)
   const escolherRef = useRef<(tecla: string) => void>(() => undefined)
@@ -110,7 +119,6 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
     if (v <= 0) return
     const novoPag: PagamentoDTO = { formaPagamento: forma, valor: v, ...extra }
     setPagamentos((prev: PagamentoDTO[]) => [...prev, novoPag])
-    setValor(0)
   }
 
   function removePagamento(i: number) {
@@ -127,6 +135,7 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
   // ── Dinheiro / Fiado ──────────────────────────────────────────────────────
   function confirmarDinheiro() {
     if (!valor) return
+    if (acimaDoRestante) { toast.error(`Fiado não dá troco: o máximo é ${brl(restante)}.`); return }
     addPagamento(metodo, valor)
   }
 
@@ -149,7 +158,6 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
   // ── Cartão ────────────────────────────────────────────────────────────────
   function cartaoAprovado(p: PagamentoDTO) {
     setPagamentos((prev: PagamentoDTO[]) => [...prev, p])
-    setValor(0)
   }
 
   // ── PIX ───────────────────────────────────────────────────────────────────
@@ -165,6 +173,7 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
   async function gerarPix() {
     const v = valor
     if (!v) return
+    if (acimaDoRestante) { toast.error(`PIX não dá troco: o máximo é ${brl(restante)}.`); return }
 
     setPixSt('gerando')
     setPixQr('')
@@ -330,6 +339,12 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
           {/* ── Seletor de método ────────────────────────────────────────── */}
           {!pago && (
             <>
+              {pagamentos.length > 0 && (
+                <p className="text-sm text-amber-300 bg-amber-900/20 border border-amber-700/50 rounded-lg px-3 py-2">
+                  Pago {brl(totalPago)} · falta <strong className="tabular-nums">{brl(restante)}</strong>.
+                  Escolha a próxima forma (F1–F6, F9).
+                </p>
+              )}
               <div className="grid grid-cols-4 gap-2">
                 {METODOS.map(m => {
                   const Icon = m.icon
@@ -388,6 +403,9 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
                       ✓ <span className="text-xs font-normal opacity-70">[F8]</span>
                     </button>
                   </div>
+                  {acimaDoRestante && (
+                    <p className="text-xs text-red-400">Fiado não dá troco: o máximo é {brl(restante)}.</p>
+                  )}
                   {metodo === 'DINHEIRO' && valor > restante + 0.009 && (
                     <div className="flex items-center justify-between rounded-xl border border-yellow-600/60 bg-yellow-900/30 px-4 py-3">
                       <span className="text-sm text-yellow-200">Troco para o cliente</span>
@@ -403,6 +421,7 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
                   key={metodo}
                   metodo={metodo}
                   valor={valor}
+                  maximo={restante}
                   setValor={setValor}
                   vendaId={vendaId}
                   onAprovado={cartaoAprovado}
@@ -431,6 +450,7 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
                   key="PIX"
                   metodo="PIX"
                   valor={valor}
+                  maximo={restante}
                   setValor={setValor}
                   vendaId={vendaId}
                   onAprovado={cartaoAprovado}
@@ -450,7 +470,7 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
                     {(pixSt === 'idle' || pixSt === 'erro') ? (
                       <button
                         onClick={gerarPix}
-                        disabled={!valor}
+                        disabled={!valor || acimaDoRestante}
                         className="px-4 bg-teal-600 hover:bg-teal-500 rounded-lg font-bold transition-colors disabled:opacity-50"
                       >
                         Gerar QR <span className="text-xs font-normal opacity-70">[F8]</span>

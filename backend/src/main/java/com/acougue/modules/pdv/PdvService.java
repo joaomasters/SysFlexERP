@@ -25,6 +25,10 @@ import java.util.List;
 @RequiredArgsConstructor
 public class PdvService {
 
+    /** Formas em que o cliente pode entregar mais que o devido e receber troco em dinheiro. */
+    private static final java.util.Set<String> FORMAS_COM_TROCO = java.util.Set.of("DINHEIRO", "CHEQUE");
+
+
     private final VendaRepository          vendaRepo;
     private final ItensVendaRepository     itensRepo;
     private final PagamentoVendaRepository pagRepo;
@@ -275,6 +279,18 @@ public class PdvService {
             throw new BusinessException(String.format(
                     "Pagamento insuficiente. Venda: R$ %.2f | Pago: R$ %.2f",
                     venda.getTotal(), totalPago));
+        }
+
+        // Pagamento dividido (débito + crédito + voucher + dinheiro...): só dinheiro e cheque dão troco.
+        // Cartão, voucher, PIX e fiado acima do total virariam troco tirado da gaveta.
+        BigDecimal semTroco = dto.getPagamentos().stream()
+                .filter(p -> !FORMAS_COM_TROCO.contains(p.getFormaPagamento()))
+                .map(PagamentoDTO::getValor)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (semTroco.compareTo(venda.getTotal()) > 0) {
+            throw new BusinessException(String.format(
+                    "Cartão, voucher, PIX e fiado não dão troco: somam R$ %.2f numa venda de R$ %.2f. "
+                            + "Ajuste o valor do último pagamento.", semTroco, venda.getTotal()));
         }
 
         // Fiado acima do limite de crédito do cliente: confere ANTES de gravar qualquer coisa

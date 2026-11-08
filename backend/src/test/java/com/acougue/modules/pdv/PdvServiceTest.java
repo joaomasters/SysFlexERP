@@ -217,6 +217,51 @@ class PdvServiceTest {
         assertThat(resultado.getValorComissao()).isEqualByComparingTo("2.25"); // 89,90 × 2,5% = 2,2475
     }
 
+    private PagamentoDTO pagamento(String forma, String valor) {
+        PagamentoDTO p = new PagamentoDTO();
+        p.setFormaPagamento(forma);
+        p.setValor(new BigDecimal(valor));
+        return p;
+    }
+
+    @Test
+    @DisplayName("fecharVenda: pagamento dividido em débito, crédito, voucher e dinheiro, com troco só do dinheiro")
+    void fecharVenda_pagamentoDividido() {
+        Venda venda = Venda.builder()
+                .id(1L).status("ABERTA").caixa(caixaAberto).operadorId(10L)
+                .total(new BigDecimal("100.00")).desconto(BigDecimal.ZERO).build();
+        FecharVendaDTO dto = new FecharVendaDTO();
+        dto.setVendaId(1L);
+        dto.setPagamentos(List.of(pagamento("DEBITO", "40.00"), pagamento("CREDITO", "30.00"),
+                pagamento("VOUCHER", "20.00"), pagamento("DINHEIRO", "20.00")));
+        when(vendaRepo.findById(1L)).thenReturn(Optional.of(venda));
+        when(itensRepo.findByVendaId(1L)).thenReturn(List.of());
+        when(vendaRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Venda resultado = service.fecharVenda(dto);
+
+        assertThat(resultado.getStatus()).isEqualTo("FECHADA");
+        assertThat(resultado.getTroco()).isEqualByComparingTo("10.00");
+        verify(pagRepo, times(4)).save(any());
+    }
+
+    @Test
+    @DisplayName("fecharVenda: cartão e voucher acima do total não viram troco")
+    void fecharVenda_cartaoAcimaDoTotalRecusado() {
+        Venda venda = Venda.builder()
+                .id(1L).status("ABERTA").caixa(caixaAberto)
+                .total(new BigDecimal("100.00")).desconto(BigDecimal.ZERO).build();
+        FecharVendaDTO dto = new FecharVendaDTO();
+        dto.setVendaId(1L);
+        dto.setPagamentos(List.of(pagamento("DEBITO", "40.00"), pagamento("CREDITO", "70.00")));
+        when(vendaRepo.findById(1L)).thenReturn(Optional.of(venda));
+
+        assertThatThrownBy(() -> service.fecharVenda(dto))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("não dão troco");
+        verify(pagRepo, never()).save(any());
+    }
+
     @Test
     @DisplayName("fecharVenda: lança BusinessException quando pagamento é insuficiente")
     void fecharVenda_lancaExcecao_pagamentoInsuficiente() {
