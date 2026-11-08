@@ -26,6 +26,19 @@ public final class DocumentosFiscais {
         return resto < 2 ? 0 : 11 - resto;
     }
 
+    /** CPF com os dois dígitos verificadores (o do consumidor no "CPF na nota"). */
+    public static boolean cpfValido(String cpf) {
+        if (cpf == null || !cpf.matches("[0-9]{11}") || cpf.matches("(.)\\1{10}")) return false;
+        return digitoCpf(cpf, 9) == cpf.charAt(9) - '0' && digitoCpf(cpf, 10) == cpf.charAt(10) - '0';
+    }
+
+    private static int digitoCpf(String cpf, int tamanho) {
+        int soma = 0;
+        for (int i = 0; i < tamanho; i++) soma += (cpf.charAt(i) - '0') * (tamanho + 1 - i);
+        int resto = soma % 11;
+        return resto < 2 ? 0 : 11 - resto;
+    }
+
     /** Inscrição Estadual do Paraná: 8 dígitos + 2 verificadores (módulo 11, pesos do Sintegra). */
     public static boolean inscricaoEstadualPrValida(String ie) {
         if (ie == null || !ie.matches("[0-9]{10}")) return false;

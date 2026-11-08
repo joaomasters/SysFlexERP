@@ -43,6 +43,10 @@ public class ConfiguracaoFiscalService {
         if (!"NENHUM".equals(dto.getProvedor()) && provedores.stream().noneMatch(p -> p.codigo().equals(dto.getProvedor()))) {
             throw new BusinessException("Provedor fiscal desconhecido: " + dto.getProvedor());
         }
+        if ("PRODUCAO".equals(dto.getAmbiente())
+                && provedores.stream().anyMatch(p -> p.codigo().equals(dto.getProvedor()) && p.simulado())) {
+            throw new BusinessException("O provedor simulado é só para testes: em produção, escolha um provedor de verdade.");
+        }
         c.setAmbiente(dto.getAmbiente());
         c.setProvedor(dto.getProvedor());
         c.setRazaoSocial(texto(dto.getRazaoSocial()));
@@ -62,6 +66,7 @@ public class ConfiguracaoFiscalService {
         c.setNfceProximoNumero(dto.getNfceProximoNumero());
         c.setNfeSerie(dto.getNfeSerie());
         c.setNfeProximoNumero(dto.getNfeProximoNumero());
+        if (dto.getNfceModo() != null) c.setNfceModo(dto.getNfceModo());
         c.setCscId(texto(dto.getCscId()));
         if (dto.isLimparCsc()) {
             c.setCscId(null);
@@ -143,7 +148,7 @@ public class ConfiguracaoFiscalService {
                 c.getRazaoSocial(), c.getNomeFantasia(), c.getCnpj(), c.getInscricaoEstadual(), c.getRegimeTributario(),
                 c.getLogradouro(), c.getNumeroEndereco(), c.getComplemento(), c.getBairro(),
                 c.getCodigoMunicipio(), c.getMunicipio(), c.getCep(), c.getTelefone(),
-                c.getNfceSerie(), c.getNfceProximoNumero(), c.getNfeSerie(), c.getNfeProximoNumero(),
+                c.getNfceSerie(), c.getNfceProximoNumero(), c.getNfeSerie(), c.getNfeProximoNumero(), c.getNfceModo(),
                 c.getCscId(), c.getCscTokenCripto() != null,
                 c.getCertificadoCripto() != null, c.getCertificadoTitular(), c.getCertificadoCnpj(),
                 c.getCertificadoValidade(),

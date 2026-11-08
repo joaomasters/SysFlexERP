@@ -13,6 +13,9 @@ import ListaItens, { ehEtiquetaBalanca } from './components/ListaItens'
 import QuantidadeItemModal from './components/QuantidadeItemModal'
 import DescontoItemModal from './components/DescontoItemModal'
 import ModalPagamento from './components/ModalPagamento'
+import CpfNaNotaModal from './components/CpfNaNotaModal'
+import type { EscolhaNota } from './components/CpfNaNotaModal'
+import type { Nfce, SituacaoNfce } from '@/types/fiscal'
 import NovaComandaModal from './components/NovaComandaModal'
 import { formatBRL, formatCurrencyDisplay } from '@/shared/utils/mask'
 import { CurrencyInput, WeightInput, BuscaProduto } from '@/shared/components/ui'
@@ -59,7 +62,7 @@ export default function PDVPage() {
 
   const [showPagto, setShowPagto] = useState(false)
   // Fiado acima do limite: guarda o pagamento e os valores até um administrador autorizar
-  const [limitePendente, setLimitePendente] = useState<{ pagamentos: PagamentoDTO[]; info: LimiteExcedidoInfo } | null>(null)
+  const [limitePendente, setLimitePendente] = useState<{ pagamentos: PagamentoDTO[]; info: LimiteExcedidoInfo; escolha?: EscolhaNota } | null>(null)
   const [autorizando, setAutorizando] = useState(false)
   const [showNovaComanda, setShowNovaComanda] = useState(false)
   const [descontando, setDescontando] = useState<ItemVenda | null>(null)
@@ -84,18 +87,44 @@ export default function PDVPage() {
     queryFn: () => api.get('/comprovante/configuracao', { silent: true } as never).then(r => r.data),
     staleTime: 5 * 60_000,
   })
-  const [ultimoCupom, setUltimoCupom] = useState<{ venda: Venda; pagamentos: PagamentoCupom[] } | null>(null)
+  const [ultimoCupom, setUltimoCupom] = useState<{ venda: Venda; pagamentos: PagamentoCupom[]; nfce?: Nfce | null } | null>(null)
   const [perguntarImpressao, setPerguntarImpressao] = useState(false)
 
+  // ── NFC-e ("CPF na nota?"), só com a emissão ligada na configuração fiscal ──
+  const { data: situacaoNfce } = useQuery<SituacaoNfce>({
+    queryKey: ['nfce-situacao'],
+    queryFn: () => api.get('/fiscal/nfce/situacao', { silent: true } as never).then(r => r.data),
+    staleTime: 60_000,
+  })
+  const [perguntarCpf, setPerguntarCpf] = useState<PagamentoDTO[] | null>(null)
+
+  /** Emite a NFC-e da venda já fechada; se não sair, a venda segue valendo com o cupom não fiscal. */
+  async function emitirNfce(vendaId: number, documento?: string): Promise<Nfce | null> {
+    try {
+      const { data } = await api.post<Nfce>(`/fiscal/nfce/venda/${vendaId}`, { documento: documento ?? null }, { silent: true } as never)
+      if (data.status === 'AUTORIZADA') {
+        toast.success(`NFC-e nº ${data.numero} autorizada`)
+        return data
+      }
+      toast.error(`NFC-e não autorizada: ${data.mensagem ?? data.status}. A venda foi registrada; sai o cupom não fiscal.`, { duration: 8000 })
+    } catch (e) {
+      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message
+      toast.error(`NFC-e não emitida: ${msg ?? 'falha de comunicação'}. A venda foi registrada; sai o cupom não fiscal.`, { duration: 8000 })
+    }
+    return null
+  }
+
   /** Fecha a venda e trata o comprovante. Usado no pagamento normal e após a autorização do admin. */
-  async function finalizarVenda(pagamentos: PagamentoDTO[], autorizacao?: { login: string; senha: string }) {
+  async function finalizarVenda(pagamentos: PagamentoDTO[], autorizacao?: { login: string; senha: string }, escolha?: EscolhaNota) {
     const vendaFechada = await fecharVenda(pagamentos, autorizacao)
     setShowPagto(false)
+    setPerguntarCpf(null)
     if (vendaFechada) {
-      const cupom = { venda: vendaFechada, pagamentos }
+      const nfce = escolha?.emitir ? await emitirNfce(vendaFechada.id, escolha.documento) : null
+      const cupom = { venda: vendaFechada, pagamentos, nfce }
       setUltimoCupom(cupom)
       if (configCupom?.imprimirAutomatico) {
-        try { imprimirComprovante(cupom.venda, nomeOperador ?? '', configCupom, pagamentos) }
+        try { imprimirComprovante(cupom.venda, nomeOperador ?? '', configCupom, pagamentos, nfce ? 1 : configCupom.vias, nfce) }
         catch { toast.error('Não foi possível imprimir o comprovante.') }
       } else {
         setPerguntarImpressao(true)
@@ -103,10 +132,25 @@ export default function PDVPage() {
     }
   }
 
+  /** Do pagamento: com NFC-e ligada, pergunta "CPF na nota?" antes de fechar. */
+  async function confirmarPagamento(pagamentos: PagamentoDTO[], escolha?: EscolhaNota) {
+    if (situacaoNfce?.emitirNfce && !escolha) {
+      setPerguntarCpf(pagamentos)
+      return
+    }
+    try {
+      await finalizarVenda(pagamentos, undefined, escolha)
+    } catch (e) {
+      setPerguntarCpf(null)
+      if (e instanceof LimiteExcedidoError) setLimitePendente({ pagamentos, info: e.info, escolha })
+    }
+  }
+
   function imprimirUltimo() {
     if (!ultimoCupom || !configCupom) return
     try {
-      imprimirComprovante(ultimoCupom.venda, nomeOperador ?? '', configCupom, ultimoCupom.pagamentos)
+      imprimirComprovante(ultimoCupom.venda, nomeOperador ?? '', configCupom, ultimoCupom.pagamentos,
+        ultimoCupom.nfce ? 1 : configCupom.vias, ultimoCupom.nfce)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Não foi possível imprimir.')
     }
@@ -539,7 +583,9 @@ export default function PDVPage() {
             <Printer size={32} className="mx-auto text-emerald-400" />
             <div>
               <h2 className="text-lg font-bold">Venda #{ultimoCupom.venda.id} finalizada</h2>
-              <p className="text-sm text-gray-400">Imprimir o comprovante para o cliente?</p>
+              <p className="text-sm text-gray-400">
+                {ultimoCupom.nfce ? `NFC-e nº ${ultimoCupom.nfce.numero} autorizada. Imprimir o DANFE?` : 'Imprimir o comprovante para o cliente?'}
+              </p>
             </div>
             <div className="flex gap-3">
               <button onClick={() => setPerguntarImpressao(false)}
@@ -676,14 +722,19 @@ export default function PDVPage() {
         <ModalPagamento
           totalVenda={totalVenda}
           vendaId={venda?.id}
-          onConfirmar={async (pagamentos) => {
-            try {
-              await finalizarVenda(pagamentos)
-            } catch (e) {
-              if (e instanceof LimiteExcedidoError) setLimitePendente({ pagamentos, info: e.info })
-            }
-          }}
+          onConfirmar={pagamentos => confirmarPagamento(pagamentos)}
           onCancelar={() => setShowPagto(false)}
+          pausado={perguntarCpf !== null}
+        />
+      )}
+
+      {/* NFC-e: "CPF na nota?" antes de fechar a venda */}
+      {perguntarCpf && situacaoNfce && (
+        <CpfNaNotaModal
+          modo={situacaoNfce.modo}
+          documentoInicial={venda?.cliente?.nome !== 'CONSUMIDOR' ? venda?.cliente?.cpfCnpj : undefined}
+          onEscolher={escolha => confirmarPagamento(perguntarCpf, escolha)}
+          onVoltar={() => setPerguntarCpf(null)}
         />
       )}
 
@@ -696,7 +747,7 @@ export default function PDVPage() {
           onAutorizar={async (login, senha) => {
             setAutorizando(true)
             try {
-              await finalizarVenda(limitePendente.pagamentos, { login, senha })
+              await finalizarVenda(limitePendente.pagamentos, { login, senha }, limitePendente.escolha)
               setLimitePendente(null)
             } catch {
               /* credencial inválida/bloqueio: o aviso já foi mostrado; o modal fica aberto para tentar de novo */

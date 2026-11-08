@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import ReciboCupom, { larguraCabecaMm } from './components/ReciboCupom'
 import type { Venda } from '@/types/venda'
 import type { ConfiguracaoComprovante, PagamentoCupom } from '@/types/comprovante'
+import type { Nfce } from '@/types/fiscal'
 
 /**
  * Imprime o cupom num iframe escondido, com só o HTML do cupom: o resto da
@@ -18,8 +19,9 @@ export function imprimirComprovante(
   config: ConfiguracaoComprovante,
   pagamentos?: PagamentoCupom[],
   vias = config.vias,
+  nfce?: Nfce | null,
 ) {
-  const umaVia = renderToStaticMarkup(createElement(ReciboCupom, { venda, operador, config, pagamentos }))
+  const umaVia = renderToStaticMarkup(createElement(ReciboCupom, { venda, operador, config, pagamentos, nfce }))
   const corpo = Array.from({ length: Math.max(1, vias) }, (_, i) =>
     `<div style="${i > 0 ? 'page-break-before: always;' : ''}">${umaVia}</div>`).join('')
 
