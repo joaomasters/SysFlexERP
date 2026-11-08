@@ -23,7 +23,7 @@ import { ROTULO_PROVEDOR, type TerminalPagamento, type TransacaoTerminal } from 
 */
 
 type Metodo = 'DEBITO' | 'CREDITO' | 'PIX' | 'VOUCHER'
-type Estado = 'idle' | 'enviando' | 'aguardando' | 'confirmar_manual' | 'aprovado' | 'negado' | 'erro_agente'
+type Estado = 'idle' | 'enviando' | 'aguardando' | 'confirmar_manual' | 'negado' | 'erro_agente'
 
 const SEM_TERMINAL = 0
 const STORAGE_TERMINAL = 'sysflex_pdv_terminal_id'
@@ -33,6 +33,8 @@ const TIMEOUT_AGENTE_MS = 120_000
 interface Props {
   metodo: Metodo
   valor: number
+  /** O que falta pagar: cartão, voucher e PIX não dão troco, então não passam disso */
+  maximo: number
   setValor: (v: number) => void
   vendaId?: number
   onAprovado: (pagamento: PagamentoDTO) => void
@@ -53,7 +55,7 @@ function salvarTerminal(id: number) {
   try { localStorage.setItem(STORAGE_TERMINAL, String(id)) } catch { /* modo privado etc. */ }
 }
 
-export default function PainelCartao({ metodo, valor, setValor, vendaId, onAprovado, onOcupado }: Props) {
+export default function PainelCartao({ metodo, valor, maximo, setValor, vendaId, onAprovado, onOcupado }: Props) {
   const [estado, setEstado]       = useState<Estado>('idle')
   const [mensagem, setMensagem]   = useState('')
   const [parcelas, setParcelas]   = useState(1)
@@ -61,6 +63,9 @@ export default function PainelCartao({ metodo, valor, setValor, vendaId, onAprov
   const [terminalId, setTerminalId] = useState<number | null>(null)
   const [nsu, setNsu]             = useState('')
   const [autorizacao, setAutorizacao] = useState('')
+  // Pagamento dividido: o último cartão aprovado fica à vista enquanto o painel já espera o próximo
+  const [ultimoAprovado, setUltimoAprovado] = useState('')
+  const acimaDoMaximo = valor > maximo + 0.009
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   // Transações já repassadas como pagamento: o polling pode ver APROVADA mais
   // de uma vez (requisições sobrepostas) e não pode lançar o cartão em dobro.
@@ -118,8 +123,8 @@ export default function PainelCartao({ metodo, valor, setValor, vendaId, onAprov
         pararPolling()
         if (repassadasRef.current.has(t.id)) break
         repassadasRef.current.add(t.id)
-        setEstado('aprovado')
-        setMensagem([t.bandeira, t.nsu && `NSU ${t.nsu}`, t.autorizacao && `Aut. ${t.autorizacao}`].filter(Boolean).join(' · '))
+        prontoParaOProximo([`${formatBRL(t.valor)} aprovado${t.parcelas > 1 ? ` em ${t.parcelas}x` : ''}`,
+          t.bandeira, t.nsu && `NSU ${t.nsu}`, t.autorizacao && `Aut. ${t.autorizacao}`].filter(Boolean).join(' · '))
         onAprovado({
           formaPagamento: t.tipo,
           valor: t.valor,
@@ -144,7 +149,8 @@ export default function PainelCartao({ metodo, valor, setValor, vendaId, onAprov
 
   async function iniciar() {
     const valorCentavos = Math.round(valor * 100) / 100
-    if (!valorCentavos) return
+    if (!valorCentavos || acimaDoMaximo) return
+    setUltimoAprovado('')
 
     // Sem maquininha cadastrada: registro manual livre (sem transação no backend)
     if (terminalId === SEM_TERMINAL || !terminal) {
@@ -248,13 +254,24 @@ export default function PainelCartao({ metodo, valor, setValor, vendaId, onAprov
     }
     // Registro livre, sem terminal cadastrado
     if (!aprovada) { reiniciar(); return }
+    const v = Math.round(valor * 100) / 100
     onAprovado({
-      formaPagamento: metodo, valor: Math.round(valor * 100) / 100,
+      formaPagamento: metodo, valor: v,
       parcelas: metodo === 'CREDITO' ? parcelas : 1,
       nsu: nsu || undefined, autorizacao: autorizacao || undefined,
     })
-    setEstado('aprovado')
-    setMensagem('Registrado manualmente')
+    prontoParaOProximo([`${formatBRL(v)} registrado manualmente`, nsu && `NSU ${nsu}`].filter(Boolean).join(' · '))
+  }
+
+  /** Cartão aprovado: volta ao início para o próximo pagamento (o modal já traz o valor que falta). */
+  function prontoParaOProximo(resumo: string) {
+    pararPolling()
+    setEstado('idle')
+    setMensagem('')
+    setTransacao(null)
+    setNsu('')
+    setAutorizacao('')
+    setUltimoAprovado(resumo)
   }
 
   async function cancelar() {
@@ -289,7 +306,7 @@ export default function PainelCartao({ metodo, valor, setValor, vendaId, onAprov
   // Botão principal: Enviar para maquininha / Registrar venda manual / Tentar novamente; na confirmação manual, Aprovado
   function acaoPrincipal() {
     if (estado === 'confirmar_manual') { confirmarManual(true); return }
-    if ((estado !== 'idle' && estado !== 'negado') || !valor) return
+    if ((estado !== 'idle' && estado !== 'negado') || !valor || acimaDoMaximo) return
     reiniciar()
     iniciar()
   }
@@ -372,6 +389,16 @@ export default function PainelCartao({ metodo, valor, setValor, vendaId, onAprov
 
       {(estado === 'idle' || estado === 'negado') && (
         <>
+          {estado === 'idle' && ultimoAprovado && (
+            <p className="text-xs text-emerald-400 flex items-center gap-1.5">
+              <CheckCircle size={14} className="shrink-0" /> {ultimoAprovado}
+            </p>
+          )}
+          {acimaDoMaximo && (
+            <p className="text-xs text-red-400">
+              {metodo === 'PIX' ? 'PIX' : metodo === 'VOUCHER' ? 'Voucher' : 'Cartão'} não dá troco: o máximo é {formatBRL(maximo)}.
+            </p>
+          )}
           {estado === 'negado' && (
             <div className="bg-red-900/30 border border-red-700 rounded-xl p-3 flex items-start gap-2">
               <XCircle size={18} className="text-red-400 shrink-0 mt-0.5" />
@@ -383,7 +410,7 @@ export default function PainelCartao({ metodo, valor, setValor, vendaId, onAprov
           )}
           <button
             onClick={acaoPrincipal}
-            disabled={!valor}
+            disabled={!valor || acimaDoMaximo}
             className="w-full py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {estado === 'negado' ? <><RefreshCw size={16} /> Tentar novamente</> : <><CreditCard size={16} /> {terminal ? 'Enviar para maquininha' : 'Registrar venda manual'}</>}
@@ -465,17 +492,6 @@ export default function PainelCartao({ metodo, valor, setValor, vendaId, onAprov
             </button>
             <button onClick={cancelar} className="text-gray-400 hover:text-red-400">Cancelar</button>
           </div>
-        </div>
-      )}
-
-      {estado === 'aprovado' && (
-        <div className="bg-emerald-900/30 border border-emerald-700 rounded-xl p-4 flex items-center gap-3">
-          <CheckCircle size={28} className="text-emerald-400 shrink-0" />
-          <div className="flex-1">
-            <p className="font-bold text-emerald-400">Aprovado!</p>
-            <p className="text-xs text-gray-400">{mensagem}</p>
-          </div>
-          <button onClick={reiniciar} className="text-xs text-gray-400 hover:text-white">Novo cartão</button>
         </div>
       )}
     </div>

@@ -117,6 +117,53 @@ test.describe('PDV: atalhos do pagamento', () => {
         expect(fechamento.totalVoucher).toBeCloseTo(voucherAntes + 69.9, 2)
     })
 
+    test('Deve dividir o pagamento em débito, crédito, voucher e dinheiro', async ({ page, request }) => {
+        await abrirComanda(page, await abrirVenda(request)) // 1 kg de Picanha a R$ 69,90
+        await page.keyboard.press('F10')
+        const valor = page.getByPlaceholder('0,00')
+
+        /** Cartão pela venda manual: escolhe a forma, digita o valor e confirma com F8, F8 */
+        async function cartao(tecla: string, centavos: string, nsu: string) {
+            await page.keyboard.press(tecla)
+            const manual = page.getByRole('button', { name: /Venda manual/ })
+            if (await manual.getAttribute('aria-pressed') === 'false') await page.keyboard.press('F7')
+            await valor.fill(centavos)
+            await page.keyboard.press('F8')
+            await page.getByPlaceholder('NSU / DOC').fill(nsu)
+            await page.keyboard.press('F8')
+        }
+
+        // Cartão não dá troco: acima do que falta, o botão trava
+        await page.keyboard.press('F2')
+        await valor.fill('8000')
+        await expect(page.getByText(/Cartão não dá troco: o máximo é R\$\s69,90/)).toBeVisible()
+        await expect(page.getByRole('button', { name: /maquininha|Registrar venda manual/ })).toBeDisabled()
+
+        // "falta" e o valor ficam em elementos separados: confere o parágrafo inteiro
+        const falta = (v: string) => page.locator('p', { hasText: new RegExp(`falta\\s*R\\$\\s${v}`) })
+
+        await cartao('F2', '3000', '1001')
+        await expect(page.getByText(/R\$\s30,00 registrado manualmente · NSU 1001/)).toBeVisible()
+        await expect(falta('39,90')).toBeVisible()
+        // O próximo pagamento já vem com o que falta
+        await expect(valor).toHaveValue('39,90')
+
+        await cartao('F3', '2000', '1002')
+        await expect(falta('19,90')).toBeVisible()
+        await cartao('F9', '1000', '1003')
+        await expect(falta('9,90')).toBeVisible()
+
+        await page.keyboard.press('F1')
+        await page.getByRole('button', { name: 'R$ 10,00' }).click()
+        await page.keyboard.press('F8')
+        await expect(page.getByRole('button', { name: /Finalizar Venda · Troco R\$ 0,10/ })).toBeEnabled()
+        for (const forma of ['DEBITO', 'CREDITO', 'VOUCHER', 'DINHEIRO']) {
+            await expect(page.getByText(forma, { exact: true })).toBeVisible()
+        }
+        await page.keyboard.press('F10')
+        await expect(page.getByText('Imprimir o comprovante para o cliente?')).toBeVisible()
+    })
+
     test('Deve cancelar a venda com F9, pedindo confirmação', async ({ page, request }) => {
         await abrirComanda(page, await abrirVenda(request))
         await expect(page.getByRole('button', { name: /CANCELAR VENDA \[F9\]/ })).toBeVisible()
