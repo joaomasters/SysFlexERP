@@ -55,6 +55,15 @@ class ProdutoServiceNomeTest {
     }
 
     @Test
+    @DisplayName("normalizarNome: 150 caracteres passa; 151 é recusado com mensagem clara")
+    void limiteDeCaracteres() {
+        assertThat(ProdutoService.normalizarNome("A".repeat(150))).hasSize(150);
+        assertThatThrownBy(() -> ProdutoService.normalizarNome("A".repeat(151)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("no máximo 150 caracteres");
+    }
+
+    @Test
     @DisplayName("salvar: grava o nome já limpo")
     void salvarGravaLimpo() {
         when(produtoRepo.save(any(Produto.class))).thenAnswer(i -> i.getArgument(0));

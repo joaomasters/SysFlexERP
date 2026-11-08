@@ -63,10 +63,16 @@ public class ProdutoService {
      * Limpa o nome digitado: tira espaços do começo/fim e junta os repetidos no meio
      * ("  Picanha   Maturada " vira "Picanha Maturada"). Nome só com espaços não é nome.
      */
+    static final int NOME_MAX = 150;
+
     static String normalizarNome(String nome) {
         String limpo = nome == null ? "" : nome.trim().replaceAll("\\s+", " ");
         if (limpo.isEmpty()) {
             throw new BusinessException("Informe a descrição do produto.");
+        }
+        if (limpo.length() > NOME_MAX) {
+            throw new BusinessException("A descrição do produto deve ter no máximo " + NOME_MAX
+                    + " caracteres (informado: " + limpo.length() + ").");
         }
         return limpo;
     }
@@ -105,6 +111,16 @@ public class ProdutoService {
 
     // Só bloqueia contra produto ativo: inativos não aparecem na tela, e um código preso num
     // produto inativado impediria recadastrar o item sem o usuário ter como resolver.
+    /** O PLU identifica o produto na balança: dois produtos ativos com o mesmo PLU saem duplicados na carga. */
+    private void validarPluUnico(Integer plu, Long idProduto) {
+        if (plu == null) return;
+        produtoRepo.findFirstByCodigoBalancaAndAtivoTrueAndIdNot(plu, idProduto == null ? 0L : idProduto)
+                .ifPresent(outro -> {
+                    throw new BusinessException("PLU " + plu + " já cadastrado no produto \""
+                            + outro.getNome() + "\". Use outro PLU.");
+                });
+    }
+
     private void validarEanUnico(String ean13, Long idProduto) {
         if (ean13 == null) return;
         produtoRepo.findFirstByEan13AndAtivoTrueAndIdNot(ean13, idProduto == null ? 0L : idProduto)
@@ -155,6 +171,7 @@ public class ProdutoService {
         validarValidadePadrao(produto.getValidadePadraoDias());
         produto.setEan13(normalizarEan(produto.getEan13()));
         validarEanUnico(produto.getEan13(), null);
+        validarPluUnico(produto.getCodigoBalanca(), null);
         aplicarFornecedor(produto, null);
         validarEstoqueMaximo(produto.getEstoqueMinimo(), produto.getEstoqueMaximo());
         copiarFiscal(produto, produto);
@@ -180,6 +197,9 @@ public class ProdutoService {
         boolean reativando = !Boolean.TRUE.equals(existente.getAtivo()) && Boolean.TRUE.equals(dados.getAtivo());
         if (reativando || !Objects.equals(ean13, normalizarEan(existente.getEan13()))) {
             validarEanUnico(ean13, id);
+        }
+        if (reativando || !Objects.equals(dados.getCodigoBalanca(), existente.getCodigoBalanca())) {
+            validarPluUnico(dados.getCodigoBalanca(), id);
         }
 
         existente.setNome(normalizarNome(dados.getNome()));

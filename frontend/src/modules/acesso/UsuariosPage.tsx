@@ -8,8 +8,9 @@ import toast from 'react-hot-toast'
 import type { Usuario, Perfil } from '@/types/acesso'
 import {
   PageHeader, Card, Modal, Button, StatusBadge, Field, PasswordInput, baseInputClass, ConfirmDialog,
-  Table, THead, TH, TBody, TR, TD, EmptyState,
+  Table, THead, TH, TBody, TR, TD, EmptyState, Paginacao,
 } from '@/shared/components/ui'
+import { usePaginacao } from '@/shared/hooks/usePaginacao'
 
 export default function UsuariosPage() {
   const qc = useQueryClient()
@@ -31,6 +32,7 @@ export default function UsuariosPage() {
     queryFn: () => api.get('/usuarios').then(r => r.data),
     enabled: podeVer('USUARIOS'),
   })
+  const pag = usePaginacao(usuarios)
 
   const { data: perfis = [] } = useQuery<Perfil[]>({
     queryKey: ['perfis'],
@@ -146,7 +148,7 @@ export default function UsuariosPage() {
             </tr>
           </THead>
           <TBody>
-            {usuarios.map(u => (
+            {pag.itens.map(u => (
               <TR key={u.id}>
                 <TD className="font-medium text-gray-900">{u.nome}</TD>
                 <TD className="text-gray-500 font-mono text-xs">{u.login}</TD>
@@ -198,6 +200,7 @@ export default function UsuariosPage() {
             )}
           </TBody>
         </Table>
+        <Paginacao paginacao={pag} rotulo="usuários" />
       </Card>
 
       {/* Modal de troca de senha */}

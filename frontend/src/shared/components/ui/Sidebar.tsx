@@ -1,4 +1,3 @@
-
 import { NavLink } from 'react-router-dom'
 import {
   ShoppingCart, Package, Scissors, DollarSign,
@@ -19,36 +18,36 @@ const nav = [
   { label: 'PDV / Caixa',          href: '/pdv',              icon: ShoppingCart,   external: true, modulo: 'PDV' },
   { label: 'Sangria / Suprimento', href: '/pdv/sangria',      icon: ArrowDownCircle, modulo: 'SANGRIA' },
 
-  { separator: 'Produtos' },
-  { label: 'Produtos',          href: '/produtos',       icon: Package,        modulo: 'PRODUTOS' },
+  { separator: 'Cadastro' },
+  { label: 'Produtos',          href: '/produtos',               icon: Package,        modulo: 'PRODUTOS' },
+  { label: 'Fornecedores',      href: '/estoque/fornecedores',   icon: Store,          modulo: 'FORNECEDORES' },
+  { label: 'Clientes',          href: '/financeiro/clientes',    icon: Contact,        modulo: 'CLIENTES' },
+  { label: 'Usuários',          href: '/acesso/usuarios',        icon: Users,          modulo: 'USUARIOS' },
 
   { separator: 'Estoque' },
-  { label: 'Fornecedores',      href: '/estoque/fornecedores',   icon: Store,          modulo: 'FORNECEDORES' },
   { label: 'Recebimento',       href: '/estoque/recebimento',    icon: Truck,          modulo: 'RECEBIMENTO' },
   { label: 'Fichas Desossa',    href: '/estoque/fichas-desossa', icon: ClipboardList,  modulo: 'FICHAS_DESOSSA' },
   { label: 'Rateio de Desossa', href: '/estoque/desossa',        icon: Scissors,       modulo: 'RATEIO_DESOSSA' },
   { label: 'Inventário',        href: '/estoque/inventario',     icon: ClipboardList,  modulo: 'INVENTARIO' },
   { label: 'Perdas',            href: '/estoque/perdas',         icon: AlertTriangle,  modulo: 'PERDAS' },
   { label: 'Validade',          href: '/estoque/validade',       icon: CalendarClock,  modulo: 'PRODUTOS' },
+  { label: 'Carga Balança',     href: '/balanca',                icon: Scale,          modulo: 'CARGA_BALANCA' },
 
   { separator: 'Fiscal' },
   { label: 'NF de Saída', href: '/fiscal/notas', icon: FileText, modulo: 'NF_SAIDA' },
   { label: 'Emissão de Notas', href: '/fiscal/emissao', icon: FileKey, modulo: 'FISCAL' },
 
   { separator: 'Financeiro' },
-  { label: 'Clientes',         href: '/financeiro/clientes',       icon: Contact,      modulo: 'CLIENTES' },
   { label: 'Faturamento',      href: '/financeiro/faturamento',    icon: DollarSign,  modulo: 'FATURAMENTO' },
   { label: 'Contas a Receber', href: '/financeiro/contas-receber', icon: CreditCard,  modulo: 'CONTAS_RECEBER' },
   { label: 'Contas a Pagar',   href: '/financeiro/contas-pagar',   icon: TrendingDown, modulo: 'CONTAS_PAGAR' },
-  { label: 'DRE',              href: '/financeiro/dre',            icon: BarChart2,   modulo: 'DRE' },
-  { label: 'Relatórios',       href: '/financeiro/relatorios',     icon: BarChart,    modulo: 'RELATORIOS' },
   { label: 'Comissões',        href: '/financeiro/comissoes',      icon: Percent,     modulo: 'COMISSOES' },
 
-  { separator: 'Balança' },
-  { label: 'Carga Balança', href: '/balanca', icon: Scale, modulo: 'CARGA_BALANCA' },
+  { separator: 'Relatórios gerenciais' },
+  { label: 'Relatórios',       href: '/financeiro/relatorios',     icon: BarChart,    modulo: 'RELATORIOS' },
+  { label: 'DRE',              href: '/financeiro/dre',            icon: BarChart2,   modulo: 'DRE' },
 
   { separator: 'Administração' },
-  { label: 'Usuários', href: '/acesso/usuarios', icon: Users,       modulo: 'USUARIOS' },
   { label: 'Perfis',   href: '/acesso/perfis',   icon: ShieldCheck, modulo: 'PERFIS' },
   { label: 'Auditoria', href: '/acesso/auditoria', icon: ShieldAlert, modulo: 'AUDITORIA' },
   { label: 'Maquininhas', href: '/acesso/maquininhas', icon: CreditCard, modulo: 'MAQUININHAS' },

@@ -10,8 +10,9 @@ import type { ComissaoFuncionario, VendaComissao } from '@/types/comissao'
 import RelatorioComissoesModal from './components/RelatorioComissoesModal'
 import {
   PageHeader, Card, Modal, Button, StatusBadge, Field, FilterTabs,
-  Table, THead, TH, TBody, TR, TD, EmptyState, LoadingState,
+  Table, THead, TH, TBody, TR, TD, EmptyState, LoadingState, Paginacao,
 } from '@/shared/components/ui'
+import { usePaginacao } from '@/shared/hooks/usePaginacao'
 import { hojeISO } from '@/shared/utils/data'
 
 type Aba = 'apuracao' | 'percentuais'
@@ -99,6 +100,7 @@ function Apuracao({ inicio, fim, onInicioChange, onFimChange }: {
 
   const totalVendido  = linhas.reduce((s, l) => s + l.totalVendido, 0)
   const totalComissao = linhas.reduce((s, l) => s + l.totalComissao, 0)
+  const pag = usePaginacao(linhas, `${inicio}|${fim}`)
 
   return (
     <>
@@ -146,7 +148,7 @@ function Apuracao({ inicio, fim, onInicioChange, onFimChange }: {
               </tr>
             </THead>
             <TBody>
-              {linhas.map(l => (
+              {pag.itens.map(l => (
                 <TR key={l.usuarioId}>
                   <TD>
                     <span className="font-medium text-gray-900">{l.nome}</span>
@@ -178,6 +180,7 @@ function Apuracao({ inicio, fim, onInicioChange, onFimChange }: {
             </TBody>
           </Table>
         )}
+        {!isLoading && <Paginacao paginacao={pag} rotulo="funcionários" />}
       </Card>
 
       <p className="text-xs text-gray-400 mt-3">
@@ -270,6 +273,7 @@ function Percentuais() {
     queryKey: ['comissoes-funcionarios'],
     queryFn: () => api.get('/comissoes/funcionarios').then(r => r.data),
   })
+  const pag = usePaginacao(funcionarios)
 
   const salvar = useMutation({
     mutationFn: ({ id, percentual }: { id: number; percentual: number }) =>
@@ -304,7 +308,7 @@ function Percentuais() {
             </tr>
           </THead>
           <TBody>
-            {funcionarios.map(u => {
+            {pag.itens.map(u => {
               const rascunho = rascunhos[u.id]
               const alterado = rascunho !== undefined && Number(rascunho.replace(',', '.')) !== u.percentualComissao
               const valido = rascunho === undefined || valorValido(rascunho)
@@ -358,6 +362,7 @@ function Percentuais() {
           </TBody>
         </Table>
       )}
+      {!isLoading && <Paginacao paginacao={pag} rotulo="funcionários" />}
     </Card>
   )
 }

@@ -7,8 +7,9 @@ import { formatQuantidade } from '@/shared/utils/mask'
 import { usePermissao } from '@/shared/hooks/usePermissao'
 import {
   PageHeader, Card, Button, StatusBadge, FilterTabs,
-  Table, THead, TH, TBody, TR, TD, EmptyState, LoadingState,
+  Table, THead, TH, TBody, TR, TD, EmptyState, LoadingState, Paginacao,
 } from '@/shared/components/ui'
+import { usePaginacao } from '@/shared/hooks/usePaginacao'
 import RelatorioValidadeModal from './components/RelatorioValidadeModal'
 import EditarValidadeModal from './components/EditarValidadeModal'
 import { situacaoTom, situacaoRotulo, textoPrazo, formatarDataValidade } from './validadeUtils'
@@ -44,6 +45,7 @@ export default function ValidadePage() {
     if (filtro === 'ATENCAO') return l.situacao !== 'OK'
     return l.situacao === filtro
   })
+  const pag = usePaginacao(filtrados, filtro)
 
   return (
     <div className="p-6">
@@ -110,7 +112,7 @@ export default function ValidadePage() {
               </tr>
             </THead>
             <TBody>
-              {filtrados.map(l => (
+              {pag.itens.map(l => (
                 <TR key={l.loteId}>
                   <TD className="font-medium">{l.produtoNome}</TD>
                   <TD align="right" className="tabular-nums">{formatQuantidade(l.quantidadeAtual, l.unidadeMedida)} {l.unidadeMedida}</TD>
@@ -141,6 +143,7 @@ export default function ValidadePage() {
               : 'Nenhum lote nesta situação.'}
           </EmptyState>
         )}
+        {!isLoading && <Paginacao paginacao={pag} rotulo="lotes" />}
       </Card>
 
       {showRelatorio && <RelatorioValidadeModal onClose={() => setShowRelatorio(false)} />}

@@ -3,7 +3,8 @@ import { useQuery } from '@tanstack/react-query'
 import { Filter, Plus, Pencil, Trash2 } from 'lucide-react'
 import { api } from '@/shared/api/axios'
 import type { LogAuditoria, ModuloInfo, Usuario } from '@/types/acesso'
-import { PageHeader, Card, StatusBadge, Field, EmptyState, LoadingState } from '@/shared/components/ui'
+import { PageHeader, Card, StatusBadge, Field, EmptyState, LoadingState, Paginacao } from '@/shared/components/ui'
+import { usePaginacao } from '@/shared/hooks/usePaginacao'
 import type { BadgeTone } from '@/shared/components/ui'
 import { hojeISO } from '@/shared/utils/data'
 
@@ -49,6 +50,7 @@ export default function AuditoriaPage() {
       },
     }).then(r => r.data),
   })
+  const pag = usePaginacao(logs, [filtroInicio, filtroFim, filtroModulo, filtroAcao, filtroUsuarioId].join('|'))
 
   return (
     <div className="p-6">
@@ -101,7 +103,7 @@ export default function AuditoriaPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {logs.map(l => {
+              {pag.itens.map(l => {
                 const cfg = acaoConfig[l.acao] ?? acaoConfig.EDITAR
                 const Icone = cfg.icone
                 return (
@@ -133,6 +135,7 @@ export default function AuditoriaPage() {
         {!isLoading && logs.length === 0 && (
           <EmptyState>Nenhuma ação registrada para os filtros selecionados.</EmptyState>
         )}
+        {!isLoading && <Paginacao paginacao={pag} rotulo="registros" />}
       </Card>
     </div>
   )

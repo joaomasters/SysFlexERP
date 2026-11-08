@@ -6,9 +6,10 @@ import { api } from '@/shared/api/axios'
 import type { Fornecedor } from '@/types/fornecedor'
 import {
   PageHeader, Modal, Button, StatusBadge, Field, baseInputClass, ConfirmDialog,
-  Table, THead, TH, TBody, TR, TD, EmptyState,
+  Table, THead, TH, TBody, TR, TD, EmptyState, Paginacao,
 } from '@/shared/components/ui'
 import { usePermissao } from '@/shared/hooks/usePermissao'
+import { usePaginacao } from '@/shared/hooks/usePaginacao'
 
 type FormState = {
   id?: number
@@ -47,6 +48,31 @@ function formatarTelefone(v: string): string {
   return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`
 }
 
+/** Confere os dígitos verificadores (mesma regra do backend). */
+function documentoValido(v: string, tipo: 'PF' | 'PJ'): boolean {
+  const d = soDigitos(v)
+  if (d.length !== (tipo === 'PF' ? 11 : 14) || /^(\d)\1+$/.test(d)) return false
+  const n = (i: number) => Number(d[i])
+  if (tipo === 'PF') {
+    const dv = (qtd: number) => {
+      let s = 0
+      for (let i = 0; i < qtd; i++) s += n(i) * (qtd + 1 - i)
+      const r = (s * 10) % 11
+      return r === 10 ? 0 : r
+    }
+    return dv(9) === n(9) && dv(10) === n(10)
+  }
+  const dv = (pesos: number[]) => {
+    const r = pesos.reduce((s, p, i) => s + n(i) * p, 0) % 11
+    return r < 2 ? 0 : 11 - r
+  }
+  return dv([5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]) === n(12)
+      && dv([6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]) === n(13)
+}
+
+/** Limites iguais aos do backend/banco. */
+const LIMITE = { nome: 150, email: 100, contato: 100, endereco: 255 } as const
+
 /** Cadastro novo exige tudo, exceto e-mail e contato. Fornecedor já existente (inclusive os
  *  importados automaticamente dos produtos antigos, que só têm nome) só exige o nome — assim
  *  dá para abrir e completar os dados aos poucos. */
@@ -57,8 +83,11 @@ function validarFornecedor(f: FormState) {
   const docPreenchido = soDigitos(f.cpfCnpj).length > 0
   return {
     nome:     f.nome.trim() ? '' : 'Informe o nome.',
-    cpfCnpj:  (novo || docPreenchido) && soDigitos(f.cpfCnpj).length !== nDoc
-                ? `${f.tipoPessoa === 'PF' ? 'CPF' : 'CNPJ'} deve ter ${nDoc} dígitos.` : '',
+    cpfCnpj:  !(novo || docPreenchido) ? ''
+              : soDigitos(f.cpfCnpj).length !== nDoc
+                ? `${f.tipoPessoa === 'PF' ? 'CPF' : 'CNPJ'} deve ter ${nDoc} dígitos.`
+              : !documentoValido(f.cpfCnpj, f.tipoPessoa)
+                ? `${f.tipoPessoa === 'PF' ? 'CPF' : 'CNPJ'} inválido.` : '',
     telefone: (novo || tel > 0) && tel !== 10 && tel !== 11 ? 'Informe o telefone com DDD.' : '',
     email:    !f.email.trim() || /^\S+@\S+\.\S+$/.test(f.email.trim()) ? '' : 'E-mail inválido.',
     endereco: !novo || f.endereco.trim() ? '' : 'Informe o endereço.',
@@ -90,6 +119,8 @@ export default function FornecedoresPage() {
     (f.cpfCnpj ?? '').replace(/\D/g, '').includes(termo.replace(/\D/g, '') || '\u0000') ||
     (f.contato ?? '').toLowerCase().includes(termo)
   )
+
+  const pag = usePaginacao(visiveis, `${termo}|${mostrarInativos}`)
 
   // O dropdown do Novo Produto e as listagens de produto leem estes dados.
   const atualizarListas = () => {
@@ -200,7 +231,7 @@ export default function FornecedoresPage() {
             </tr>
           </THead>
           <TBody>
-            {visiveis.map(f => (
+            {pag.itens.map(f => (
               <TR key={f.id} className={!f.ativo ? 'opacity-50' : ''}>
                 <TD className="font-medium">{f.nome}</TD>
                 <TD className="text-gray-600 tabular-nums">{f.cpfCnpj || '—'}</TD>
@@ -232,6 +263,7 @@ export default function FornecedoresPage() {
         {!isLoading && visiveis.length === 0 && (
           <EmptyState>{fornecedores.length === 0 ? 'Nenhum fornecedor cadastrado.' : 'Nenhum fornecedor encontrado.'}</EmptyState>
         )}
+        {!isLoading && <Paginacao paginacao={pag} rotulo="fornecedores" />}
       </div>
 
       {form && (
@@ -248,7 +280,7 @@ export default function FornecedoresPage() {
         >
           <Field label="Nome / Razão social *" error={mostrar(erros?.nome)}>
             <input
-              type="text" value={form.nome} autoFocus
+              type="text" value={form.nome} autoFocus maxLength={LIMITE.nome}
               onChange={e => setForm({ ...form, nome: e.target.value })}
               className={`${baseInputClass} ${campoErro(erros?.nome)}`}
             />
@@ -289,7 +321,7 @@ export default function FornecedoresPage() {
             </Field>
             <Field label="E-mail (opcional)" error={mostrar(erros?.email)}>
               <input
-                type="email" value={form.email}
+                type="email" value={form.email} maxLength={LIMITE.email}
                 onChange={e => setForm({ ...form, email: e.target.value })}
                 className={`${baseInputClass} ${campoErro(erros?.email)}`}
               />
@@ -298,7 +330,7 @@ export default function FornecedoresPage() {
 
           <Field label="Contato / Representante (opcional)">
             <input
-              type="text" value={form.contato}
+              type="text" value={form.contato} maxLength={LIMITE.contato}
               onChange={e => setForm({ ...form, contato: e.target.value })}
               placeholder="Ex: João — vendedor"
               className={baseInputClass}
@@ -307,7 +339,7 @@ export default function FornecedoresPage() {
 
           <Field label={novo ? 'Endereço *' : 'Endereço'} error={mostrar(erros?.endereco)}>
             <textarea
-              value={form.endereco} rows={2}
+              value={form.endereco} rows={2} maxLength={LIMITE.endereco}
               onChange={e => setForm({ ...form, endereco: e.target.value })}
               className={`${baseInputClass} ${campoErro(erros?.endereco)}`}
             />

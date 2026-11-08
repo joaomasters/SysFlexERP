@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
@@ -18,6 +19,7 @@ public class Fornecedor {
     private Long id;
 
     @NotBlank(message = "Nome é obrigatório")
+    @Size(max = 150, message = "Nome deve ter no máximo 150 caracteres")
     @Column(nullable = false, length = 150)
     private String nome;
 
@@ -31,13 +33,16 @@ public class Fornecedor {
     @Column(length = 20)
     private String telefone;
 
+    @Size(max = 100, message = "E-mail deve ter no máximo 100 caracteres")
     @Column(length = 100)
     private String email;
 
     /** Pessoa de contato no fornecedor (vendedor, representante...). */
+    @Size(max = 100, message = "Contato deve ter no máximo 100 caracteres")
     @Column(length = 100)
     private String contato;
 
+    @Size(max = 255, message = "Endereço deve ter no máximo 255 caracteres")
     @Column(columnDefinition = "TEXT")
     private String endereco;
 
