@@ -4,7 +4,7 @@ import { X, Printer, Search, AlertTriangle } from 'lucide-react'
 import { api } from '@/shared/api/axios'
 import { TIPOS_PRODUTO, nomeTipoProduto } from '@/types/produto'
 import type { Produto } from '@/types/produto'
-import { formatQuantidade } from '@/shared/utils/mask'
+import { formatQuantidade, formatBRL } from '@/shared/utils/mask'
 import { Button, baseInputClass } from '@/shared/components/ui'
 
 type OrdemCampo = 'nome' | 'marca' | 'fornecedor'
@@ -80,7 +80,7 @@ export default function RelatorioEstoqueModal({ onClose, embedded = false }: Pro
 
       <div className={embedded
           ? 'bg-white rounded-xl border border-gray-100 shadow-sm w-full flex flex-col print:border-0 print:shadow-none print:rounded-none'
-          : 'bg-white rounded-2xl w-full max-w-4xl h-[85vh] flex flex-col shadow-xl print:h-auto print:shadow-none print:rounded-none print:max-w-full'}>
+          : 'bg-white rounded-2xl w-full max-w-5xl h-[85vh] flex flex-col shadow-xl print:h-auto print:shadow-none print:rounded-none print:max-w-full'}>
         {/* Cabeçalho — some na impressão */}
         <div className="flex items-center justify-between px-6 py-4 border-b print:hidden">
           <div>
@@ -161,6 +161,7 @@ export default function RelatorioEstoqueModal({ onClose, embedded = false }: Pro
                   <th className="text-left py-2 pr-3">Tipo</th>
                   <th className="text-left py-2 pr-3">Marca</th>
                   <th className="text-left py-2 pr-3">Fornecedor</th>
+                  <th className="text-right py-2 pr-3">Preço Venda</th>
                   <th className="text-right py-2 pr-3">Estoque Atual</th>
                   <th className="text-right py-2">Estoque Mín.</th>
                 </tr>
@@ -179,6 +180,9 @@ export default function RelatorioEstoqueModal({ onClose, embedded = false }: Pro
                       <td className="py-2 pr-3 text-gray-600">{nomeTipoProduto(p.tipoProduto)}</td>
                       <td className="py-2 pr-3 text-gray-600">{p.marca || '—'}</td>
                       <td className="py-2 pr-3 text-gray-600">{p.fornecedor || '—'}</td>
+                      <td className="py-2 pr-3 text-right tabular-nums text-gray-700">
+                        {formatBRL(p.precoVenda)}{p.unidadeMedida === 'KG' ? ' /kg' : ''}
+                      </td>
                       <td className={`py-2 pr-3 text-right tabular-nums ${abaixo ? 'text-warning-700 font-semibold' : 'text-gray-700'}`}>
                         {qtd(p.estoqueAtual, p.unidadeMedida)} {p.unidadeMedida}
                       </td>

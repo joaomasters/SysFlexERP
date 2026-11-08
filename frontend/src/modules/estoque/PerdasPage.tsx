@@ -5,8 +5,9 @@ import { Printer } from 'lucide-react'
 import { formatBRL, formatQuantidade, casasDaUnidade } from '@/shared/utils/mask'
 import {
   PageHeader, Card, Modal, Button, StatusBadge, WeightInput, Field, baseInputClass,
-  Table, THead, TH, TBody, TR, TD, EmptyState,
+  Table, THead, TH, TBody, TR, TD, EmptyState, Paginacao,
 } from '@/shared/components/ui'
+import { usePaginacao } from '@/shared/hooks/usePaginacao'
 import type { BadgeTone } from '@/shared/components/ui'
 import { usePermissao } from '@/shared/hooks/usePermissao'
 import RelatorioPerdasModal from './components/RelatorioPerdasModal'
@@ -63,6 +64,7 @@ export default function PerdasPage() {
     queryKey: ['perdas', inicio, fim],
     queryFn: () => api.get(`/estoque/perdas?inicio=${inicio}&fim=${fim}`).then(r => r.data),
   })
+  const pag = usePaginacao(perdas.data ?? [], `${inicio}|${fim}`)
 
   const lancar = useMutation({
     mutationFn: () => api.post('/estoque/perdas', {
@@ -132,7 +134,7 @@ export default function PerdasPage() {
             {perdas.data?.length === 0 && (
               <tr><td colSpan={podeVerIdentificacao ? 7 : 6}><EmptyState>Nenhuma perda no período</EmptyState></td></tr>
             )}
-            {perdas.data?.map(p => (
+            {pag.itens.map(p => (
               <TR key={p.id}>
                 <TD className="font-medium">{p.produto.nome}</TD>
                 <TD>
@@ -151,6 +153,7 @@ export default function PerdasPage() {
             ))}
           </TBody>
         </Table>
+        <Paginacao paginacao={pag} rotulo="perdas" />
       </Card>
 
       {showRelatorio && (

@@ -7,8 +7,9 @@ import { usePermissao } from '@/shared/hooks/usePermissao'
 import { formatBRL } from '@/shared/utils/mask'
 import {
   PageHeader, Card, Button, Field, FilterTabs, StatusBadge, ConfirmDialog, baseInputClass,
-  Table, THead, TH, TBody, TR, TD, EmptyState, LoadingState,
+  Table, THead, TH, TBody, TR, TD, EmptyState, LoadingState, Paginacao,
 } from '@/shared/components/ui'
+import { usePaginacao } from '@/shared/hooks/usePaginacao'
 import type { BadgeTone } from '@/shared/components/ui'
 import {
   REGIMES_TRIBUTARIOS, type ConfiguracaoFiscal, type DocumentoFiscal, type StatusDocumentoFiscal,
@@ -134,7 +135,7 @@ function Configuracao() {
   const certVencido = config.certificadoValidade ? new Date(config.certificadoValidade) < new Date() : false
 
   return (
-    <div className="space-y-5 max-w-5xl">
+    <div className="space-y-5">
       {/* Situação: o que o PDV faz hoje e o que falta para ligar cada modelo */}
       <Card padding="md" className="space-y-4">
         <div>
@@ -342,6 +343,7 @@ function Documentos() {
     queryKey: ['fiscal-documentos', modelo],
     queryFn: () => api.get('/fiscal/documentos', { params: { modelo: modelo || undefined } }).then(r => r.data),
   })
+  const pag = usePaginacao(docs, modelo)
 
   return (
     <Card padding="none">
@@ -363,7 +365,7 @@ function Documentos() {
             <TH align="right">Valor</TH><TH>Status</TH>
           </THead>
           <TBody>
-            {docs.map(d => (
+            {pag.itens.map(d => (
               <TR key={d.id}>
                 <TD>{d.modelo === 65 ? 'NFC-e' : 'NF-e'}</TD>
                 <TD className="tabular-nums">{d.serie} / {d.numero}</TD>
@@ -379,6 +381,7 @@ function Documentos() {
           </TBody>
         </Table>
       )}
+      {!isLoading && <Paginacao paginacao={pag} rotulo="notas" />}
     </Card>
   )
 }

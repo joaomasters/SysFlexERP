@@ -17,17 +17,9 @@ import { formatBRL, formatQuantidade } from '@/shared/utils/mask'
 import { margemPct, corMargem } from './produtoUtils'
 import {
   PageHeader, Card, Button, StatusBadge, baseInputClass, ConfirmDialog,
-  Table, THead, TH, TBody, TR, TD, EmptyState, LoadingState, filtrarProdutos, produtoPorCodigo,
+  Table, THead, TH, TBody, TR, TD, EmptyState, LoadingState, Paginacao, filtrarProdutos, produtoPorCodigo,
 } from '@/shared/components/ui'
-
-// 0 = todos os produtos numa página só.
-const OPCOES_POR_PAGINA = [
-  { value: 10, label: '10' },
-  { value: 25, label: '25' },
-  { value: 50, label: '50' },
-  { value: 0,  label: 'Todos' },
-]
-const MENOR_PAGINA = 10
+import { usePaginacao } from '@/shared/hooks/usePaginacao'
 
 type CampoOrdem = 'codigoInterno' | 'nome' | 'precoVenda' | 'margem' | 'estoqueAtual'
 type Ordem = { campo: CampoOrdem; direcao: 'asc' | 'desc' }
@@ -84,8 +76,6 @@ export default function ProdutosPage() {
   const { podeVerIdentificacao } = usePermissao()
   const [busca, setBusca]   = useState('')
   const [termo, setTermo]   = useState('')
-  const [pagina, setPagina] = useState(1)
-  const [porPagina, setPorPagina] = useState(10)
   const [ordem, setOrdem]   = useState<Ordem>({ campo: 'nome', direcao: 'asc' })
   const [confirmando, setConfirmando] = useState<Produto | null>(null)
   const [showRelatorio, setShowRelatorio] = useState(false)
@@ -124,23 +114,17 @@ export default function ProdutosPage() {
     },
   })
 
-  // Paginação no cliente: o backend devolve a lista inteira. O Math.min evita ficar
-  // numa página que deixou de existir (ex: a lista encolheu depois de uma busca).
-  const ordenados    = ordenar(lista, ordem)
-  const tamanho      = porPagina || ordenados.length
-  const totalPaginas = Math.max(1, Math.ceil(ordenados.length / (tamanho || 1)))
-  const paginaAtual  = Math.min(pagina, totalPaginas)
-  const inicio       = (paginaAtual - 1) * tamanho
-  const produtosPagina = ordenados.slice(inicio, inicio + tamanho)
+  // Paginação no cliente (hook compartilhado): volta à página 1 quando busca/ordem mudam.
+  const ordenados      = ordenar(lista, ordem)
+  const pag            = usePaginacao(ordenados, `${busca}|${ordem.campo}|${ordem.direcao}`)
+  const produtosPagina = pag.itens
 
   function alterarBusca(valor: string) {
     setBusca(valor)
-    setPagina(1)
   }
 
   function ordenarPor(campo: CampoOrdem) {
     setOrdem(o => ({ campo, direcao: o.campo === campo && o.direcao === 'asc' ? 'desc' : 'asc' }))
-    setPagina(1)
   }
 
   const deletar = useMutation({
@@ -293,50 +277,7 @@ export default function ProdutosPage() {
         )}
 
         {/* Paginação */}
-        {!isLoading && !isError && lista.length > MENOR_PAGINA && (
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-4 py-3">
-            <p className="text-xs text-gray-500 tabular-nums">
-              Mostrando {inicio + 1}–{inicio + produtosPagina.length} de {lista.length} produtos
-            </p>
-            <div className="flex items-center gap-4">
-              <label className="flex items-center gap-2 text-xs text-gray-600">
-                Exibir
-                <select
-                  value={porPagina}
-                  onChange={e => { setPorPagina(Number(e.target.value)); setPagina(1) }}
-                  className="border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
-                >
-                  {OPCOES_POR_PAGINA.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
-              </label>
-              {totalPaginas > 1 && (
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setPagina(paginaAtual - 1)}
-                    disabled={paginaAtual === 1}
-                    aria-label="Página anterior"
-                  >
-                    <ChevronLeft size={14} />
-                  </Button>
-                  <span className="text-xs text-gray-600 tabular-nums">
-                    Página {paginaAtual} de {totalPaginas}
-                  </span>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setPagina(paginaAtual + 1)}
-                    disabled={paginaAtual === totalPaginas}
-                    aria-label="Próxima página"
-                  >
-                    <ChevronRight size={14} />
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+        {!isLoading && !isError && <Paginacao paginacao={pag} rotulo="produtos" />}
       </Card>
 
       {/* Confirmação de inativação */}

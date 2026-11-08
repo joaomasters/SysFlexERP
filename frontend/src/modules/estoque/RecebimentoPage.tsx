@@ -4,7 +4,8 @@ import { Plus, FileText, X, ChevronDown, ChevronUp, Upload, Filter, Ban, AlertTr
 import { api } from '@/shared/api/axios'
 import toast from 'react-hot-toast'
 import { formatBRL, formatQuantidade, casasDaUnidade, somenteNumeros } from '@/shared/utils/mask'
-import { PageHeader, Card, Modal, Button, CurrencyInput, WeightInput, Field, baseInputClass, BuscaProduto, produtoPorCodigo } from '@/shared/components/ui'
+import { PageHeader, Card, Modal, Button, CurrencyInput, WeightInput, Field, baseInputClass, BuscaProduto, produtoPorCodigo, Paginacao } from '@/shared/components/ui'
+import { usePaginacao } from '@/shared/hooks/usePaginacao'
 import type { ProdutoBuscavel } from '@/shared/components/ui'
 import { useBarcodeScan } from '@/shared/hooks/useBarcodeScan'
 import { usePermissao } from '@/shared/hooks/usePermissao'
@@ -80,6 +81,7 @@ export default function RecebimentoPage() {
       params: { inicio: filtroInicio, fim: filtroFim, fornecedor: filtroFornecedor || undefined },
     }).then(r => r.data),
   })
+  const pag = usePaginacao(recebimentos, `${filtroInicio}|${filtroFim}|${filtroFornecedor}`)
 
   const registrar = useMutation({
     mutationFn: () => api.post('/estoque/recebimentos', {
@@ -301,7 +303,7 @@ export default function RecebimentoPage() {
       {/* Lista */}
       <div className="space-y-2">
         {isLoading && <p className="text-gray-400 text-sm">Carregando...</p>}
-        {recebimentos.map(r => (
+        {pag.itens.map(r => (
           <div key={r.id} className={`bg-white rounded-xl shadow border border-gray-100 overflow-hidden ${r.status === 'CANCELADO' ? 'opacity-70' : ''}`}>
             <div
               className="flex items-center gap-4 px-5 py-4 cursor-pointer hover:bg-gray-50"
@@ -417,6 +419,7 @@ export default function RecebimentoPage() {
             Nenhum recebimento encontrado para os filtros selecionados
           </div>
         )}
+        {!isLoading && <Paginacao solta paginacao={pag} rotulo="recebimentos" />}
       </div>
 
       {cancelando && (

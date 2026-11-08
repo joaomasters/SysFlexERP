@@ -7,7 +7,8 @@ import {
 import { api } from '@/shared/api/axios'
 import toast from 'react-hot-toast'
 import type { Produto, FichaDesossa } from '@/types/produto'
-import { PageHeader, Card, Button, Modal, Field, baseInputClass, ConfirmDialog } from '@/shared/components/ui'
+import { PageHeader, Card, Button, Modal, Field, baseInputClass, ConfirmDialog, Paginacao } from '@/shared/components/ui'
+import { usePaginacao } from '@/shared/hooks/usePaginacao'
 
 // ─── tipos locais ────────────────────────────────────────────────────────────
 interface ItemForm {
@@ -278,6 +279,7 @@ export default function FichasDesossaPage() {
     queryKey: ['fichas-desossa', mostrarInativas],
     queryFn: () => api.get(`/estoque/fichas-desossa?todas=${mostrarInativas}`).then(r => r.data),
   })
+  const pag = usePaginacao(fichas, String(mostrarInativas))
 
   const { data: produtos = [] } = useQuery<Produto[]>({
     queryKey: ['produtos'],
@@ -357,7 +359,7 @@ export default function FichasDesossaPage() {
       <div className="space-y-3">
         {isLoading && <p className="text-gray-400 text-sm">Carregando...</p>}
 
-        {fichas.map(ficha => {
+        {pag.itens.map(ficha => {
           const totalPerc = ficha.itens.reduce((s, it) => s + it.percentualRendimento, 0)
           const perda     = 100 - totalPerc
           const expanded  = expandId === ficha.id
@@ -509,6 +511,7 @@ export default function FichasDesossaPage() {
             <p className="text-gray-400 text-sm mt-1">Crie a primeira ficha para começar</p>
           </div>
         )}
+        {!isLoading && <Paginacao solta paginacao={pag} rotulo="fichas" />}
       </div>
 
       {showForm && (
