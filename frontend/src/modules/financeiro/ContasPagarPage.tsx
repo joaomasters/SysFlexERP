@@ -6,8 +6,9 @@ import { Plus, History, FileText } from 'lucide-react'
 import { formatBRL } from '@/shared/utils/mask'
 import {
   PageHeader, Card, FilterTabs, Modal, Button, StatusBadge, CurrencyInput, Field, baseInputClass,
-  Table, THead, TH, TBody, TR, TD, EmptyState,
+  Table, THead, TH, TBody, TR, TD, EmptyState, Paginacao,
 } from '@/shared/components/ui'
+import { usePaginacao } from '@/shared/hooks/usePaginacao'
 import type { BadgeTone } from '@/shared/components/ui'
 import { usePermissao } from '@/shared/hooks/usePermissao'
 import HistoricoPagamentosModal from './components/HistoricoPagamentosModal'
@@ -71,6 +72,8 @@ export default function ContasPagarPage() {
     queryKey: ['contas-pagar', statusFiltro],
     queryFn: () => api.get(`/financeiro/contas-pagar?status=${statusFiltro}`).then(r => r.data),
   })
+
+  const pag = usePaginacao(contas.data ?? [], statusFiltro)
 
   // Fornecedores já usados em contas anteriores (mesma permissão da tela, não
   // depende de outro módulo). Só busca quando o modal de nova conta é aberto.
@@ -196,7 +199,7 @@ export default function ContasPagarPage() {
             {contas.data?.length === 0 && (
               <tr><td colSpan={7}><EmptyState>Nenhuma conta encontrada</EmptyState></td></tr>
             )}
-            {contas.data?.map(c => (
+            {pag.itens.map(c => (
               <TR key={c.id}>
                 <TD className="font-medium">{c.descricao}</TD>
                 <TD className="text-gray-500">{c.fornecedor || '—'}</TD>
@@ -235,6 +238,7 @@ export default function ContasPagarPage() {
             ))}
           </TBody>
         </Table>
+        <Paginacao paginacao={pag} rotulo="contas" />
       </Card>
 
       {/* Histórico de pagamentos (administradores) */}

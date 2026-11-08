@@ -6,9 +6,10 @@ import { api } from '@/shared/api/axios'
 import type { Fornecedor } from '@/types/fornecedor'
 import {
   PageHeader, Modal, Button, StatusBadge, Field, baseInputClass, ConfirmDialog,
-  Table, THead, TH, TBody, TR, TD, EmptyState,
+  Table, THead, TH, TBody, TR, TD, EmptyState, Paginacao,
 } from '@/shared/components/ui'
 import { usePermissao } from '@/shared/hooks/usePermissao'
+import { usePaginacao } from '@/shared/hooks/usePaginacao'
 
 type FormState = {
   id?: number
@@ -119,6 +120,8 @@ export default function FornecedoresPage() {
     (f.contato ?? '').toLowerCase().includes(termo)
   )
 
+  const pag = usePaginacao(visiveis, `${termo}|${mostrarInativos}`)
+
   // O dropdown do Novo Produto e as listagens de produto leem estes dados.
   const atualizarListas = () => {
     qc.invalidateQueries({ queryKey: ['fornecedores'] })
@@ -228,7 +231,7 @@ export default function FornecedoresPage() {
             </tr>
           </THead>
           <TBody>
-            {visiveis.map(f => (
+            {pag.itens.map(f => (
               <TR key={f.id} className={!f.ativo ? 'opacity-50' : ''}>
                 <TD className="font-medium">{f.nome}</TD>
                 <TD className="text-gray-600 tabular-nums">{f.cpfCnpj || '—'}</TD>
@@ -260,6 +263,7 @@ export default function FornecedoresPage() {
         {!isLoading && visiveis.length === 0 && (
           <EmptyState>{fornecedores.length === 0 ? 'Nenhum fornecedor cadastrado.' : 'Nenhum fornecedor encontrado.'}</EmptyState>
         )}
+        {!isLoading && <Paginacao paginacao={pag} rotulo="fornecedores" />}
       </div>
 
       {form && (

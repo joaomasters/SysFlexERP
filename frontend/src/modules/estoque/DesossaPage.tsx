@@ -5,7 +5,8 @@ import { api } from '@/shared/api/axios'
 import toast from 'react-hot-toast'
 import type { FichaDesossa, ExecutarDesossaDTO, ProcessoDesossa } from '@/types/produto'
 import { formatWeightDisplay } from '@/shared/utils/mask'
-import { PageHeader, Card, Button, CurrencyInput, WeightInput, Field, baseInputClass } from '@/shared/components/ui'
+import { PageHeader, Card, Button, CurrencyInput, WeightInput, Field, baseInputClass, Paginacao } from '@/shared/components/ui'
+import { usePaginacao } from '@/shared/hooks/usePaginacao'
 import { usePermissao } from '@/shared/hooks/usePermissao'
 
 interface Recebimento {
@@ -59,6 +60,7 @@ export default function DesossaPage() {
     }).then(r => r.data),
     enabled: !!fichaSel && !!historicoInicio && !!historicoFim,
   })
+  const pagHist = usePaginacao(historico, `${fichaSel?.id}|${historicoInicio}|${historicoFim}`)
 
   const executar = useMutation({
     mutationFn: (dto: ExecutarDesossaDTO) =>
@@ -175,8 +177,9 @@ export default function DesossaPage() {
               {!historicoInicio || !historicoFim ? (
                 <p className="text-gray-400 text-sm">Escolha um período para ver as execuções anteriores.</p>
               ) : (
+                <>
                 <div className="space-y-2 max-h-96 overflow-y-auto">
-                  {historico.map(p => {
+                  {pagHist.itens.map(p => {
                     const anormal = !!p.observacao
                     return (
                       <div
@@ -215,6 +218,8 @@ export default function DesossaPage() {
                     <p className="text-gray-400 text-sm">Nenhuma execução nesse período.</p>
                   )}
                 </div>
+                <Paginacao paginacao={pagHist} rotulo="execuções" />
+                </>
               )}
             </div>
           )}

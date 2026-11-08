@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../shared/api/axios'
 import { CheckCircle2, XCircle, Filter, Printer } from 'lucide-react'
 import { formatQuantidade, casasDaUnidade } from '@/shared/utils/mask'
-import { PageHeader, Card, Button, StatusBadge, WeightInput, baseInputClass } from '@/shared/components/ui'
+import { PageHeader, Card, Button, StatusBadge, WeightInput, baseInputClass, Paginacao } from '@/shared/components/ui'
+import { usePaginacao } from '@/shared/hooks/usePaginacao'
 import type { BadgeTone } from '@/shared/components/ui'
 import RelatorioEstoqueModal from '@/modules/produtos/components/RelatorioEstoqueModal'
 import { usePermissao } from '@/shared/hooks/usePermissao'
@@ -52,6 +53,7 @@ export default function InventarioPage() {
       params: { inicio: filtroInicio || undefined, fim: filtroFim || undefined },
     }).then(r => r.data),
   })
+  const pag = usePaginacao(lista.data ?? [], `${filtroInicio}|${filtroFim}`)
 
   const itens = useQuery<InventarioItem[]>({
     queryKey: ['inventario-itens', selectedId],
@@ -137,7 +139,7 @@ export default function InventarioPage() {
           </Card>
 
           <div className="space-y-2">
-            {lista.data?.map(inv => (
+            {pag.itens.map(inv => (
               <button key={inv.id} onClick={() => setSelectedId(inv.id)}
                 className={`w-full text-left p-3 rounded-xl border text-sm transition-colors
                   ${selectedId === inv.id ? 'border-primary-500 bg-primary-50' : 'bg-white hover:bg-gray-50 border-gray-200'}`}>
@@ -161,6 +163,7 @@ export default function InventarioPage() {
             {lista.data?.length === 0 && (
               <p className="text-center text-xs text-gray-400 py-4">Nenhum inventário no período.</p>
             )}
+            <Paginacao solta paginacao={pag} rotulo="inventários" />
           </div>
         </div>
 

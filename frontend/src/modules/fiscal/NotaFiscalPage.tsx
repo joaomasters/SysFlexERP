@@ -4,7 +4,8 @@ import { FileText, Plus, X, ChevronDown, ChevronUp, Upload, Download, Printer, C
 import { api } from '@/shared/api/axios'
 import toast from 'react-hot-toast'
 import { formatBRL, formatWeightDisplay, formatQuantidade, casasDaUnidade, somenteNumeros } from '@/shared/utils/mask'
-import { PageHeader, Card, Modal, Button, StatusBadge, CurrencyInput, WeightInput, Field, baseInputClass, ConfirmDialog } from '@/shared/components/ui'
+import { PageHeader, Card, Modal, Button, StatusBadge, CurrencyInput, WeightInput, Field, baseInputClass, ConfirmDialog, Paginacao } from '@/shared/components/ui'
+import { usePaginacao } from '@/shared/hooks/usePaginacao'
 import type { BadgeTone } from '@/shared/components/ui'
 import ImpressaoNFModal from './components/ImpressaoNFModal'
 import { usePermissao } from '@/shared/hooks/usePermissao'
@@ -103,6 +104,7 @@ export default function NotaFiscalPage() {
       params: { inicio: filtroInicio, fim: filtroFim, cliente: filtroCliente || undefined },
     }).then(r => r.data),
   })
+  const pag = usePaginacao(notas, `${filtroInicio}|${filtroFim}|${filtroCliente}`)
 
   const criar = useMutation({
     mutationFn: () => api.post('/fiscal/notas', {
@@ -294,7 +296,7 @@ export default function NotaFiscalPage() {
       {/* Lista */}
       <div className="space-y-2">
         {isLoading && <p className="text-gray-400 text-sm">Carregando...</p>}
-        {notas.map(nf => (
+        {pag.itens.map(nf => (
           <div key={nf.id} className="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">
             <div
               className="flex items-center gap-4 px-5 py-4 cursor-pointer hover:bg-gray-50"
@@ -419,6 +421,7 @@ export default function NotaFiscalPage() {
             Nenhuma nota fiscal encontrada para os filtros selecionados
           </div>
         )}
+        {!isLoading && <Paginacao solta paginacao={pag} rotulo="notas" />}
       </div>
 
       {/* XML Viewer — tema "console" proposital, ver nota em RecebimentoPage.tsx */}

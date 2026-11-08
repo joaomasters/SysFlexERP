@@ -8,8 +8,9 @@ import type { ContasAReceber, Cliente } from '@/types/venda'
 import { formatBRL } from '@/shared/utils/mask'
 import {
   PageHeader, Card, FilterTabs, Modal, Button, StatusBadge, CurrencyInput,
-  Table, THead, TH, TBody, TR, TD, EmptyState, LoadingState,
+  Table, THead, TH, TBody, TR, TD, EmptyState, LoadingState, Paginacao,
 } from '@/shared/components/ui'
+import { usePaginacao } from '@/shared/hooks/usePaginacao'
 import type { BadgeTone } from '@/shared/components/ui'
 import { usePermissao } from '@/shared/hooks/usePermissao'
 import HistoricoPagamentosModal from './components/HistoricoPagamentosModal'
@@ -69,6 +70,7 @@ export default function ContasReceberPage() {
   const contasFiltradas = clienteId
     ? contas.filter(c => String(c.cliente.id) === clienteId)
     : contas
+  const pag = usePaginacao(contasFiltradas, `${statusFiltro}|${clienteId}`)
 
   const contaDoPagamento = pagarId ? contas.find(c => c.id === pagarId) : undefined
 
@@ -123,7 +125,7 @@ export default function ContasReceberPage() {
               </tr>
             </THead>
             <TBody>
-              {contasFiltradas.map(c => (
+              {pag.itens.map(c => (
                 <TR key={c.id} className={c.status === 'AGRUPADO' ? 'opacity-60' : ''}>
                   <TD className="font-medium">{c.cliente?.nome ?? '—'}</TD>
                   <TD>
@@ -167,6 +169,7 @@ export default function ContasReceberPage() {
         {!isLoading && contasFiltradas.length === 0 && (
           <EmptyState>Nenhuma conta com esse status.</EmptyState>
         )}
+        {!isLoading && <Paginacao paginacao={pag} rotulo="contas" />}
       </Card>
 
       {/* Histórico de recebimentos (administradores) */}

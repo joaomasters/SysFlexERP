@@ -7,8 +7,9 @@ import toast from 'react-hot-toast'
 import type { Tenant } from '@/types/tenant'
 import {
   PageHeader, Card, Button, Field, baseInputClass, StatusBadge, Modal,
-  Table, THead, TH, TBody, TR, TD, EmptyState, LoadingState,
+  Table, THead, TH, TBody, TR, TD, EmptyState, LoadingState, Paginacao,
 } from '@/shared/components/ui'
+import { usePaginacao } from '@/shared/hooks/usePaginacao'
 
 export default function TenantsPage() {
   const qc = useQueryClient()
@@ -22,6 +23,7 @@ export default function TenantsPage() {
     queryFn: () => api.get('/admin/tenants').then(r => r.data),
     enabled: isAdministradorPlataforma,
   })
+  const pag = usePaginacao(tenants)
 
   const ativar = useMutation({
     mutationFn: (id: number) => api.patch(`/admin/tenants/${id}/ativar`),
@@ -83,7 +85,7 @@ export default function TenantsPage() {
               </tr>
             </THead>
             <TBody>
-              {tenants.map(t => {
+              {pag.itens.map(t => {
                 const principal = t.schemaName === 'public'
                 return (
                   <TR key={t.id}>
@@ -135,6 +137,7 @@ export default function TenantsPage() {
             </TBody>
           </Table>
         )}
+        {!isLoading && <Paginacao paginacao={pag} rotulo="empresas" />}
       </Card>
 
       {showNovo && <NovaEmpresaModal onClose={() => setShowNovo(false)} />}
