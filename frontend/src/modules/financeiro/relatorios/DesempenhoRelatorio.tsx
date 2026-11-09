@@ -19,6 +19,11 @@ interface FluxoCaixa { totalRecebimentos: number; totalPagamentos: number; saldo
 
 const fmt = formatBRL
 
+// Eixo dos gráficos: "800", "1,6 mil", "3,2 mil". Arredondar para mil inteiro repetia rótulos
+// (1.600 e 2.400 viravam "2 mil" os dois).
+const formatoCompacto = new Intl.NumberFormat('pt-BR', { notation: 'compact', maximumFractionDigits: 1 })
+const valorCompacto = (n: number) => formatoCompacto.format(Number(n))
+
 const rotuloForma: Record<string, string> = {
   DINHEIRO: 'Dinheiro', PIX: 'PIX', DEBITO: 'Cartão de débito', CREDITO: 'Cartão de crédito',
   CARTAO_DEBITO: 'Cartão de débito', CARTAO_CREDITO: 'Cartão de crédito', FIADO: 'Fiado / a prazo',
@@ -173,7 +178,7 @@ export default function DesempenhoRelatorio() {
               <BarChart data={porDia} margin={{ left: 0, right: 8, top: 5, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="rotulo" tick={{ fontSize: 11 }} />
-                <YAxis tickFormatter={n => (Number(n) >= 1000 ? `${(Number(n) / 1000).toFixed(0)} mil` : Number(n).toFixed(0))} tick={{ fontSize: 11 }} width={48} />
+                <YAxis tickFormatter={valorCompacto} tick={{ fontSize: 11 }} width={48} />
                 <Tooltip formatter={(n: number) => fmt(n)} labelFormatter={l => `Dia ${l}`} />
                 <Bar dataKey="totalVendas" name="Vendas" fill="#A32B1E" radius={[4, 4, 0, 0]} />
               </BarChart>
@@ -210,7 +215,7 @@ export default function DesempenhoRelatorio() {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={v.topProdutos} layout="vertical" margin={{ left: 0, right: 12, top: 5, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" tickFormatter={n => (Number(n) >= 1000 ? `${(Number(n) / 1000).toFixed(0)} mil` : Number(n).toFixed(0))} tick={{ fontSize: 11 }} />
+                <XAxis type="number" tickFormatter={valorCompacto} tick={{ fontSize: 11 }} />
                 <YAxis type="category" dataKey="nomeProduto" width={110} tick={{ fontSize: 11 }} interval={0}
                   tickFormatter={(n: string) => (n.length > 18 ? `${n.slice(0, 17)}…` : n)} />
                 <Tooltip formatter={(n: number) => fmt(n)} />

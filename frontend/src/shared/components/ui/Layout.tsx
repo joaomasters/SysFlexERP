@@ -46,7 +46,10 @@ export default function Layout() {
             <NotificacaoEstoque />
           </div>
         </header>
-        <main ref={mainRef} className="flex-1 overflow-auto">
+        {/* relative: elementos absolutos das telas (ex.: sr-only, popovers) ficam presos ao
+            <main> e rolam com ele. Sem isso eram posicionados pela página inteira, que ficava
+            mais alta que a janela: a tela "subia" e sobrava uma faixa vazia embaixo. */}
+        <main ref={mainRef} className="relative flex-1 overflow-auto">
           <Outlet />
         </main>
       </div>
