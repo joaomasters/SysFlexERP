@@ -48,6 +48,17 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+      testIgnore: /\.global\.spec\.ts$/,
+    },
+
+    // Testes que mudam uma configuração da empresa inteira (ex.: ligar a NFC-e, que faz o PDV
+    // perguntar "CPF na nota?"): rodam depois dos outros, para não atrapalhar os que estão em paralelo.
+    // Para rodar só eles: npx playwright test --project=global --no-deps
+    {
+      name: 'global',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: /\.global\.spec\.ts$/,
+      dependencies: ['chromium'],
     },
 
     // {

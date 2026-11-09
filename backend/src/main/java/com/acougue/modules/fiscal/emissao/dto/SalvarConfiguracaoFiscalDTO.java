@@ -39,6 +39,10 @@ public class SalvarConfiguracaoFiscalDTO {
     @Min(0) @Max(999)       private short nfeSerie = 1;
     @Min(1) @Max(999999999) private int nfeProximoNumero = 1;
 
+    /** SOB_DEMANDA: só quando o cliente pede ("CPF na nota?"); TODAS: em toda venda. */
+    @Pattern(regexp = "SOB_DEMANDA|TODAS", message = "Modo da NFC-e deve ser SOB_DEMANDA ou TODAS")
+    private String nfceModo = "SOB_DEMANDA";
+
     @Size(max = 6) private String cscId;
     /** Em branco = mantém o código já cadastrado. */
     @Size(max = 100) private String cscToken;

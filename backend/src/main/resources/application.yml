@@ -110,6 +110,10 @@ demo:
   kafka:
     # Rotas /demo/kafka (publicam eventos falsos). Nunca ligar em produção.
     enabled: ${DEMO_KAFKA:false}
+fiscal:
+  # Provedor fiscal SIMULADO: "autoriza" NFC-e sem falar com a SEFAZ, só em homologação.
+  # Para testes e para o ambiente de desenvolvimento. NUNCA ligar em produção.
+  provedor-simulado: ${FISCAL_PROVEDOR_SIMULADO:false}
 recebimento:
   # Dias para cancelar uma entrada de mercadoria (7 = prazo adotado no Paraná)
   prazo-cancelamento-dias: ${RECEBIMENTO_PRAZO_CANCELAMENTO_DIAS:7}

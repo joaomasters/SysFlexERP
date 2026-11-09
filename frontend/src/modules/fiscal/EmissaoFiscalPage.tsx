@@ -28,7 +28,7 @@ type Form = Pick<ConfiguracaoFiscal,
   'emitirNfce' | 'emitirNfe' | 'ambiente' | 'provedor' | 'razaoSocial' | 'nomeFantasia' | 'cnpj'
   | 'inscricaoEstadual' | 'regimeTributario' | 'logradouro' | 'numeroEndereco' | 'complemento' | 'bairro'
   | 'codigoMunicipio' | 'municipio' | 'cep' | 'telefone' | 'nfceSerie' | 'nfceProximoNumero' | 'nfeSerie'
-  | 'nfeProximoNumero' | 'cscId'> & { cscToken: string; limparCsc: boolean }
+  | 'nfeProximoNumero' | 'nfceModo' | 'cscId'> & { cscToken: string; limparCsc: boolean }
 
 const TOM_STATUS: Record<StatusDocumentoFiscal, BadgeTone> = {
   AUTORIZADA: 'success', PENDENTE: 'info', CONTINGENCIA: 'warning', REJEITADA: 'danger', DENEGADA: 'danger',
@@ -42,7 +42,8 @@ function paraForm(c: ConfiguracaoFiscal): Form {
     regimeTributario: c.regimeTributario, logradouro: c.logradouro, numeroEndereco: c.numeroEndereco,
     complemento: c.complemento, bairro: c.bairro, codigoMunicipio: c.codigoMunicipio, municipio: c.municipio,
     cep: c.cep, telefone: c.telefone, nfceSerie: c.nfceSerie, nfceProximoNumero: c.nfceProximoNumero,
-    nfeSerie: c.nfeSerie, nfeProximoNumero: c.nfeProximoNumero, cscId: c.cscId, cscToken: '', limparCsc: false,
+    nfeSerie: c.nfeSerie, nfeProximoNumero: c.nfeProximoNumero, nfceModo: c.nfceModo ?? 'SOB_DEMANDA',
+    cscId: c.cscId, cscToken: '', limparCsc: false,
   }
 }
 
@@ -198,6 +199,14 @@ function Configuracao() {
           </Field>
           <Field label="Estado (UF)">
             <input value="PR — Paraná" disabled className={baseInputClass} />
+          </Field>
+          <Field label="Quando emitir NFC-e" htmlFor="fiscal-nfce-modo"
+                 hint="No PDV, ao finalizar, o caixa pergunta &quot;CPF na nota?&quot;.">
+            <select id="fiscal-nfce-modo" value={form.nfceModo} disabled={!editavel}
+                    onChange={e => set('nfceModo', e.target.value as Form['nfceModo'])} className={baseInputClass}>
+              <option value="SOB_DEMANDA">Só quando o cliente pedir (as outras vendas saem no cupom não fiscal)</option>
+              <option value="TODAS">Em todas as vendas (com ou sem CPF)</option>
+            </select>
           </Field>
         </div>
       </Card>
