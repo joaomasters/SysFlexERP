@@ -1,8 +1,16 @@
 import type { ReactNode, ThHTMLAttributes, TdHTMLAttributes } from 'react'
 
-/** Tabela padrão do sistema — usar dentro de um <Card padding="none"> com overflow-hidden. */
+/**
+ * Tabela padrão do sistema — usar dentro de um <Card padding="none"> com overflow-hidden.
+ * Em telas estreitas (celular) a tabela rola na horizontal dentro do próprio bloco,
+ * em vez de empurrar a página inteira para os lados.
+ */
 export function Table({ children }: { children: ReactNode }) {
-  return <table className="w-full text-sm">{children}</table>
+  return (
+    <div className="w-full overflow-x-auto print:overflow-visible">
+      <table className="w-full text-sm">{children}</table>
+    </div>
+  )
 }
 
 export function THead({ children }: { children: ReactNode }) {

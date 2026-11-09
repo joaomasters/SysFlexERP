@@ -317,7 +317,7 @@ export default function FichasDesossaPage() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <PageHeader
         title="Fichas de Desossa"
         subtitle="Configure os cortes e percentuais de rendimento de cada peça"

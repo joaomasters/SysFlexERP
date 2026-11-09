@@ -36,7 +36,7 @@ export default function ManutencaoPage() {
     : 'Nunca'
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <PageHeader title="Manutenção" subtitle="Ferramentas do administrador da empresa" />
 
       <Card padding="md" className="max-w-2xl space-y-4">

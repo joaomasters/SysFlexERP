@@ -53,7 +53,7 @@ export default function EmissaoFiscalPage() {
 
   if (!podeVer('FISCAL')) {
     return (
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <div className="bg-warning-50 border border-warning-100 rounded-xl p-5 max-w-lg">
           <p className="flex items-center gap-2 font-medium text-warning-700"><Lock size={16} /> Acesso restrito</p>
           <p className="text-sm text-warning-600 mt-1">Seu perfil não tem permissão para a emissão de notas fiscais.</p>
@@ -63,7 +63,7 @@ export default function EmissaoFiscalPage() {
   }
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="p-4 sm:p-6 space-y-5">
       <PageHeader title="Emissão de Notas" subtitle="NFC-e (modelo 65) e NF-e (modelo 55) com a SEFAZ do Paraná" />
       <FilterTabs<Aba>
         options={[{ value: 'configuracao', label: 'Configuração' }, { value: 'documentos', label: 'Documentos emitidos' }]}

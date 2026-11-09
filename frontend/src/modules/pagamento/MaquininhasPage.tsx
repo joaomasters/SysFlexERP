@@ -55,7 +55,7 @@ export default function MaquininhasPage() {
 
   if (!podeVer('MAQUININHAS')) {
     return (
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <div className="bg-warning-50 border border-warning-100 rounded-xl p-5 max-w-lg">
           <p className="flex items-center gap-2 font-medium text-warning-700">
             <Lock size={16} /> Acesso restrito
@@ -74,7 +74,7 @@ export default function MaquininhasPage() {
     navigator.clipboard.writeText(texto).then(() => toast.success('Copiado!'))
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <PageHeader
         title="Maquininhas de Cartão"
         subtitle="Credenciais das adquirentes e maquininhas usadas no PDV"

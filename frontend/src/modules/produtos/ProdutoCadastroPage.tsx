@@ -293,7 +293,7 @@ export default function ProdutoCadastroPage() {
 
   if (isEdicao && !produto) {
     return (
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <PageHeader title="Editar Produto" />
         <Card padding="none"><LoadingState /></Card>
       </div>
@@ -301,7 +301,7 @@ export default function ProdutoCadastroPage() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <PageHeader
         title={isEdicao ? 'Editar Produto' : 'Novo Produto'}
         subtitle={isEdicao ? `${produto?.codigoInterno} · ${produto?.nome}` : 'Cadastre um produto para venda, estoque e balança'}
