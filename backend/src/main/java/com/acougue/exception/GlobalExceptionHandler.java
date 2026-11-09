@@ -100,12 +100,47 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse("Dados enviados em formato inválido.", 400));
     }
 
-    // Violação de regra do banco (valor fora da lista, duplicado...): 422 com mensagem neutra
+    /*
+     Restrições únicas que o usuário consegue resolver sozinho: a mensagem diz o que corrigir.
+     O serviço já confere antes de gravar, mas dois cadastros ao mesmo tempo passam os dois
+     pela conferência e só o banco barra o segundo (issue #92). O nome da restrição não vai
+     para a resposta, só a mensagem.
+     */
+    private static final Map<String, String> MENSAGENS_RESTRICAO = Map.of(
+            "produtos_codigo_interno_key",
+            "Este código interno já está cadastrado em outro produto. Informe outro código "
+                    + "ou deixe o campo em branco para gerar automaticamente.",
+            "uk_tenants_codigo",
+            "Este código de empresa já está em uso. Tente salvar novamente."
+    );
+
+    // Violação de regra do banco (valor fora da lista, duplicado...): 422 com mensagem
+    // específica quando a restrição é conhecida, senão uma mensagem neutra
     @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
     public ResponseEntity<ErrorResponse> handleIntegridade(org.springframework.dao.DataIntegrityViolationException ex) {
-        log.warn("Violação de integridade: {}", ex.getMostSpecificCause() == null ? ex.getMessage() : ex.getMostSpecificCause().getMessage());
+        String detalhe = ex.getMostSpecificCause() == null ? ex.getMessage() : ex.getMostSpecificCause().getMessage();
+        log.warn("Violação de integridade: {}", detalhe);
+        String mensagem = mensagemDaRestricao(ex, detalhe);
         return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
-                .body(new ErrorResponse("Os dados informados não são válidos ou já existem no cadastro.", 422));
+                .body(new ErrorResponse(mensagem != null ? mensagem
+                        : "Os dados informados não são válidos ou já existem no cadastro.", 422));
+    }
+
+    /** Mensagem amigável da restrição violada, ou null se ela não está mapeada. */
+    static String mensagemDaRestricao(Throwable ex, String detalhe) {
+        // Hibernate informa o nome da restrição; sem ele, procura o nome no texto do Postgres
+        for (Throwable t = ex; t != null && t.getCause() != t; t = t.getCause()) {
+            if (t instanceof org.hibernate.exception.ConstraintViolationException cve && cve.getConstraintName() != null) {
+                String msg = MENSAGENS_RESTRICAO.get(cve.getConstraintName().toLowerCase());
+                if (msg != null) return msg;
+            }
+        }
+        if (detalhe == null) return null;
+        String texto = detalhe.toLowerCase();
+        return MENSAGENS_RESTRICAO.entrySet().stream()
+                .filter(e -> texto.contains("\"" + e.getKey() + "\""))
+                .map(Map.Entry::getValue)
+                .findFirst().orElse(null);
     }
 
     public record LimiteExcedidoResponse(String message, int status, String codigo, String clienteNome,
