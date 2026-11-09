@@ -117,7 +117,7 @@ export default function DesossaPage() {
   const recebSel = recebimentos.find(r => r.id === parseInt(recebimentoId))
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <PageHeader
         title="Desossa / Rendimento"
         subtitle="Processa peças inteiras em cortes e filhos com rateio automático"

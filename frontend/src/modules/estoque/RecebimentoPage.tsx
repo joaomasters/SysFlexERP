@@ -263,7 +263,7 @@ export default function RecebimentoPage() {
   const rec = recebimentos.find(r => r.id === xmlViewId)
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <PageHeader
         title="Recebimento de Mercadoria"
         subtitle="Entrada de Nota fiscal"

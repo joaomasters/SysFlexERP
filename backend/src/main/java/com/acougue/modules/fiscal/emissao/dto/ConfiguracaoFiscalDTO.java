@@ -9,7 +9,7 @@ public record ConfiguracaoFiscalDTO(
         String razaoSocial, String nomeFantasia, String cnpj, String inscricaoEstadual, short regimeTributario,
         String logradouro, String numeroEndereco, String complemento, String bairro,
         String codigoMunicipio, String municipio, String cep, String telefone,
-        short nfceSerie, int nfceProximoNumero, short nfeSerie, int nfeProximoNumero,
+        short nfceSerie, int nfceProximoNumero, short nfeSerie, int nfeProximoNumero, String nfceModo,
         String cscId, boolean cscConfigurado,
         boolean certificadoConfigurado, String certificadoTitular, String certificadoCnpj,
         LocalDateTime certificadoValidade,

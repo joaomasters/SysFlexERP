@@ -26,6 +26,13 @@
     </properties>
 
     <dependencies>
+        <!-- QR Code do DANFE NFC-e (só o núcleo, sem AWT) -->
+        <dependency>
+            <groupId>com.google.zxing</groupId>
+            <artifactId>core</artifactId>
+            <version>3.5.3</version>
+        </dependency>
+
         <!-- Spring Boot Web -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

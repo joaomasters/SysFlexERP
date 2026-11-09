@@ -65,6 +65,13 @@ public class DocumentoFiscal {
     @Column(columnDefinition = "TEXT")
     private String xml;
 
+    /** Conteúdo do QR Code do DANFE NFC-e e o site de consulta pela chave (vêm da autorização). */
+    @Column(name = "url_qrcode", columnDefinition = "TEXT")
+    private String urlQrcode;
+
+    @Column(name = "url_consulta", length = 200)
+    private String urlConsulta;
+
     @Column(length = 30)
     private String provedor;
 

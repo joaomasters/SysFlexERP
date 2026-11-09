@@ -193,7 +193,7 @@ export default function FornecedoresPage() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <PageHeader
         title="Fornecedores"
         subtitle="Cadastro de fornecedores — usado no cadastro de produtos"

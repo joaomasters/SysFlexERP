@@ -165,7 +165,7 @@ export default function CargaBalancaPage() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <PageHeader
         title="Carga de Balança"
         subtitle="Gera arquivo de atualização de preços e cadastro de PLUs para balanças"

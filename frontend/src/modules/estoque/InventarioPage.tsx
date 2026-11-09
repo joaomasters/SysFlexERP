@@ -94,7 +94,7 @@ export default function InventarioPage() {
   const isAberto = inventarioAtivo?.status === 'ABERTO'
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="p-4 sm:p-6 space-y-5">
       <PageHeader
         title="Inventário Físico"
         subtitle="Contagem física vs saldo do sistema"

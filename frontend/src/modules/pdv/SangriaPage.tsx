@@ -130,7 +130,7 @@ export default function SangriaPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
       <PageHeader title="Sangria / Suprimento" subtitle="Movimentações de numerário no caixa" />
 
       {/* Identificação do caixa — automática, sem precisar saber o ID */}

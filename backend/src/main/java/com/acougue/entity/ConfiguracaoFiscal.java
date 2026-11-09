@@ -96,6 +96,11 @@ public class ConfiguracaoFiscal {
     @Column(name = "nfe_proximo_numero", nullable = false)
     private Integer nfeProximoNumero = 1;
 
+    /** SOB_DEMANDA: NFC-e só quando o cliente pede ("CPF na nota?"); TODAS: em toda venda. */
+    @Builder.Default
+    @Column(name = "nfce_modo", nullable = false, length = 15)
+    private String nfceModo = "SOB_DEMANDA";
+
     @Column(name = "csc_id", length = 6)
     private String cscId;
 

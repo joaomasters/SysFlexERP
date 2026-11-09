@@ -180,7 +180,7 @@ export default function ClientesPage() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <PageHeader
         title="Clientes"
         subtitle="Cadastro de clientes"

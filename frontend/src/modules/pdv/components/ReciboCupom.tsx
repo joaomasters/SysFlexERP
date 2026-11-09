@@ -2,6 +2,7 @@ import { SISTEMA } from '@/config/empresa'
 import { casasDaUnidade } from '@/shared/utils/mask'
 import type { Venda } from '@/types/venda'
 import type { ConfiguracaoComprovante, PagamentoCupom } from '@/types/comprovante'
+import type { Nfce } from '@/types/fiscal'
 
 interface Props {
   venda: Venda
@@ -9,6 +10,18 @@ interface Props {
   config: ConfiguracaoComprovante
   /** Usado quando a venda devolvida pelo servidor não traz os pagamentos. */
   pagamentos?: PagamentoCupom[]
+  /** NFC-e autorizada da venda: o cupom vira o DANFE NFC-e */
+  nfce?: Nfce | null
+}
+
+const cnpjFormatado = (c?: string | null) =>
+  c && c.length === 14 ? `${c.slice(0, 2)}.${c.slice(2, 5)}.${c.slice(5, 8)}/${c.slice(8, 12)}-${c.slice(12)}` : (c ?? '')
+const cpfFormatado = (c: string) => `${c.slice(0, 3)}.${c.slice(3, 6)}.${c.slice(6, 9)}-${c.slice(9)}`
+const chaveEmBlocos = (c: string) => c.replace(/(.{4})/g, '$1 ').trim()
+const numeroNota = (n: number) => String(n).padStart(9, '0').replace(/(\d{3})(\d{3})(\d{3})/, '$1.$2.$3')
+const dataHora = (iso?: string | null) => {
+  const d = iso ? new Date(iso) : new Date()
+  return `${d.toLocaleDateString('pt-BR')} ${d.toLocaleTimeString('pt-BR')}`
 }
 
 const num2 = (v: number) => (v ?? 0).toFixed(2).replace('.', ',')
@@ -41,10 +54,13 @@ const FORMA_PAGAMENTO: Record<string, string> = {
 
 /**
  * Cupom não fiscal ("para simples conferência"), no layout de bobina térmica.
+ * Com uma NFC-e autorizada, vira o DANFE NFC-e: emitente, chave de acesso,
+ * consumidor, número/série, protocolo e QR Code de consulta.
  * Só HTML + CSS próprio: é impresso dentro de um iframe isolado (ver
  * imprimirComprovante.ts), sem o CSS do resto do sistema.
  */
-export default function ReciboCupom({ venda, operador, config, pagamentos }: Props) {
+export default function ReciboCupom({ venda, operador, config, pagamentos, nfce }: Props) {
+  const fiscal = nfce?.status === 'AUTORIZADA' ? nfce : null
   const largura = areaImpressaoMm(config)
   const estreito = config.larguraPapelMm <= 58
   const dataVenda = venda.dataVenda ? new Date(venda.dataVenda) : new Date()
@@ -82,19 +98,40 @@ export default function ReciboCupom({ venda, operador, config, pagamentos }: Pro
         .recibo td { overflow-wrap: break-word; vertical-align: top; }
         .recibo .total-grande { font-size: ${estreito ? 14 : 17}px; font-weight: 800; }
         .recibo .rodape { margin-top: 4px; white-space: pre-line; }
+        .recibo .pequeno { font-size: ${estreito ? 9 : 10}px; }
+        .recibo .chave { text-align: center; word-spacing: 2px; }
+        .recibo .qrcode { display: block; width: ${estreito ? 30 : 34}mm; height: ${estreito ? 30 : 34}mm; margin: 4px auto; }
       ` }} />
 
-      {config.mostrarAvisoNaoFiscal && (
+      {fiscal ? (
         <>
-          <p className="centro">*** CUPOM PARA SIMPLES CONFERÊNCIA ***</p>
-          <p className="centro">*** NÃO É DOCUMENTO FISCAL ***</p>
+          <p className="titulo">{(fiscal.emitente?.razaoSocial ?? config.nomeFantasia).toUpperCase()}</p>
+          <p className="centro">
+            CNPJ {cnpjFormatado(fiscal.emitente?.cnpj)}{fiscal.emitente?.inscricaoEstadual ? ` IE ${fiscal.emitente.inscricaoEstadual}` : ''}
+          </p>
+          {fiscal.emitente?.endereco && <p className="centro">{fiscal.emitente.endereco}</p>}
+          {fiscal.emitente?.municipio && <p className="centro">{fiscal.emitente.municipio}</p>}
+          <div className="separador" />
+          <p className="centro">Documento Auxiliar da Nota Fiscal de Consumidor Eletrônica</p>
+          {fiscal.ambiente === 'HOMOLOGACAO' && (
+            <p className="centro">EMITIDA EM AMBIENTE DE HOMOLOGAÇÃO - SEM VALOR FISCAL</p>
+          )}
+        </>
+      ) : (
+        <>
+          {config.mostrarAvisoNaoFiscal && (
+            <>
+              <p className="centro">*** CUPOM PARA SIMPLES CONFERÊNCIA ***</p>
+              <p className="centro">*** NÃO É DOCUMENTO FISCAL ***</p>
+            </>
+          )}
+          <p className="titulo">{config.nomeFantasia.toUpperCase()}</p>
+          {config.cnpj && <p className="centro">CNPJ {config.cnpj}</p>}
+          {config.endereco && <p>{config.endereco}</p>}
+          {enderecoLinha2 && <p>{enderecoLinha2}</p>}
+          {config.telefone && <p>Fone {config.telefone}</p>}
         </>
       )}
-      <p className="titulo">{config.nomeFantasia.toUpperCase()}</p>
-      {config.cnpj && <p className="centro">CNPJ {config.cnpj}</p>}
-      {config.endereco && <p>{config.endereco}</p>}
-      {enderecoLinha2 && <p>{enderecoLinha2}</p>}
-      {config.telefone && <p>Fone {config.telefone}</p>}
 
       <div className="separador" />
 
@@ -172,6 +209,35 @@ export default function ReciboCupom({ venda, operador, config, pagamentos }: Pro
         </div>
       ))}
       <div className="linha"><span>Troco</span><span>{num2(venda.troco)}</span></div>
+
+      {fiscal && (
+        <>
+          <div className="separador" />
+          <p className="centro">Consulte pela Chave de Acesso em</p>
+          {fiscal.urlConsulta && <p className="centro pequeno">{fiscal.urlConsulta}</p>}
+          {fiscal.chave && <p className="chave pequeno">{chaveEmBlocos(fiscal.chave)}</p>}
+          <div className="separador" />
+          <p className="centro">
+            {fiscal.destinatarioDocumento
+              ? `CONSUMIDOR - ${fiscal.destinatarioDocumento.length === 11 ? 'CPF ' + cpfFormatado(fiscal.destinatarioDocumento)
+                : 'CNPJ ' + cnpjFormatado(fiscal.destinatarioDocumento)}`
+              : 'CONSUMIDOR NÃO IDENTIFICADO'}
+          </p>
+          <div className="separador" />
+          <p className="centro">
+            NFC-e nº {numeroNota(fiscal.numero)} Série {String(fiscal.serie).padStart(3, '0')} {dataHora(fiscal.emitidaEm)}
+          </p>
+          {fiscal.protocolo && <p className="centro">Protocolo de autorização: {fiscal.protocolo}</p>}
+          <p className="centro">Data de autorização: {dataHora(fiscal.emitidaEm)}</p>
+          {fiscal.qrCodeSvg && (
+            <img className="qrcode" alt="QR Code de consulta da NFC-e"
+                 src={`data:image/svg+xml;base64,${btoa(fiscal.qrCodeSvg)}`} />
+          )}
+          {fiscal.ambiente === 'HOMOLOGACAO' && (
+            <p className="centro">EMITIDA EM AMBIENTE DE HOMOLOGAÇÃO - SEM VALOR FISCAL</p>
+          )}
+        </>
+      )}
 
       {config.mensagemRodape && (
         <>

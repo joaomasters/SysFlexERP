@@ -5,8 +5,7 @@ package com.acougue.modules.fiscal.emissao;
  * Como as adquirentes em ProvedorTerminalNuvem: cada implementação é um @Component e o
  * ConfiguracaoFiscalService descobre todas sozinho. Sem nenhuma, a emissão não pode ser ligada.
  *
- * A emissão de verdade (emitir, consultar, cancelar, inutilizar) entra aqui junto com o
- * primeiro provedor, quando ele for escolhido.
+ * Cancelamento, consulta e inutilização entram aqui junto com o primeiro provedor de verdade.
  */
 public interface ProvedorFiscal {
 
@@ -14,4 +13,15 @@ public interface ProvedorFiscal {
     String codigo();
 
     String rotulo();
+
+    /** Provedor de teste, que não fala com a SEFAZ: nunca pode emitir em produção. */
+    default boolean simulado() {
+        return false;
+    }
+
+    /**
+     * Assina, transmite e devolve o resultado da SEFAZ. Recusa da SEFAZ volta como
+     * RetornoEmissao rejeitado; falha de comunicação pode lançar exceção.
+     */
+    RetornoEmissao emitirNfce(NfceEmissao nota, CredencialFiscal credencial);
 }

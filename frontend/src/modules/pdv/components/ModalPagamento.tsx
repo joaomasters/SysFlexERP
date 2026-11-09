@@ -21,6 +21,8 @@ interface Props {
   vendaId?:   number
   onConfirmar: (pagamentos: PagamentoDTO[]) => void
   onCancelar:  () => void
+  /** Outra janela por cima (ex.: "CPF na nota?"): os atalhos deste modal ficam desligados */
+  pausado?:    boolean
 }
 
 // Tema escuro proposital — este modal faz parte do console de operação do
@@ -44,7 +46,9 @@ const METODOS: { value: Metodo; label: string; icon: React.ElementType; cor: str
   { value: 'FIADO',    label: 'Fiado',     icon: BookOpen,    cor: 'bg-orange-600',  atalho: 'F6' },
 ]
 
-export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCancelar }: Props) {
+export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCancelar, pausado = false }: Props) {
+  const pausadoRef = useRef(pausado)
+  pausadoRef.current = pausado
   const [pagamentos,  setPagamentos]  = useState<PagamentoDTO[]>([])
   const [metodo,      setMetodo]      = useState<Metodo>('DINHEIRO')
 
@@ -98,6 +102,7 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
   }
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (pausadoRef.current) return
       if (!METODOS.some(m => m.atalho === e.key)) return
       e.preventDefault()  // F1 (ajuda) e F5 (recarregar) do navegador não podem disparar aqui
       escolherRef.current(e.key)
@@ -249,7 +254,7 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
     }
   }
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => atalhoRodapeRef.current(e)
+    const onKey = (e: KeyboardEvent) => { if (!pausadoRef.current) atalhoRodapeRef.current(e) }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])

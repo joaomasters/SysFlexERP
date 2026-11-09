@@ -33,13 +33,13 @@ export default function PainelRelatorio({ id, titulo, descricaoImpressao, filtro
 
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm w-full flex flex-col overflow-hidden print:border-0 print:shadow-none print:rounded-none">
         {/* Cabeçalho — some na impressão */}
-        <div className="px-6 py-4 border-b print:hidden">
+        <div className="px-4 sm:px-6 py-4 border-b print:hidden">
           <h2 className="font-bold text-gray-900">{titulo}</h2>
           {descricaoImpressao && <p className="text-xs text-gray-400">{descricaoImpressao}</p>}
         </div>
 
         {/* Filtros + Imprimir — somem na impressão */}
-        <div className="flex flex-wrap items-end gap-3 px-6 py-3 border-b bg-gray-50 print:hidden">
+        <div className="flex flex-wrap items-end gap-3 px-4 sm:px-6 py-3 border-b bg-gray-50 print:hidden">
           {filtros}
           <Button variant="primary" size="sm" onClick={() => window.print()} className="ml-auto">
             <Printer size={14} /> Imprimir
@@ -47,7 +47,7 @@ export default function PainelRelatorio({ id, titulo, descricaoImpressao, filtro
         </div>
 
         {/* Área impressa */}
-        <div id={id} className="p-6 flex flex-col gap-6 bg-white print:p-8">
+        <div id={id} className="p-4 sm:p-6 flex flex-col gap-4 sm:gap-6 bg-white print:p-8">
           <div className="hidden print:block">
             <h1 className="text-xl font-bold text-gray-900">{titulo}</h1>
             <p className="text-xs text-gray-500">
@@ -110,9 +110,9 @@ export function Indicador({ label, valor, icone, cor, detalhe }: {
   label: string; valor: ReactNode; icone: ReactNode; cor: string; detalhe?: string
 }) {
   return (
-    <Card padding="md" className="print:border print:shadow-none">
-      <div className={`inline-flex p-2 rounded-lg ${cor} mb-3`}>{icone}</div>
-      <p className="text-2xl font-bold text-gray-900 tabular-nums">{valor}</p>
+    <Card padding="md" className="min-w-0 print:border print:shadow-none">
+      <div className={`inline-flex p-2 rounded-lg ${cor} mb-2 sm:mb-3`}>{icone}</div>
+      <p className="text-lg sm:text-2xl font-bold text-gray-900 tabular-nums break-words">{valor}</p>
       <p className="text-xs text-gray-500 mt-1">{label}</p>
       {detalhe && <p className="text-[11px] text-gray-400 mt-0.5">{detalhe}</p>}
     </Card>

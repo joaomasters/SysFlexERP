@@ -256,7 +256,7 @@ export default function NotaFiscalPage() {
   const nfXml = notas.find(n => n.id === xmlViewId)
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <PageHeader
         title="Notas Fiscais de Saída"
         subtitle="Emissão de Nota fiscal"

@@ -53,7 +53,7 @@ export default function AuditoriaPage() {
   const pag = usePaginacao(logs, [filtroInicio, filtroFim, filtroModulo, filtroAcao, filtroUsuarioId].join('|'))
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <PageHeader title="Auditoria" subtitle="Histórico de ações administrativas" />
 
       {/* Filtros */}

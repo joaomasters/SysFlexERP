@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface DocumentoFiscalRepository extends JpaRepository<DocumentoFiscal, Long> {
@@ -21,4 +22,9 @@ public interface DocumentoFiscalRepository extends JpaRepository<DocumentoFiscal
             """)
     List<DocumentoFiscal> buscar(@Param("modelo") Short modelo, @Param("status") String status,
                                  @Param("desde") LocalDateTime desde);
+
+    /** A NFC-e mais recente da venda (a última tentativa, autorizada ou não). */
+    Optional<DocumentoFiscal> findFirstByVendaIdAndModeloOrderByIdDesc(Long vendaId, Short modelo);
+
+    Optional<DocumentoFiscal> findFirstByVendaIdAndModeloAndStatus(Long vendaId, Short modelo, String status);
 }

@@ -80,7 +80,7 @@ export default function UsuariosPage() {
 
   if (!podeVer('USUARIOS')) {
     return (
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <div className="bg-warning-50 border border-warning-100 rounded-xl p-5 max-w-lg">
           <p className="flex items-center gap-2 font-medium text-warning-700">
             <Lock size={16} /> Acesso restrito
@@ -94,7 +94,7 @@ export default function UsuariosPage() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <PageHeader
         title="Usuários"
         subtitle="Contas de acesso ao sistema e seus perfis"
