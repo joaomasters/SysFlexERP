@@ -7,7 +7,7 @@ interface CardProps {
   padding?: 'none' | 'sm' | 'md'
 }
 
-const paddingClasses = { none: '', sm: 'p-4', md: 'p-6' }
+const paddingClasses = { none: '', sm: 'p-4', md: 'p-4 sm:p-6' }
 
 /** Container branco padrão (cards, painéis de filtro, tabelas) — rounded-xl + shadow/border. */
 export default function Card({ children, className = '', padding = 'md' }: CardProps) {

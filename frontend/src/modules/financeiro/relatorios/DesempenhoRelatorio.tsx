@@ -90,7 +90,7 @@ export default function DesempenhoRelatorio() {
       }
     >
       {/* Indicadores */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 print:grid-cols-4 print:gap-2">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 print:grid-cols-4 print:gap-2">
         <Indicador label="Total de Vendas" valor={fmt(v?.totalVendas ?? 0)} detalhe={comparar(v?.totalVendas, ant?.totalVendas)}
           icone={<TrendingUp size={20} />} cor="text-success-600 bg-success-50" />
         <Indicador label="Qtd. Vendas" valor={v?.quantidadeVendas ?? 0} detalhe={comparar(v?.quantidadeVendas, ant?.quantidadeVendas)}
@@ -119,14 +119,14 @@ export default function DesempenhoRelatorio() {
       {/* Fluxo de Caixa */}
       <Card className="print:border print:shadow-none">
         <h2 className="text-base font-semibold text-gray-700 mb-4">Fluxo de Caixa</h2>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 print:grid-cols-3">
           <div className="text-center p-4 bg-success-50 rounded-lg">
             <p className="text-xs text-gray-500">Entradas</p>
-            <p className="text-xl font-bold text-success-600 tabular-nums">{fmt(fluxo.data?.totalRecebimentos ?? 0)}</p>
+            <p className="text-lg sm:text-xl font-bold text-success-600 tabular-nums">{fmt(fluxo.data?.totalRecebimentos ?? 0)}</p>
           </div>
           <div className="text-center p-4 bg-danger-50 rounded-lg">
             <p className="text-xs text-gray-500">Saídas</p>
-            <p className="text-xl font-bold text-danger-600 tabular-nums">{fmt(fluxo.data?.totalPagamentos ?? 0)}</p>
+            <p className="text-lg sm:text-xl font-bold text-danger-600 tabular-nums">{fmt(fluxo.data?.totalPagamentos ?? 0)}</p>
           </div>
           <div className={`text-center p-4 rounded-lg ${saldoPositivo ? 'bg-info-50' : 'bg-warning-50'}`}>
             <p className="text-xs text-gray-500">Saldo</p>
@@ -170,10 +170,10 @@ export default function DesempenhoRelatorio() {
           <h2 className="text-base font-semibold text-gray-700 mb-4">Vendas por dia</h2>
           <div className="h-64 print:hidden">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={porDia} margin={{ left: 10, right: 10, top: 5, bottom: 5 }}>
+              <BarChart data={porDia} margin={{ left: 0, right: 8, top: 5, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="rotulo" tick={{ fontSize: 11 }} />
-                <YAxis tickFormatter={n => `R$${Number(n).toFixed(0)}`} tick={{ fontSize: 11 }} width={70} />
+                <YAxis tickFormatter={n => (Number(n) >= 1000 ? `${(Number(n) / 1000).toFixed(0)} mil` : Number(n).toFixed(0))} tick={{ fontSize: 11 }} width={48} />
                 <Tooltip formatter={(n: number) => fmt(n)} labelFormatter={l => `Dia ${l}`} />
                 <Bar dataKey="totalVendas" name="Vendas" fill="#A32B1E" radius={[4, 4, 0, 0]} />
               </BarChart>
@@ -208,10 +208,11 @@ export default function DesempenhoRelatorio() {
           </h2>
           <div className="h-72 print:hidden">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={v.topProdutos} layout="vertical" margin={{ left: 20, right: 20, top: 5, bottom: 5 }}>
+              <BarChart data={v.topProdutos} layout="vertical" margin={{ left: 0, right: 12, top: 5, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" tickFormatter={n => `R$${Number(n).toFixed(0)}`} tick={{ fontSize: 11 }} />
-                <YAxis type="category" dataKey="nomeProduto" width={120} tick={{ fontSize: 11 }} />
+                <XAxis type="number" tickFormatter={n => (Number(n) >= 1000 ? `${(Number(n) / 1000).toFixed(0)} mil` : Number(n).toFixed(0))} tick={{ fontSize: 11 }} />
+                <YAxis type="category" dataKey="nomeProduto" width={110} tick={{ fontSize: 11 }} interval={0}
+                  tickFormatter={(n: string) => (n.length > 18 ? `${n.slice(0, 17)}…` : n)} />
                 <Tooltip formatter={(n: number) => fmt(n)} />
                 <Bar dataKey="valorTotal" name="Faturamento" fill="#A32B1E" radius={[0, 4, 4, 0]} />
               </BarChart>

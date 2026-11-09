@@ -57,7 +57,7 @@ export default function ComprovantePage() {
 
   if (!podeVer('COMPROVANTE')) {
     return (
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <div className="bg-warning-50 border border-warning-100 rounded-xl p-5 max-w-lg">
           <p className="flex items-center gap-2 font-medium text-warning-700"><Lock size={16} /> Acesso restrito</p>
           <p className="text-sm text-warning-600 mt-1">Seu perfil não tem permissão para configurar o comprovante de venda.</p>
@@ -92,7 +92,7 @@ export default function ComprovantePage() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <PageHeader
         title="Comprovante de Venda"
         subtitle="O que sai no cupom impresso no PDV (cupom não fiscal)"

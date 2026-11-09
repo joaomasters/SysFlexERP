@@ -103,7 +103,7 @@ export default function PerfisPage() {
 
   if (!isSuperAdmin) {
     return (
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <div className="bg-warning-50 border border-warning-100 rounded-xl p-5 max-w-lg">
           <p className="flex items-center gap-2 font-medium text-warning-700">
             <Lock size={16} /> Acesso restrito
@@ -117,7 +117,7 @@ export default function PerfisPage() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <PageHeader
         title="Perfis de Acesso"
         subtitle="Defina o que cada perfil pode ver e fazer em cada módulo"

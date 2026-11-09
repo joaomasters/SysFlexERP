@@ -1,5 +1,7 @@
+import { useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
+  X,
   ShoppingCart, Package, Scissors, DollarSign,
   CreditCard, BarChart2, Scale, AlertTriangle,
   ClipboardList, TrendingDown, ArrowDownCircle, BarChart, LogOut,
@@ -59,7 +61,21 @@ const nav = [
   { label: 'Empresas', href: '/acesso/empresas', icon: Building2, somentePlataforma: true },
 ]
 
-export default function Sidebar() {
+interface SidebarProps {
+  /** Abaixo de lg o menu é uma gaveta: só aparece quando aberto. */
+  aberto: boolean
+  onFechar: () => void
+}
+
+export default function Sidebar({ aberto, onFechar }: SidebarProps) {
+  // Esc fecha a gaveta (celular/tablet)
+  useEffect(() => {
+    if (!aberto) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onFechar() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [aberto, onFechar])
+
   const { podeVer, isSuperAdmin, isAdministradorPlataforma, sessao } = usePermissao()
 
   const podeVerBalanca = isSuperAdmin || podeVer('CARGA_BALANCA')
@@ -96,9 +112,29 @@ export default function Sidebar() {
   })
 
   return (
-    <aside className="w-60 shrink-0 bg-aco-900 text-white flex flex-col h-screen">
-      <div className="px-5 py-5 border-b border-white/10">
+    <>
+    {/* Fundo escuro atrás da gaveta (só celular/tablet) — toque fecha */}
+    <div
+      onClick={onFechar}
+      aria-hidden
+      className={clsx(
+        'fixed inset-0 z-40 bg-black/50 transition-opacity lg:hidden',
+        aberto ? 'opacity-100' : 'opacity-0 pointer-events-none'
+      )}
+    />
+    <aside
+      className={clsx(
+        'w-64 lg:w-60 shrink-0 bg-aco-900 text-white flex flex-col h-full',
+        // Celular/tablet: gaveta fixa que desliza da esquerda. Desktop: coluna normal.
+        'fixed inset-y-0 left-0 z-50 transition-transform duration-200 lg:static lg:translate-x-0',
+        aberto ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
+      )}
+    >
+      <div className="px-5 py-5 border-b border-white/10 flex items-center justify-between">
         <img src={logo} alt="SysFlex ERP" className="h-9 w-auto" />
+        <button onClick={onFechar} aria-label="Fechar menu" className="lg:hidden p-1.5 -mr-2 text-white/70 hover:text-white">
+          <X size={20} />
+        </button>
       </div>
 
       {/* Rola com roda/toque, mas sem barra visível (Firefox e Chrome/Edge) */}
@@ -122,7 +158,7 @@ export default function Sidebar() {
                 href={item.href}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center gap-3 pl-[13px] pr-3 py-2.5 border-l-[3px] border-transparent text-sm text-white/70 hover:bg-white/5 hover:text-white transition-colors"
+                className="flex items-center gap-3 pl-[13px] pr-3 py-3 lg:py-2.5 border-l-[3px] border-transparent text-sm text-white/70 hover:bg-white/5 hover:text-white transition-colors"
               >
                 <Icon size={16} />
                 {item.label}
@@ -135,7 +171,7 @@ export default function Sidebar() {
               to={item.href!}
               className={({ isActive }) =>
                 clsx(
-                  'flex items-center gap-3 pl-[13px] pr-3 py-2.5 border-l-[3px] text-sm transition-colors',
+                  'flex items-center gap-3 pl-[13px] pr-3 py-3 lg:py-2.5 border-l-[3px] text-sm transition-colors',
                   isActive
                     ? 'border-talho-600 bg-aco-800 text-white font-medium'
                     : 'border-transparent text-white/70 hover:bg-white/5 hover:text-white'
@@ -157,12 +193,13 @@ export default function Sidebar() {
       <div className="px-3 py-3 border-t border-white/10">
         <button
           onClick={logout}
-          className="flex items-center gap-3 pl-[13px] pr-3 py-2.5 border-l-[3px] border-transparent text-sm text-white/50 hover:bg-white/5 hover:text-white transition-colors w-full"
+          className="flex items-center gap-3 pl-[13px] pr-3 py-3 lg:py-2.5 border-l-[3px] border-transparent text-sm text-white/50 hover:bg-white/5 hover:text-white transition-colors w-full"
         >
           <LogOut size={16} />
           Sair
         </button>
       </div>
     </aside>
+    </>
   )
 }

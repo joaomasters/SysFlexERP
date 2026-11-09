@@ -17,13 +17,13 @@ export default function PageHeader({ title, subtitle, icon, actions }: PageHeade
   return (
     <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-2">
           {icon}
           {title}
         </h1>
         {subtitle && <p className="text-gray-500 text-sm">{subtitle}</p>}
       </div>
-      {actions && <div className="flex items-center gap-2">{actions}</div>}
+      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </div>
   )
 }

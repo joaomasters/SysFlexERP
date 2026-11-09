@@ -54,7 +54,7 @@ export default function FaturamentoPage() {
   })
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <PageHeader
         title="Faturamento"
         subtitle="Fechamento de contas"

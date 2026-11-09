@@ -137,7 +137,7 @@ export default function ProdutosPage() {
   })
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <PageHeader
         title="Produtos"
         subtitle="Cadastro e gestão de estoque"

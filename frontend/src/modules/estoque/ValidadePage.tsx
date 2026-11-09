@@ -48,7 +48,7 @@ export default function ValidadePage() {
   const pag = usePaginacao(filtrados, filtro)
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <PageHeader
         title="Controle de Validade"
         subtitle="Lotes em estoque, do que vence primeiro para o que vence depois"

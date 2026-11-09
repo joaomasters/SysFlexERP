@@ -77,7 +77,7 @@ export default function ContasReceberPage() {
   const totalFiltrado = contasFiltradas.reduce((s, c) => s + c.valor - c.valorPago, 0)
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <PageHeader
         title="Contas a Receber"
         subtitle="Fiado, caderneta e faturamento"

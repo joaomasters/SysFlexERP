@@ -86,7 +86,7 @@ export default function PerdasPage() {
   const produtoSel = produtos.data?.find(p => p.id === parseInt(produtoId))
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="p-4 sm:p-6 space-y-5">
       <PageHeader
         title="Controle de Perdas"
         subtitle="Vencimentos, avarias, furtos e quebras"
