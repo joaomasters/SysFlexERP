@@ -111,7 +111,15 @@ public class GlobalExceptionHandler {
             "Este código interno já está cadastrado em outro produto. Informe outro código "
                     + "ou deixe o campo em branco para gerar automaticamente.",
             "uk_tenants_codigo",
-            "Este código de empresa já está em uso. Tente salvar novamente."
+            "Este código de empresa já está em uso. Tente salvar novamente.",
+            // Módulo industrial: códigos únicos dos cadastros (V39)
+            "uk_ind_unidade_codigo", "Já existe uma unidade com este código.",
+            "uk_ind_setor_codigo", "Já existe um setor com este código nesta unidade.",
+            "uk_ind_centro_codigo", "Já existe um centro de trabalho com este código.",
+            "uk_ind_turno_codigo", "Já existe um turno com este código.",
+            "uk_ind_tipo_maquina_codigo", "Já existe um tipo de máquina com este código.",
+            "uk_ind_maquina_codigo", "Já existe uma máquina com este código.",
+            "uk_ind_ferramenta_codigo_rev", "Já existe uma ferramenta com este código e revisão."
     );
 
     // Violação de regra do banco (valor fora da lista, duplicado...): 422 com mensagem

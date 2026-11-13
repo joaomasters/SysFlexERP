@@ -25,7 +25,9 @@ public enum Modulo {
     MAQUININHAS("Maquininhas de Cartão"),
     FORNECEDORES("Fornecedores"),
     COMPROVANTE("Comprovante de Venda"),
-    FISCAL("Notas Fiscais (NFC-e / NF-e)");
+    FISCAL("Notas Fiscais (NFC-e / NF-e)"),
+    // Módulo industrial: só aparece e responde nas empresas com ele habilitado (tela Empresas)
+    IND_ESTRUTURA("Indústria: Estrutura produtiva");
 
     private final String rotulo;
 

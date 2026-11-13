@@ -25,7 +25,7 @@ public class TenantRepository {
         this.jdbc = jdbc;
     }
 
-    private static final String COLUNAS = "id, codigo, slug, nome, schema_name, ativo";
+    private static final String COLUNAS = "id, codigo, slug, nome, schema_name, ativo, modulo_industrial";
 
     private Tenant mapear(ResultSet rs) throws SQLException {
         return new Tenant(
@@ -34,7 +34,8 @@ public class TenantRepository {
                 rs.getString("slug"),
                 rs.getString("nome"),
                 rs.getString("schema_name"),
-                rs.getBoolean("ativo"));
+                rs.getBoolean("ativo"),
+                rs.getBoolean("modulo_industrial"));
     }
 
     public Optional<Tenant> findBySlug(String slug) {
@@ -117,5 +118,16 @@ public class TenantRepository {
                 "SELECT COALESCE(MAX(CAST(codigo AS INTEGER)), 0) FROM public.tenants WHERE codigo ~ '^[0-9]+$'",
                 Integer.class);
         return maior != null ? maior : 0;
+    }
+
+    /** A empresa do schema tem os módulos industriais liberados? Schema desconhecido = não. */
+    public boolean moduloIndustrialHabilitado(String schemaName) {
+        return Boolean.TRUE.equals(jdbc.query(
+                "SELECT modulo_industrial FROM public.tenants WHERE schema_name = ?",
+                (rs, rowNum) -> rs.getBoolean(1), schemaName).stream().findFirst().orElse(false));
+    }
+
+    public void definirModuloIndustrial(Long id, boolean habilitado) {
+        jdbc.update("UPDATE public.tenants SET modulo_industrial = ? WHERE id = ?", habilitado, id);
     }
 }
