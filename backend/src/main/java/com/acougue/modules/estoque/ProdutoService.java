@@ -205,9 +205,15 @@ public class ProdutoService {
         existente.setNome(normalizarNome(dados.getNome()));
         existente.setDescricao(dados.getDescricao());
         existente.setPrecoVenda(dados.getPrecoVenda());
-        // precoCusto NÃO é editável manualmente — é calculado automaticamente pelo
-        // custo médio ponderado a cada entrada de estoque (EstoqueService.atualizarCustoMedio).
-        // Aceitar edição manual aqui corromperia esse cálculo silenciosamente.
+        // Custo: recalculado pelo custo médio a cada entrada (EstoqueService.atualizarCustoMedio),
+        // mas o usuário pode corrigir à mão (ex.: custo errado no cadastro, que distorce margem e DRE).
+        // A próxima entrada faz a média a partir do valor corrigido. Sem valor no corpo, mantém o atual.
+        if (dados.getPrecoCusto() != null) {
+            if (dados.getPrecoCusto().signum() < 0) {
+                throw new BusinessException("O preço de custo não pode ser negativo.");
+            }
+            existente.setPrecoCusto(dados.getPrecoCusto());
+        }
         existente.setUnidadeMedida(dados.getUnidadeMedida());
         existente.setTipoProduto(dados.getTipoProduto());
         existente.setMarca(dados.getMarca());
