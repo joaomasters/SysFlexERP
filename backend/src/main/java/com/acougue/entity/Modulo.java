@@ -27,7 +27,9 @@ public enum Modulo {
     COMPROVANTE("Comprovante de Venda"),
     FISCAL("Notas Fiscais (NFC-e / NF-e)"),
     // Módulo industrial: só aparece e responde nas empresas com ele habilitado (tela Empresas)
-    IND_ESTRUTURA("Indústria: Estrutura produtiva");
+    IND_ESTRUTURA("Indústria: Estrutura produtiva"),
+    IND_ENGENHARIA("Indústria: Engenharia de produto"),
+    IND_PCP("Indústria: Ordens de produção e PCP");
 
     private final String rotulo;
 

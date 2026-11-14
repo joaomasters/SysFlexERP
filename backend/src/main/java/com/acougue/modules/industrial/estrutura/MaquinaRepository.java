@@ -11,4 +11,8 @@ public interface MaquinaRepository extends JpaRepository<Maquina, Long> {
     List<Maquina> listarTodas();
     Optional<Maquina> findByCodigoIgnoreCase(String codigo);
     long countByCentroTrabalhoIdAndStatusNot(Long centroTrabalhoId, String status);
+
+    /** Máquinas que contam na capacidade (todas menos as inativas), já com o calendário de turnos. */
+    @Query("SELECT DISTINCT m FROM Maquina m JOIN FETCH m.centroTrabalho LEFT JOIN FETCH m.turnos WHERE m.status <> 'INATIVA'")
+    List<Maquina> ativasComTurnos();
 }

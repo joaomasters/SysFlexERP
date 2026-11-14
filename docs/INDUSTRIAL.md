@@ -9,7 +9,7 @@ Este documento registra a auditoria do SysFlex feita antes de começar os módul
 | Camada | O que existe |
 | --- | --- |
 | Backend | Spring Boot 3, Java 17, monólito modular. Pacotes em `com.acougue`: `entity` e `repository` compartilhados, regras em `modules/<área>` (service, controller, dto). |
-| Banco | PostgreSQL com **um schema por empresa** (`public` para a principal e `tenant_*` para as demais). Flyway (`db/migration`, V1 a V39). O `MigradorSchemasEmpresas` aplica cada migration em todos os schemas no boot. O JPA roda com `ddl-auto: validate`. |
+| Banco | PostgreSQL com **um schema por empresa** (`public` para a principal e `tenant_*` para as demais). Flyway (`db/migration`, V1 a V40). O `MigradorSchemasEmpresas` aplica cada migration em todos os schemas no boot. O JPA roda com `ddl-auto: validate`. |
 | Multi-empresa | O `TenantResolvingFilter` e o `TenantIdentifierResolver` trocam o schema por requisição. `public.tenants` é lida sempre via JDBC (`TenantRepository`). |
 | Segurança | JWT (`JwtAuthFilter`). Permissões por **módulo e ação**: a enum `Modulo`, a anotação `@ExigirPermissao` e a tabela `perfil_permissoes` (ver, criar, editar, excluir). O SUPER_ADMIN tem acesso total. O modo JARVIS é só leitura, garantido também pelo Postgres. |
 | Auditoria | `AuditoriaAspect`: toda ação de escrita com `@ExigirPermissao` é registrada sozinha em `log_auditoria`. |
@@ -56,7 +56,7 @@ Este documento registra a auditoria do SysFlex feita antes de começar os módul
 | Sprint | Entrega | Estado |
 | --- | --- | --- |
 | 1. Fundação | Habilitação por empresa, permissão, unidades, setores, centros de trabalho, turnos, tipos de máquina com parâmetros, máquinas (status, horímetro, manutenção, histórico, turnos), ferramentas/matrizes e alocação de operadores | **Entregue** |
-| 2. Engenharia e PCP | Ficha técnica industrial (estende o produto), BOM versionada com vigência, roteiro versionado, OP com estados e transições, congelamento da revisão de engenharia na liberação, planejamento básico | A fazer |
+| 2. Engenharia e PCP | Ficha técnica industrial (estende o produto), BOM versionada com vigência, roteiro versionado, OP com estados e transições, congelamento da revisão de engenharia na liberação, planejamento básico | **Entregue** |
 | 3. Execução (MES) | Apontamento (início, pausa, fim, parcial), paradas e motivos, consumo real, WIP por lote, tela de chão de fábrica para tablet, baixa idempotente no estoque | A fazer |
 | 4. Extrusão | Ligas, tarugos e lotes de matéria-prima com certificado, receitas por liga e equipamento, medições (aquecimento, extrusão, tratamento térmico) com origem manual/sensor, perdas | A fazer |
 | 5. Qualidade e rastreabilidade | Planos de inspeção, inspeções e não conformidades, quarentena e liberação, genealogia de lotes (divisão e união), consulta da origem ao cliente, QR por lote | A fazer |
@@ -134,3 +134,120 @@ A migration só acrescenta, então voltar o código para a versão anterior func
 - **Alocação simultânea:** duas alocações sobrepostas criadas exatamente ao mesmo tempo podem passar as duas, porque a conferência é feita no serviço, sem restrição de exclusão no banco. O risco é baixo num cadastro administrativo.
 - **Cache da situação:** o menu consulta a liberação a cada 5 minutos. Depois de liberar, o usuário pode precisar recarregar a página.
 - **Faixa de parâmetro editada depois:** se a faixa de um parâmetro mudar, os valores já gravados fora da nova faixa só são cobrados na próxima vez que a máquina for salva.
+
+## 5. Sprint 2: engenharia de produto e PCP
+
+### Banco: `V40__industrial_engenharia_pcp.sql`
+
+| Tabela | Conteúdo |
+| --- | --- |
+| `ind_ficha_tecnica` | Uma por produto: tipo de item (matéria-prima, semiacabado, acabado, embalagem, insumo), desenho e revisão, pesos de referência, comprimento, lote mínimo e múltiplo, prazo de produção, controle de lote |
+| `ind_bom`, `ind_bom_item` | Estrutura de produto versionada (rascunho → ativa → obsoleta), com quantidade base, vigência e componentes com perda % |
+| `ind_roteiro`, `ind_roteiro_operacao` | Roteiro versionado igual à BOM. Cada operação tem centro de trabalho, tipo de máquina (opcional), preparação em minutos e minutos por unidade |
+| `ind_ordem_producao` | OP com número sequencial (`OP000001`), produto, quantidade, prioridade 1–5, período previsto, pedido, status e versão (bloqueio otimista) |
+| `ind_op_material`, `ind_op_operacao` | Materiais e operações **copiados** da BOM e do roteiro ativos na liberação, já calculados para a quantidade da OP |
+| `ind_op_evento` | Histórico só de inserção das mudanças de status, com motivo e usuário |
+
+- **Uma versão ativa por produto:** garantido também no banco, por índice único parcial (`uk_ind_bom_ativa` e `uk_ind_roteiro_ativo`).
+- **Sequência dos itens:** a restrição única da sequência é adiável (`DEFERRABLE`), para permitir reordenar componentes e operações numa única gravação.
+- **Permissões:** concede `IND_ENGENHARIA` e `IND_PCP` a ADMIN e SUPER_ADMIN. Os demais perfis ficam sem acesso.
+- **Tabela de produtos:** não foi alterada. A ficha técnica é uma tabela à parte.
+
+### API
+
+| Rota | Permissão |
+| --- | --- |
+| `GET /industrial/produtos` | ver engenharia **ou** PCP (não exige o módulo Produtos; não traz preços) |
+| `GET /industrial/engenharia/recursos` | IND_ENGENHARIA ver. Centros e tipos de máquina ativos, para montar o roteiro sem acesso à estrutura |
+| `GET /industrial/engenharia/fichas` · `PUT /industrial/engenharia/fichas/{produtoId}` | ver / editar |
+| `GET POST /industrial/engenharia/boms` · `GET PUT DELETE /boms/{id}` | ver / criar / editar / excluir (só rascunho) |
+| `POST /boms/{id}/ativar`, `/obsoletar` · `POST /boms/{id}/nova-versao` · `GET /boms/{id}/explosao?quantidade=` | editar / criar / ver |
+| `…/engenharia/roteiros` | as mesmas rotas da BOM, sem a explosão |
+| `GET POST /industrial/ordens` (`?status=`) · `GET PUT /ordens/{id}` | IND_PCP ver / criar / editar (só planejada) |
+| `POST /industrial/ordens/{id}/status` `{status, versao, motivo}` | editar |
+| `PUT /industrial/ordens/{id}/operacoes/{operacaoId}/maquina` `{maquinaId, versao}` | editar |
+| `GET /industrial/pcp/carga?de=&ate=` · `GET /industrial/pcp/maquinas` | ver |
+
+### Regras de negócio
+
+- **Versões:**
+  - só o rascunho é editado ou excluído;
+  - há no máximo um rascunho por produto;
+  - "nova versão" copia qualquer versão para um rascunho com o próximo número;
+  - ativar torna obsoleta a versão ativa anterior e fecha a vigência dela na véspera;
+  - para ativar, a BOM precisa ter ao menos um componente ativo, e o roteiro ao menos uma operação em centro ativo.
+- **Componentes:**
+  - o produto e os componentes precisam estar ativos;
+  - o componente não se repete na mesma estrutura;
+  - nenhum produto é componente de si mesmo, nem indiretamente: o ciclo é verificado pelas estruturas ativas, em até 20 níveis.
+- **Quantidades:**
+  - ficam na unidade de medida do próprio componente, sem conversão automática;
+  - a necessidade é `quantidade × qtd. OP ÷ quantidade base ÷ (1 − perda%)`; com 10% de perda, entra 1/0,9 do líquido;
+  - a explosão desce pelas estruturas ativas dos componentes que também são fabricados.
+- **Ficha técnica:** o lote mínimo precisa ser múltiplo do lote múltiplo. A OP respeita os dois.
+- **Status da OP:**
+
+  | De | Para |
+  | --- | --- |
+  | Planejada | Liberada, Cancelada |
+  | Liberada | Em produção, Planejada (estorno da liberação), Cancelada |
+  | Em produção | Pausada, Concluída |
+  | Pausada | Em produção |
+  | Concluída | Encerrada, Em produção (reabrir) |
+  | Encerrada, Cancelada | finais |
+
+  - O motivo é obrigatório para cancelar, pausar, voltar para planejada e reabrir.
+  - Uma OP em produção não é cancelada nesta sprint: o estorno de produção virá com os apontamentos.
+- **Liberação:**
+  - só libera com BOM e roteiro ativos e com componentes e centros ativos; a tela mostra essas pendências antes;
+  - na liberação, materiais e operações são copiados para a OP, com o tempo previsto = preparação + minutos por unidade × quantidade;
+  - mudar a engenharia depois **não altera** a OP liberada;
+  - voltar para planejada descarta a cópia, o que só é permitido se nenhuma operação começou.
+- **Edição e concorrência:** a OP só é editada enquanto planejada. Toda alteração confere a versão carregada pela tela.
+- **Máquina da operação:** precisa ser do centro da operação, não estar inativa e ser do tipo pedido, quando houver um.
+- **Numeração:** o número é reservado só depois das validações, então uma OP recusada não deixa buraco.
+- **Carga × capacidade:**
+  - a capacidade soma os turnos ativos das máquinas não inativas do centro, nos dias marcados do período;
+  - a carga soma o tempo previsto das OPs abertas: das liberadas, o que foi copiado; das planejadas, uma estimativa pelo roteiro ativo;
+  - a carga é rateada pelos dias da OP que caem no período (até 92 dias);
+  - OPs planejadas sem roteiro aparecem à parte;
+  - é só informativa: não reprograma nada.
+- **Estoque:** esta sprint não reserva nem baixa material. A OP mostra o saldo atual de cada material e quanto falta.
+
+### Frontend
+
+- **Indústria → Engenharia de produto** (`/industrial/engenharia`):
+  - abas Estruturas, Roteiros e Fichas técnicas;
+  - o rascunho é editado no próprio modal, com "Salvar rascunho" e "Salvar e ativar";
+  - versões ativadas são só leitura, com "Nova versão a partir desta", "Tornar obsoleta" e, na estrutura, o cálculo da explosão.
+- **Indústria → Ordens de produção** (`/industrial/ordens`):
+  - a lista filtra por situação e marca as OPs atrasadas;
+  - o detalhe da OP mostra:
+    - materiais com saldo e falta (como prévia enquanto planejada);
+    - operações com a escolha da máquina;
+    - pendências de liberação;
+    - histórico;
+    - os botões das transições permitidas, que pedem motivo quando é obrigatório;
+  - a aba **Carga dos centros** mostra a ocupação por centro, com as OPs de cada um.
+
+### Testes
+
+- **Backend:**
+  - `EngenhariaTest` (18): necessidade com perda, versões, ciclo direto e indireto, componente repetido, ativação com obsolescência, explosão multinível, roteiro e ficha técnica;
+  - `OrdemProducaoTest` (14): lote, datas, transições, liberação com congelamento, motivo, versão, estorno, máquina por centro e tipo, capacidade e rateio;
+  - suíte completa: 438 testes, 0 falhas.
+- **API de ponta a ponta:** script com cerca de 80 verificações, rodado num Postgres novo depois da V40, sem falhas. Cobre a trava por empresa, o ciclo, as versões, os lotes, a liberação congelada, a concorrência, a carga e a auditoria `IND_ENGENHARIA`/`IND_PCP`.
+- **E2E:** `playwright/tests/industrial/engenharia-pcp.global.spec.ts` (3) cobre a estrutura criada e ativada pela tela com explosão, a OP criada e liberada pela tela com a falta de material e o motivo obrigatório, e a carga do centro.
+- **Configuração do Playwright:** o projeto `global` passou a rodar com 1 worker. Dois arquivos globais mudando a mesma configuração da empresa em paralelo se atrapalhavam.
+
+### Reversão
+
+Como na sprint 1, a migration só cria tabelas. Voltar o código deixa as tabelas novas paradas, sem efeito. Para esconder engenharia e PCP de um perfil, basta tirar as permissões `IND_ENGENHARIA` e `IND_PCP`.
+
+### Limitações conhecidas
+
+- **Cliente da OP:** a API aceita `clienteId`, mas a tela ainda não tem seletor de cliente, só o campo "pedido do cliente". Isso entra quando houver o pedido de venda B2B (ver seção 1).
+- **Vigência:** começa na data da ativação. Ainda não dá para agendar uma versão para entrar em vigor no futuro.
+- **Unidade de medida:** a conversão entre unidades (kg ↔ m ↔ peça) não é automática. Os pesos da ficha são só referência.
+- **Escolha da máquina:** trocar a máquina de uma operação não muda a versão da OP, então duas pessoas escolhendo máquina na mesma operação ao mesmo tempo: vale a última.
+- **Carga:** não considera paradas, manutenção programada nem eficiência. É a carga teórica pelos tempos padrão.

@@ -106,20 +106,27 @@ public class GlobalExceptionHandler {
      pela conferência e só o banco barra o segundo (issue #92). O nome da restrição não vai
      para a resposta, só a mensagem.
      */
-    private static final Map<String, String> MENSAGENS_RESTRICAO = Map.of(
-            "produtos_codigo_interno_key",
-            "Este código interno já está cadastrado em outro produto. Informe outro código "
-                    + "ou deixe o campo em branco para gerar automaticamente.",
-            "uk_tenants_codigo",
-            "Este código de empresa já está em uso. Tente salvar novamente.",
+    private static final Map<String, String> MENSAGENS_RESTRICAO = Map.ofEntries(
+            Map.entry("produtos_codigo_interno_key",
+                    "Este código interno já está cadastrado em outro produto. Informe outro código "
+                            + "ou deixe o campo em branco para gerar automaticamente."),
+            Map.entry("uk_tenants_codigo", "Este código de empresa já está em uso. Tente salvar novamente."),
             // Módulo industrial: códigos únicos dos cadastros (V39)
-            "uk_ind_unidade_codigo", "Já existe uma unidade com este código.",
-            "uk_ind_setor_codigo", "Já existe um setor com este código nesta unidade.",
-            "uk_ind_centro_codigo", "Já existe um centro de trabalho com este código.",
-            "uk_ind_turno_codigo", "Já existe um turno com este código.",
-            "uk_ind_tipo_maquina_codigo", "Já existe um tipo de máquina com este código.",
-            "uk_ind_maquina_codigo", "Já existe uma máquina com este código.",
-            "uk_ind_ferramenta_codigo_rev", "Já existe uma ferramenta com este código e revisão."
+            Map.entry("uk_ind_unidade_codigo", "Já existe uma unidade com este código."),
+            Map.entry("uk_ind_setor_codigo", "Já existe um setor com este código nesta unidade."),
+            Map.entry("uk_ind_centro_codigo", "Já existe um centro de trabalho com este código."),
+            Map.entry("uk_ind_turno_codigo", "Já existe um turno com este código."),
+            Map.entry("uk_ind_tipo_maquina_codigo", "Já existe um tipo de máquina com este código."),
+            Map.entry("uk_ind_maquina_codigo", "Já existe uma máquina com este código."),
+            Map.entry("uk_ind_ferramenta_codigo_rev", "Já existe uma ferramenta com este código e revisão."),
+            // Engenharia e PCP (V40): só acontecem com duas pessoas gravando ao mesmo tempo
+            Map.entry("uk_ind_ficha_produto", "Este produto já tem ficha técnica. Recarregue a tela."),
+            Map.entry("uk_ind_bom_versao", "Outra pessoa criou uma versão desta estrutura agora. Recarregue a tela."),
+            Map.entry("uk_ind_bom_ativa", "Este produto já tem outra estrutura ativa. Recarregue a tela."),
+            Map.entry("uk_ind_roteiro_versao", "Outra pessoa criou uma versão deste roteiro agora. Recarregue a tela."),
+            Map.entry("uk_ind_roteiro_ativo", "Este produto já tem outro roteiro ativo. Recarregue a tela."),
+            Map.entry("uk_ind_bom_item_seq", "Há componentes com a mesma sequência."),
+            Map.entry("uk_ind_roteiro_op_seq", "Há operações com a mesma sequência.")
     );
 
     // Violação de regra do banco (valor fora da lista, duplicado...): 422 com mensagem

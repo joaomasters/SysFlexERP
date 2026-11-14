@@ -6,7 +6,7 @@ import {
   CreditCard, BarChart2, Scale, AlertTriangle,
   ClipboardList, TrendingDown, ArrowDownCircle, BarChart, LogOut,
   Truck, FileText, Users, ShieldCheck, Home, Contact,
-  ShieldAlert, CalendarClock, Percent, Building2, Store, Printer, Wrench, FileKey, Factory
+  ShieldAlert, CalendarClock, Percent, Building2, Store, Printer, Wrench, FileKey, Factory, Layers, ClipboardCheck
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import clsx from 'clsx'
@@ -42,6 +42,8 @@ const nav = [
   // Indústria: só nas empresas com os módulos industriais liberados (tela Empresas)
   { separator: 'Indústria', industrial: true },
   { label: 'Estrutura industrial', href: '/industrial/estrutura', icon: Factory, modulo: 'IND_ESTRUTURA', industrial: true },
+  { label: 'Engenharia de produto', href: '/industrial/engenharia', icon: Layers, modulo: 'IND_ENGENHARIA', industrial: true },
+  { label: 'Ordens de produção', href: '/industrial/ordens', icon: ClipboardCheck, modulo: 'IND_PCP', industrial: true },
 
   { separator: 'Financeiro' },
   { label: 'Faturamento',      href: '/financeiro/faturamento',    icon: DollarSign,  modulo: 'FATURAMENTO' },

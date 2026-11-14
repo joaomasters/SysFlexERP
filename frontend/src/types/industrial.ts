@@ -90,3 +90,120 @@ export const STATUS_FERRAMENTA: Record<StatusFerramenta, { rotulo: string; tom: 
   EM_MANUTENCAO: { rotulo: 'Em manutenção', tom: 'warning' },
   DESCARTADA: { rotulo: 'Descartada', tom: 'neutral' },
 }
+
+// ── Sprint 2: engenharia de produto e PCP ──────────────────────────────
+export type TipoItem = 'MATERIA_PRIMA' | 'SEMIACABADO' | 'ACABADO' | 'EMBALAGEM' | 'INSUMO'
+
+export interface ProdutoIndustrial {
+  id: number; codigoInterno?: string | null; nome: string; unidadeMedida: string; ean13?: string | null
+  estoqueAtual?: number | null; tipoItem?: TipoItem | null
+}
+
+export interface FichaTecnica {
+  id: number; produtoId: number; produtoCodigo?: string; produtoNome: string; unidade: string; tipoItem: TipoItem
+  codigoDesenho?: string; revisaoDesenho?: string; pesoUnitarioKg?: number | null; pesoLinearKgM?: number | null
+  comprimentoMm?: number | null; loteMinimo?: number | null; loteMultiplo?: number | null
+  prazoProducaoDias?: number | null; controlaLote: boolean; observacao?: string; updatedAt: string
+}
+
+export type StatusVersao = 'RASCUNHO' | 'ATIVA' | 'ATIVO' | 'OBSOLETA' | 'OBSOLETO'
+
+export interface BomItem {
+  id?: number; sequencia?: number; componenteId: number; componenteCodigo?: string; componenteNome?: string
+  unidade?: string; quantidade: number; perdaPercentual: number; observacao?: string | null
+}
+
+export interface BomResumo {
+  id: number; produtoId: number; produtoCodigo?: string; produtoNome: string; unidade: string; versao: number
+  status: StatusVersao; quantidadeBase: number; vigenciaInicio?: string; vigenciaFim?: string; itens: number
+}
+
+export interface Bom extends Omit<BomResumo, 'itens'> {
+  observacao?: string; ativadaEm?: string; itens: BomItem[]
+}
+
+export interface ExplosaoLinha {
+  nivel: number; produtoId: number; codigo?: string; nome: string; unidade: string; quantidade: number; versaoEstrutura?: number | null
+}
+
+export interface OperacaoRoteiro {
+  id?: number; sequencia: number; descricao: string; centroTrabalhoId: number; centroTrabalhoNome?: string
+  tipoMaquinaId?: number | null; tipoMaquinaNome?: string; tempoSetupMin: number; tempoPorUnidadeMin: number
+  instrucoes?: string | null
+}
+
+export interface RoteiroResumo {
+  id: number; produtoId: number; produtoCodigo?: string; produtoNome: string; versao: number; status: StatusVersao
+  vigenciaInicio?: string; vigenciaFim?: string; operacoes: number
+}
+
+export interface Roteiro extends Omit<RoteiroResumo, 'operacoes'> {
+  unidade: string; observacao?: string; ativadoEm?: string; operacoes: OperacaoRoteiro[]
+}
+
+export type StatusOP = 'PLANEJADA' | 'LIBERADA' | 'EM_PRODUCAO' | 'PAUSADA' | 'CONCLUIDA' | 'ENCERRADA' | 'CANCELADA'
+
+export interface OrdemResumo {
+  id: number; numero: string; produtoId: number; produtoCodigo?: string; produtoNome: string; unidade: string
+  quantidade: number; status: StatusOP; prioridade: number; inicioPrevisto: string; fimPrevisto: string
+  clienteNome?: string; pedidoReferencia?: string; atrasada: boolean
+}
+
+export interface MaterialOP {
+  produtoId: number; codigo?: string; nome: string; unidade: string; quantidadeLiquida: number
+  perdaPercentual: number; quantidadePrevista: number; saldoEstoque: number; falta: number
+}
+
+export interface OperacaoOP {
+  id?: number | null; sequencia: number; descricao: string; centroTrabalhoId: number; centroTrabalhoNome: string
+  tipoMaquinaId?: number | null; tipoMaquinaNome?: string | null; maquinaId?: number | null; maquinaCodigo?: string | null
+  maquinaDescricao?: string | null; tempoSetupMin: number; tempoPrevistoMin: number; status: 'PENDENTE' | 'EM_EXECUCAO' | 'CONCLUIDA'
+}
+
+export interface EventoOP {
+  id: number; statusAnterior?: StatusOP | null; statusNovo: StatusOP; motivo?: string | null; usuarioNome?: string | null; createdAt: string
+}
+
+export interface OrdemDetalhe {
+  ordem: OrdemResumo; clienteId?: number | null; observacao?: string | null; versao: number
+  bomVersao?: number | null; roteiroVersao?: number | null; liberadaEm?: string | null; previa: boolean
+  pendenciasLiberacao: string[]; proximosStatus: StatusOP[]
+  materiais: MaterialOP[]; operacoes: OperacaoOP[]; eventos: EventoOP[]
+}
+
+export interface MaquinaOpcao { id: number; codigo: string; descricao: string; centroTrabalhoId: number; tipoMaquinaId: number; status: StatusMaquina }
+
+export interface CargaOP { ordemId: number; numero: string; produtoNome: string; status: StatusOP; minutos: number; estimada: boolean }
+
+export interface CargaCentro {
+  centroId: number; centroCodigo: string; centroNome: string; maquinas: number; capacidadeMin: number
+  cargaMin: number; ocupacaoPercentual?: number | null; ordens: CargaOP[]
+}
+
+export interface Carga { de: string; ate: string; centros: CargaCentro[]; ordensSemRoteiro: string[] }
+
+export const TIPOS_ITEM: Record<TipoItem, string> = {
+  MATERIA_PRIMA: 'Matéria-prima', SEMIACABADO: 'Semiacabado', ACABADO: 'Acabado', EMBALAGEM: 'Embalagem', INSUMO: 'Insumo',
+}
+
+export const STATUS_VERSAO: Record<StatusVersao, { rotulo: string; tom: 'success' | 'warning' | 'neutral' }> = {
+  RASCUNHO: { rotulo: 'Rascunho', tom: 'warning' },
+  ATIVA: { rotulo: 'Ativa', tom: 'success' },
+  ATIVO: { rotulo: 'Ativo', tom: 'success' },
+  OBSOLETA: { rotulo: 'Obsoleta', tom: 'neutral' },
+  OBSOLETO: { rotulo: 'Obsoleto', tom: 'neutral' },
+}
+
+export const STATUS_OP: Record<StatusOP, { rotulo: string; tom: 'success' | 'info' | 'warning' | 'danger' | 'neutral' | 'purple' }> = {
+  PLANEJADA: { rotulo: 'Planejada', tom: 'neutral' },
+  LIBERADA: { rotulo: 'Liberada', tom: 'info' },
+  EM_PRODUCAO: { rotulo: 'Em produção', tom: 'purple' },
+  PAUSADA: { rotulo: 'Pausada', tom: 'warning' },
+  CONCLUIDA: { rotulo: 'Concluída', tom: 'success' },
+  ENCERRADA: { rotulo: 'Encerrada', tom: 'neutral' },
+  CANCELADA: { rotulo: 'Cancelada', tom: 'danger' },
+}
+
+/** Mesma regra do backend (OrdemProducaoService.exigeMotivo). */
+export const exigeMotivo = (de: StatusOP, para: StatusOP) =>
+  para === 'CANCELADA' || para === 'PAUSADA' || (de === 'LIBERADA' && para === 'PLANEJADA') || (de === 'CONCLUIDA' && para === 'EM_PRODUCAO')
