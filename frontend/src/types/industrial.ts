@@ -207,3 +207,77 @@ export const STATUS_OP: Record<StatusOP, { rotulo: string; tom: 'success' | 'inf
 /** Mesma regra do backend (OrdemProducaoService.exigeMotivo). */
 export const exigeMotivo = (de: StatusOP, para: StatusOP) =>
   para === 'CANCELADA' || para === 'PAUSADA' || (de === 'LIBERADA' && para === 'PLANEJADA') || (de === 'CONCLUIDA' && para === 'EM_PRODUCAO')
+
+// ── Sprint 3: execução (chão de fábrica) ───────────────────────────────
+export type CategoriaParada = 'SETUP' | 'MANUTENCAO' | 'FALTA_MATERIAL' | 'QUALIDADE' | 'OPERACIONAL' | 'EXTERNA' | 'OUTRO'
+export type StatusApontamento = 'EM_ANDAMENTO' | 'PAUSADO' | 'FINALIZADO' | 'ESTORNADO'
+
+export interface MotivoParada { id: number; codigo: string; descricao: string; categoria: CategoriaParada; planejada: boolean; ativo: boolean }
+
+export interface ParadaMaquina {
+  id: number; maquinaId?: number | null; maquinaCodigo?: string | null; motivoId: number; motivoDescricao: string
+  categoria: CategoriaParada; planejada: boolean; apontamentoId?: number | null; ordemId?: number | null
+  inicio: string; fim?: string | null; minutos: number; observacao?: string | null; usuarioNome?: string | null
+}
+
+export interface Apontamento {
+  id: number; ordemId: number; ordemNumero: string; produtoNome: string; unidade: string; operacaoId: number
+  operacaoSequencia: number; operacaoDescricao: string; centroNome: string; maquinaId?: number | null; maquinaCodigo?: string | null
+  operadorId: number; operadorNome?: string | null; status: StatusApontamento; inicio: string; fim?: string | null
+  minutosParado: number; minutosTrabalhados: number; quantidadeBoa: number; quantidadeRefugo: number
+  motivoRefugo?: string | null; lote?: string | null; concluiuOperacao: boolean; entradaEstoque: boolean
+  ultimaOperacao: boolean; paradaAberta?: ParadaMaquina | null; observacao?: string | null; motivoEstorno?: string | null
+}
+
+export interface ConsumoOP {
+  id: number; produtoId: number; codigo?: string; nome: string; unidade: string; quantidade: number; custoUnitario?: number | null
+  loteMaterial?: string | null; apontamentoId?: number | null; observacao?: string | null; usuarioNome?: string | null
+  createdAt: string; estornado: boolean; motivoEstorno?: string | null
+}
+
+export interface FilaItem {
+  operacaoId: number; ordemId: number; ordemNumero: string; ordemStatus: StatusOP; prioridade: number; fimPrevisto: string
+  atrasada: boolean; produtoNome: string; unidade: string; quantidadeOrdem: number; sequencia: number; descricao: string
+  operacaoStatus: 'PENDENTE' | 'EM_EXECUCAO' | 'CONCLUIDA'; tipoMaquinaId?: number | null; tipoMaquinaNome?: string | null
+  maquinaPlanejadaId?: number | null; maquinaPlanejadaCodigo?: string | null; produzidoBoa: number; refugo: number
+  ultimaOperacao: boolean; instrucoes?: string | null
+}
+
+export interface MaquinaChao {
+  id: number; codigo: string; descricao: string; centroTrabalhoId: number; tipoMaquinaId: number; status: StatusMaquina
+  paradaAberta?: ParadaMaquina | null; apontamentoAbertoId?: number | null; ordemEmUso?: string | null
+}
+
+export interface ChaoRecursos { centros: { id: number; codigo: string; nome: string }[]; maquinas: MaquinaChao[]; motivos: MotivoParada[] }
+
+export interface OperacaoAndamento {
+  operacaoId: number; sequencia: number; descricao: string; centroNome: string; status: 'PENDENTE' | 'EM_EXECUCAO' | 'CONCLUIDA'
+  tempoPrevistoMin: number; minutosTrabalhados: number; minutosParado: number; quantidadeBoa: number; quantidadeRefugo: number
+  emProcesso?: number | null; apontamentosAbertos: number
+}
+
+export interface MaterialAndamento {
+  produtoId: number; codigo?: string; nome: string; unidade: string; previsto: number; consumido: number; saldoEstoque: number; sugerido: number
+}
+
+export interface ExecucaoOP {
+  ordemId: number; numero: string; status: StatusOP; quantidade: number; unidade: string; produzido: number; refugo: number
+  percentualProduzido: number; operacoes: OperacaoAndamento[]; materiais: MaterialAndamento[]; apontamentos: Apontamento[]
+  consumos: ConsumoOP[]; paradas: ParadaMaquina[]
+}
+
+export const CATEGORIAS_PARADA: Record<CategoriaParada, string> = {
+  SETUP: 'Preparação (setup)', MANUTENCAO: 'Manutenção', FALTA_MATERIAL: 'Falta de material', QUALIDADE: 'Qualidade',
+  OPERACIONAL: 'Operacional', EXTERNA: 'Externa (energia, utilidades)', OUTRO: 'Outro',
+}
+
+export const STATUS_APONTAMENTO: Record<StatusApontamento, { rotulo: string; tom: 'success' | 'info' | 'warning' | 'neutral' | 'danger' }> = {
+  EM_ANDAMENTO: { rotulo: 'Em andamento', tom: 'info' },
+  PAUSADO: { rotulo: 'Pausado', tom: 'warning' },
+  FINALIZADO: { rotulo: 'Finalizado', tom: 'success' },
+  ESTORNADO: { rotulo: 'Estornado', tom: 'neutral' },
+}
+
+/** Chave de idempotência dos comandos do chão de fábrica (o mesmo comando reenviado não duplica). */
+export const novaChave = () =>
+  (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`)

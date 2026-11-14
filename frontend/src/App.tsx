@@ -26,6 +26,7 @@ import EmissaoFiscalPage from './modules/fiscal/EmissaoFiscalPage'
 import EstruturaIndustrialPage from './modules/industrial/EstruturaIndustrialPage'
 import EngenhariaPage from './modules/industrial/EngenhariaPage'
 import OrdensProducaoPage from './modules/industrial/OrdensProducaoPage'
+import ChaoDeFabricaPage from './modules/industrial/ChaoDeFabricaPage'
 import UsuariosPage from './modules/acesso/UsuariosPage'
 import AuditoriaPage from './modules/acesso/AuditoriaPage'
 import PerfisPage from './modules/acesso/PerfisPage'
@@ -77,6 +78,7 @@ export default function App() {
             <Route path="/industrial/estrutura"      element={<EstruturaIndustrialPage />} />
             <Route path="/industrial/engenharia"     element={<EngenhariaPage />} />
             <Route path="/industrial/ordens"         element={<OrdensProducaoPage />} />
+            <Route path="/industrial/chao"           element={<ChaoDeFabricaPage />} />
             <Route path="/financeiro/clientes"       element={<ClientesPage />} />
             <Route path="/financeiro/faturamento"    element={<FaturamentoPage />} />
             <Route path="/financeiro/contas-receber" element={<ContasReceberPage />} />

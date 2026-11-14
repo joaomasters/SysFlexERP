@@ -245,6 +245,21 @@ public class MaquinaService {
         return paraDto(maquinaRepo.saveAndFlush(m));
     }
 
+    /**
+     * Mudança de status causada pela produção (início, pausa e fim de apontamento, parada avulsa).
+     * Não exige a versão da tela, mas grava o evento no histórico como qualquer mudança. Se a máquina
+     * já estiver no status pedido, não faz nada.
+     */
+    @Transactional
+    public void statusPelaProducao(Maquina m, String novo, String descricao, Long usuarioId) {
+        if (novo.equals(m.getStatus())) return;
+        String anterior = m.getStatus();
+        m.setStatus(novo);
+        eventoRepo.save(MaquinaEvento.builder().maquina(m).tipo("STATUS").statusAnterior(anterior).statusNovo(novo)
+                .horimetro(m.getHorimetro()).descricao(descricao).usuarioId(usuarioId).build());
+        maquinaRepo.save(m);
+    }
+
     static void validarTransicao(String atual, String novo) {
         if (!Maquina.STATUS.contains(novo)) throw new BusinessException("Status de máquina inválido: " + novo);
         if (novo.equals(atual)) throw new BusinessException("A máquina já está com este status.");

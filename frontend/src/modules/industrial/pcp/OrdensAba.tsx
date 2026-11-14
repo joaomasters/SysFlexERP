@@ -16,6 +16,7 @@ import {
   type MaquinaOpcao, type OrdemDetalhe, type OrdemResumo, type StatusOP,
 } from '@/types/industrial'
 import { dataBR, dataHoraBR, horas, num, useProdutosIndustriais } from '../comum'
+import ExecucaoOPSecao from '../execucao/ExecucaoOPSecao'
 
 export const MODULO_PCP = 'IND_PCP'
 
@@ -273,7 +274,7 @@ function OrdemModal({ id, onClose }: { id: number; onClose: () => void }) {
                 </TBody>
               </Table>
             )}
-            <p className="text-xs text-gray-500 mt-1">O estoque é o saldo atual do produto; esta sprint ainda não reserva nem baixa material.</p>
+            <p className="text-xs text-gray-500 mt-1">Saldo atual do produto. A baixa acontece no consumo registrado (seção Execução).</p>
           </section>
 
           <section>
@@ -305,6 +306,8 @@ function OrdemModal({ id, onClose }: { id: number; onClose: () => void }) {
               </Table>
             )}
           </section>
+
+          {!d.previa && <ExecucaoOPSecao ordemId={o.id} />}
 
           <section>
             <h3 className="text-sm font-semibold text-gray-700 mb-1">Histórico</h3>

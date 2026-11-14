@@ -6,7 +6,7 @@ import { api } from '@/shared/api/axios'
 import { PageHeader, FilterTabs, StatusBadge } from '@/shared/components/ui'
 import { usePermissao } from '@/shared/hooks/usePermissao'
 import {
-  STATUS_FERRAMENTA, TIPOS_FERRAMENTA,
+  STATUS_FERRAMENTA, TIPOS_FERRAMENTA, CATEGORIAS_PARADA, type MotivoParada,
   type Centro, type Ferramenta, type Setor, type StatusFerramenta, type TipoMaquina, type Turno, type Unidade,
 } from '@/types/industrial'
 import CadastroSimples, { MODULO, numeroOuNulo, paraTexto, textoOuNulo } from './estrutura/CadastroSimples'
@@ -14,7 +14,7 @@ import TiposMaquinaAba from './estrutura/TiposMaquinaAba'
 import MaquinasAba from './estrutura/MaquinasAba'
 import AlocacoesAba from './estrutura/AlocacoesAba'
 
-type Aba = 'unidades' | 'setores' | 'centros' | 'turnos' | 'tipos' | 'maquinas' | 'ferramentas' | 'operadores'
+type Aba = 'unidades' | 'setores' | 'centros' | 'turnos' | 'tipos' | 'maquinas' | 'ferramentas' | 'operadores' | 'motivos'
 
 const ABAS: { value: Aba; label: string }[] = [
   { value: 'unidades', label: 'Unidades' },
@@ -25,6 +25,7 @@ const ABAS: { value: Aba; label: string }[] = [
   { value: 'maquinas', label: 'Máquinas' },
   { value: 'ferramentas', label: 'Ferramentas e matrizes' },
   { value: 'operadores', label: 'Operadores' },
+  { value: 'motivos', label: 'Motivos de parada' },
 ]
 
 const brl = (v?: number | null) => (v == null ? '—' : Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }))
@@ -54,6 +55,7 @@ export default function EstruturaIndustrialPage() {
       {aba === 'maquinas' && <MaquinasAba />}
       {aba === 'ferramentas' && <AbaFerramentas />}
       {aba === 'operadores' && <AlocacoesAba />}
+      {aba === 'motivos' && <AbaMotivos />}
     </div>
   )
 }
@@ -224,3 +226,29 @@ function AbaFerramentas() {
   )
 }
 
+
+function AbaMotivos() {
+  return (
+    <CadastroSimples<MotivoParada>
+      nome="motivo de parada" endpoint="/industrial/motivos-parada" queryKey="ind-motivos-parada"
+      busca={m => `${m.codigo} ${m.descricao}`}
+      colunas={[
+        { titulo: 'Código', render: m => m.codigo, className: 'font-mono font-semibold' },
+        { titulo: 'Descrição', render: m => m.descricao, className: 'font-medium' },
+        { titulo: 'Categoria', render: m => CATEGORIAS_PARADA[m.categoria], className: 'text-gray-600' },
+        { titulo: 'Tipo', render: m => <StatusBadge tone={m.planejada ? 'info' : 'warning'}>{m.planejada ? 'Planejada' : 'Perda'}</StatusBadge> },
+      ]}
+      campos={[
+        { nome: 'codigo', rotulo: 'Código', obrigatorio: true, max: 20 },
+        { nome: 'descricao', rotulo: 'Descrição', obrigatorio: true, max: 100 },
+        { nome: 'categoria', rotulo: 'Categoria', obrigatorio: true,
+          opcoes: Object.entries(CATEGORIAS_PARADA).map(([v, r]) => ({ valor: v, rotulo: r })) },
+        { nome: 'planejada', rotulo: 'Parada planejada?', obrigatorio: true,
+          opcoes: [{ valor: 'nao', rotulo: 'Não: é perda de produção' }, { valor: 'sim', rotulo: 'Sim: prevista (setup, refeição)' }],
+          dica: 'Paradas planejadas não contam como perda nos indicadores' },
+      ]}
+      paraForm={m => ({ codigo: m?.codigo ?? '', descricao: m?.descricao ?? '', categoria: m?.categoria ?? '', planejada: m?.planejada ? 'sim' : 'nao' })}
+      paraPayload={f => ({ codigo: f.codigo, descricao: f.descricao, categoria: f.categoria, planejada: f.planejada === 'sim' })}
+    />
+  )
+}

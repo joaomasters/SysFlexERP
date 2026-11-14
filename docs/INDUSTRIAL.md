@@ -9,7 +9,7 @@ Este documento registra a auditoria do SysFlex feita antes de começar os módul
 | Camada | O que existe |
 | --- | --- |
 | Backend | Spring Boot 3, Java 17, monólito modular. Pacotes em `com.acougue`: `entity` e `repository` compartilhados, regras em `modules/<área>` (service, controller, dto). |
-| Banco | PostgreSQL com **um schema por empresa** (`public` para a principal e `tenant_*` para as demais). Flyway (`db/migration`, V1 a V40). O `MigradorSchemasEmpresas` aplica cada migration em todos os schemas no boot. O JPA roda com `ddl-auto: validate`. |
+| Banco | PostgreSQL com **um schema por empresa** (`public` para a principal e `tenant_*` para as demais). Flyway (`db/migration`, V1 a V41). O `MigradorSchemasEmpresas` aplica cada migration em todos os schemas no boot. O JPA roda com `ddl-auto: validate`. |
 | Multi-empresa | O `TenantResolvingFilter` e o `TenantIdentifierResolver` trocam o schema por requisição. `public.tenants` é lida sempre via JDBC (`TenantRepository`). |
 | Segurança | JWT (`JwtAuthFilter`). Permissões por **módulo e ação**: a enum `Modulo`, a anotação `@ExigirPermissao` e a tabela `perfil_permissoes` (ver, criar, editar, excluir). O SUPER_ADMIN tem acesso total. O modo JARVIS é só leitura, garantido também pelo Postgres. |
 | Auditoria | `AuditoriaAspect`: toda ação de escrita com `@ExigirPermissao` é registrada sozinha em `log_auditoria`. |
@@ -57,7 +57,7 @@ Este documento registra a auditoria do SysFlex feita antes de começar os módul
 | --- | --- | --- |
 | 1. Fundação | Habilitação por empresa, permissão, unidades, setores, centros de trabalho, turnos, tipos de máquina com parâmetros, máquinas (status, horímetro, manutenção, histórico, turnos), ferramentas/matrizes e alocação de operadores | **Entregue** |
 | 2. Engenharia e PCP | Ficha técnica industrial (estende o produto), BOM versionada com vigência, roteiro versionado, OP com estados e transições, congelamento da revisão de engenharia na liberação, planejamento básico | **Entregue** |
-| 3. Execução (MES) | Apontamento (início, pausa, fim, parcial), paradas e motivos, consumo real, WIP por lote, tela de chão de fábrica para tablet, baixa idempotente no estoque | A fazer |
+| 3. Execução (MES) | Apontamento (início, pausa, fim, parcial), paradas e motivos, consumo real, WIP por lote, tela de chão de fábrica para tablet, baixa idempotente no estoque | **Entregue** |
 | 4. Extrusão | Ligas, tarugos e lotes de matéria-prima com certificado, receitas por liga e equipamento, medições (aquecimento, extrusão, tratamento térmico) com origem manual/sensor, perdas | A fazer |
 | 5. Qualidade e rastreabilidade | Planos de inspeção, inspeções e não conformidades, quarentena e liberação, genealogia de lotes (divisão e união), consulta da origem ao cliente, QR por lote | A fazer |
 | 6. Expedição | Pedido de expedição, reserva de lote, separação, conferência, romaneio, carregamento sem dupla baixa, bloqueio por qualidade, ligação com o fiscal existente sem emitir nota automaticamente | A fazer |
@@ -251,3 +251,125 @@ Como na sprint 1, a migration só cria tabelas. Voltar o código deixa as tabela
 - **Unidade de medida:** a conversão entre unidades (kg ↔ m ↔ peça) não é automática. Os pesos da ficha são só referência.
 - **Escolha da máquina:** trocar a máquina de uma operação não muda a versão da OP, então duas pessoas escolhendo máquina na mesma operação ao mesmo tempo: vale a última.
 - **Carga:** não considera paradas, manutenção programada nem eficiência. É a carga teórica pelos tempos padrão.
+
+## 6. Sprint 3: execução (chão de fábrica)
+
+### Banco: `V41__industrial_execucao.sql`
+
+| Tabela | Conteúdo |
+| --- | --- |
+| `ind_motivo_parada` | Cadastro de motivos (categoria e se é parada planejada). A migration já cria 7 motivos comuns em cada empresa |
+| `ind_apontamento` | Sessão de trabalho numa operação da OP: operador, máquina, início, fim, tempo parado, quantidade boa, refugo com motivo, lote gerado, estorno |
+| `ind_parada` | Parada de máquina: pausa de um apontamento ou parada avulsa, com motivo, início e fim |
+| `ind_consumo` | Consumo real de material da OP, com custo do momento, lote/corrida do fornecedor e estorno |
+
+- **Única mudança em tabela existente:** a lista de tipos aceitos em `movimentacao_estoque` foi **ampliada** com `ENTRADA_PRODUCAO`, `SAIDA_ESTORNO_PRODUCAO`, `SAIDA_CONSUMO_PRODUCAO` e `ENTRADA_ESTORNO_CONSUMO`. Todos os tipos anteriores continuam valendo.
+- **Garantias no próprio banco** (índices únicos parciais):
+  - uma máquina com no máximo um apontamento aberto;
+  - um operador com no máximo um apontamento aberto;
+  - uma máquina com no máximo uma parada aberta;
+  - a chave de cada comando é única.
+- **Permissão `IND_APONTAMENTO`:**
+
+  | Ação | O que libera |
+  | --- | --- |
+  | ver | fila e andamento |
+  | criar | apontar, pausar, finalizar, parar máquina, consumir |
+  | editar | mexer no apontamento de outro operador (supervisão) |
+  | excluir | estornar |
+
+  Vem liberada para ADMIN e SUPER_ADMIN; os demais perfis começam sem acesso.
+
+### API
+
+| Rota | Permissão |
+| --- | --- |
+| `GET /industrial/chao/recursos` · `GET /industrial/chao/fila?centroId=` · `GET /industrial/chao/meu-apontamento` (204 se não houver) | IND_APONTAMENTO ver |
+| `POST /industrial/apontamentos` `{chave, operacaoId, maquinaId}` | criar |
+| `POST /industrial/apontamentos/{id}/pausar` `{chave, motivoId}` · `/retomar` · `/finalizar` `{chave, quantidadeBoa, quantidadeRefugo, motivoRefugo, concluirOperacao}` | criar (o dono; outra pessoa precisa de editar) |
+| `POST /industrial/apontamentos/{id}/estornar` `{motivo}` | excluir |
+| `POST /industrial/paradas` `{chave, maquinaId, motivoId}` · `POST /industrial/paradas/{id}/encerrar` · `GET /industrial/paradas?de=&ate=&maquinaId=` | criar / ver |
+| `POST /industrial/ordens/{id}/consumos` `{chave, produtoId, quantidade, loteMaterial}` · `POST /industrial/consumos/{id}/estornar` | criar / excluir |
+| `GET /industrial/ordens/{id}/execucao` | ver apontamento **ou** PCP |
+| `GET POST PUT /industrial/motivos-parada`, `/{id}/inativar`, `/reativar` | IND_ESTRUTURA (a consulta também é aberta ao chão de fábrica) |
+
+### Regras de negócio
+
+- **Idempotência:**
+  - todo comando do tablet leva uma `chave` gerada no aparelho;
+  - reenviar o mesmo comando (rede caiu, toque duplo) devolve o que já foi gravado, sem duplicar apontamento, parada, consumo ou entrada no estoque;
+  - finalizar de novo com outra chave é recusado.
+- **Início:**
+  - só em OP liberada ou em produção (uma OP pausada pelo PCP bloqueia);
+  - a operação não pode estar concluída;
+  - cada operador tem um apontamento aberto por vez;
+  - se o centro tem máquinas, é obrigatório escolher uma (ou usar a planejada pelo PCP), e ela precisa ser do centro e do tipo pedido, estar livre, sem parada aberta e fora de manutenção;
+  - o primeiro início põe a OP **em produção** e a operação **em execução**.
+- **Status da máquina pela produção:**
+  - iniciar e retomar → em operação;
+  - pausar e parada avulsa → parada;
+  - finalizar e encerrar a parada → disponível;
+  - toda mudança fica no histórico da máquina, com o usuário.
+- **Pausa:** abre uma parada com motivo ligada ao apontamento. Retomar fecha a parada e soma o tempo parado. O tempo trabalhado é a duração menos o tempo parado.
+- **Fim e apontamento parcial:**
+  - finalizar registra a quantidade boa e o refugo (o refugo exige motivo);
+  - vários apontamentos na mesma operação são permitidos; a operação só conclui quando o operador marca "concluir esta operação";
+  - concluir a última operação pendente **conclui a OP**.
+- **Produto acabado:**
+  - na **última operação**, a quantidade boa entra no estoque (`ENTRADA_PRODUCAO`, documento `OP000001/AP12`) com um lote da OP (`OP000001-L01`, `-L02`…);
+  - as operações intermediárias não mexem no estoque: o que está entre elas é o WIP.
+- **Consumo:**
+  - só materiais da OP (os congelados na liberação);
+  - baixa pelo `EstoqueService` (`SAIDA_CONSUMO_PRODUCAO`, documento `OP000001/CS5`), com o custo médio do momento;
+  - sem saldo suficiente, é recusado e nada é gravado;
+  - consumir acima do previsto é permitido e fica destacado;
+  - a tela sugere a quantidade proporcional ao que já foi produzido.
+- **Estornos:**
+  - **apontamento:** só os finalizados, e com motivo; tira do estoque a produção que entrou, o que é recusado se ela já saiu, por exemplo vendida. Reabre a operação e a OP, se estavam concluídas;
+  - **consumo:** devolve o material com o mesmo custo; é recusado em OP encerrada ou cancelada.
+- **Travas novas no PCP:**
+  - não dá para pausar, concluir ou encerrar a OP com apontamento aberto;
+  - não dá para cancelar com apontamento ou consumo válido;
+  - não dá para voltar para planejada depois de qualquer apontamento ou consumo.
+- **Parada avulsa:**
+  - máquina sem apontamento aberto;
+  - não pode estar inativa, em manutenção ou já parada;
+  - uma máquina parada não pode ser usada num apontamento até a parada ser encerrada.
+- **Concorrência:** um conflito de versão (duas gravações ao mesmo tempo no mesmo registro) agora devolve **409** com mensagem, em vez de 500. Isso vale também para a máquina da sprint 1.
+
+### Frontend
+
+- **Indústria → Chão de fábrica** (`/industrial/chao`), pensada para tablet:
+  - o centro de trabalho fica lembrado no aparelho;
+  - o cartão "Seu apontamento" mostra o cronômetro e os botões grandes **Pausar/Retomar**, **Finalizar** e **Material**;
+  - a fila de operações do centro vem ordenada por prioridade e entrega, com o que já foi feito;
+  - as máquinas do centro aparecem com o status, e dá para registrar ou encerrar parada;
+  - a pausa e a parada são escolhidas por motivo, em botões;
+  - ao finalizar, informam-se a quantidade boa, o refugo com motivo e se a operação foi concluída.
+- **Ordens de produção → detalhe da OP**, nova seção **Execução**:
+  - produzido × quantidade;
+  - por operação: boa, refugo, o que aguarda a próxima operação (WIP) e o tempo real × previsto;
+  - material previsto × consumido;
+  - apontamentos, consumos e paradas, com **Estornar** e **Registrar consumo**.
+- **Estrutura industrial**, nova aba **Motivos de parada**.
+
+### Testes
+
+- **Backend:**
+  - `ExecucaoTest` (19): início com OP e máquina, idempotência, travas de operador e máquina, pausa e retomada com tempo parado, supervisão, operação intermediária sem estoque, refugo com motivo, entrada da última operação com lote uma vez só, conclusão automática da OP, estornos e consumo com e sem saldo;
+  - `OrdemProducaoTest` ganhou o teste das travas de execução;
+  - suíte completa: 458 testes, 0 falhas.
+- **API de ponta a ponta:** script num Postgres novo depois da V41, sem falhas. Conferiu o saldo e as movimentações no banco (tarugo 1000 → 940 → 878 → 940 após estorno; perfil 0 → 50 → 98 → 50 após estorno), o status da máquina, a OP concluindo sozinha e as paradas no histórico.
+- **E2E:** `playwright/tests/industrial/chao-de-fabrica.global.spec.ts` (2) cobre o operador iniciando, pausando com motivo, retomando e finalizando pela tela com lote no estoque, e o PCP vendo o andamento da OP.
+
+### Reversão
+
+A migration cria tabelas e amplia a lista de tipos de movimentação. Voltar o código mantém tudo funcionando: os tipos novos só são gravados pelo código industrial. Para tirar o chão de fábrica de um perfil, basta remover a permissão `IND_APONTAMENTO`.
+
+### Limitações conhecidas
+
+- **Custo da produção:** a entrada do produto acabado é gravada sem custo (não altera o custo médio). O custo real da OP (materiais + horas dos centros) vem na sprint 7.
+- **WIP:** é calculado pelas quantidades apontadas entre operações. Saldo por lote, com situação (quarentena, liberado, bloqueado), vem com a qualidade, na sprint 5.
+- **Sem modo offline:** a idempotência protege o reenvio, mas o tablet precisa de rede para apontar. Uma fila offline no aparelho fica para depois, se o chão de fábrica pedir.
+- **Ordem das operações:** a ordem não é forçada. Uma operação pode começar antes da anterior terminar, o que é comum com lotes parciais.
+- **Leitura de máquina:** horímetro e contadores não são lidos da máquina. A quantidade é a informada pelo operador. Integração com sensores fica para depois, sempre marcada como origem "sensor".

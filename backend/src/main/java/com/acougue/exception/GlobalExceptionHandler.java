@@ -42,6 +42,13 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse(ex.getMessage(), 422));
     }
 
+    /** Duas pessoas gravaram o mesmo registro versionado (@Version) ao mesmo tempo: a segunda recarrega. */
+    @ExceptionHandler(org.springframework.orm.ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handleConcorrencia(org.springframework.orm.ObjectOptimisticLockingFailureException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse("Outra pessoa alterou este registro ao mesmo tempo. Recarregue e tente de novo.", 409));
+    }
+
     @ExceptionHandler(InvalidBarcodeException.class)
     public ResponseEntity<ErrorResponse> handleBarcode(InvalidBarcodeException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -126,7 +133,15 @@ public class GlobalExceptionHandler {
             Map.entry("uk_ind_roteiro_versao", "Outra pessoa criou uma versão deste roteiro agora. Recarregue a tela."),
             Map.entry("uk_ind_roteiro_ativo", "Este produto já tem outro roteiro ativo. Recarregue a tela."),
             Map.entry("uk_ind_bom_item_seq", "Há componentes com a mesma sequência."),
-            Map.entry("uk_ind_roteiro_op_seq", "Há operações com a mesma sequência.")
+            Map.entry("uk_ind_roteiro_op_seq", "Há operações com a mesma sequência."),
+            // Execução (V41): quase sempre dois toques ao mesmo tempo no tablet
+            Map.entry("uk_ind_motivo_parada_codigo", "Já existe um motivo de parada com este código."),
+            Map.entry("uk_ind_apontamento_maquina_aberto", "Esta máquina acabou de ser ocupada por outro apontamento. Recarregue."),
+            Map.entry("uk_ind_apontamento_operador_aberto", "Você já tem um apontamento aberto. Recarregue a tela."),
+            Map.entry("uk_ind_parada_aberta", "Esta máquina já está parada. Recarregue a tela."),
+            Map.entry("uk_ind_apontamento_chave", "Este apontamento já foi registrado. Recarregue a tela."),
+            Map.entry("uk_ind_consumo_chave", "Este consumo já foi registrado. Recarregue a tela."),
+            Map.entry("uk_ind_parada_chave", "Esta parada já foi registrada. Recarregue a tela.")
     );
 
     // Violação de regra do banco (valor fora da lista, duplicado...): 422 com mensagem

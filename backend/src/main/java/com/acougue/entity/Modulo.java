@@ -29,7 +29,8 @@ public enum Modulo {
     // Módulo industrial: só aparece e responde nas empresas com ele habilitado (tela Empresas)
     IND_ESTRUTURA("Indústria: Estrutura produtiva"),
     IND_ENGENHARIA("Indústria: Engenharia de produto"),
-    IND_PCP("Indústria: Ordens de produção e PCP");
+    IND_PCP("Indústria: Ordens de produção e PCP"),
+    IND_APONTAMENTO("Indústria: Chão de fábrica (apontamentos)");
 
     private final String rotulo;
 

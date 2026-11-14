@@ -6,7 +6,7 @@ import {
   CreditCard, BarChart2, Scale, AlertTriangle,
   ClipboardList, TrendingDown, ArrowDownCircle, BarChart, LogOut,
   Truck, FileText, Users, ShieldCheck, Home, Contact,
-  ShieldAlert, CalendarClock, Percent, Building2, Store, Printer, Wrench, FileKey, Factory, Layers, ClipboardCheck
+  ShieldAlert, CalendarClock, Percent, Building2, Store, Printer, Wrench, FileKey, Factory, Layers, ClipboardCheck, HardHat
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import clsx from 'clsx'
@@ -44,6 +44,7 @@ const nav = [
   { label: 'Estrutura industrial', href: '/industrial/estrutura', icon: Factory, modulo: 'IND_ESTRUTURA', industrial: true },
   { label: 'Engenharia de produto', href: '/industrial/engenharia', icon: Layers, modulo: 'IND_ENGENHARIA', industrial: true },
   { label: 'Ordens de produção', href: '/industrial/ordens', icon: ClipboardCheck, modulo: 'IND_PCP', industrial: true },
+  { label: 'Chão de fábrica', href: '/industrial/chao', icon: HardHat, modulo: 'IND_APONTAMENTO', industrial: true },
 
   { separator: 'Financeiro' },
   { label: 'Faturamento',      href: '/financeiro/faturamento',    icon: DollarSign,  modulo: 'FATURAMENTO' },

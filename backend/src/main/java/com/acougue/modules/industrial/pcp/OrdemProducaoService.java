@@ -6,6 +6,8 @@ import com.acougue.entity.Usuario;
 import com.acougue.exception.BusinessException;
 import com.acougue.modules.industrial.engenharia.*;
 import com.acougue.modules.industrial.estrutura.Maquina;
+import com.acougue.modules.industrial.execucao.ApontamentoRepository;
+import com.acougue.modules.industrial.execucao.ConsumoRepository;
 import com.acougue.modules.industrial.estrutura.MaquinaRepository;
 import com.acougue.modules.industrial.pcp.PcpDto.*;
 import com.acougue.repository.ClienteRepository;
@@ -52,6 +54,8 @@ public class OrdemProducaoService {
     private final RoteiroRepository roteiroRepo;
     private final MaquinaRepository maquinaRepo;
     private final UsuarioRepository usuarioRepo;
+    private final ApontamentoRepository apontamentoRepo;
+    private final ConsumoRepository consumoRepo;
 
     /** Tempo previsto de uma operação: preparação mais o tempo por unidade vezes a quantidade. */
     public static BigDecimal tempoPrevisto(BigDecimal setup, BigDecimal porUnidade, BigDecimal quantidade) {
@@ -131,6 +135,7 @@ public class OrdemProducaoService {
         String motivo = in.motivo() == null || in.motivo().isBlank() ? null : in.motivo().trim();
         if (motivo == null && exigeMotivo(de, para)) throw new BusinessException("Informe o motivo.");
 
+        exigirExecucaoCompativel(o, de, para);
         if ("LIBERADA".equals(para) && "PLANEJADA".equals(de)) liberar(o, usuarioId);
         if ("PLANEJADA".equals(para)) estornarLiberacao(o);
         if ("EM_PRODUCAO".equals(para) && "CONCLUIDA".equals(de) && o.getOperacoes().isEmpty()) {
@@ -248,6 +253,35 @@ public class OrdemProducaoService {
         o.setRoteiro(roteiro);
         o.setLiberadaEm(LocalDateTime.now());
         o.setLiberadaPorId(usuarioId);
+    }
+
+    /**
+     * Mudança de status vinda do chão de fábrica (primeiro apontamento, última operação concluída, estorno).
+     * Segue o mesmo mapa de transições e grava o evento com o motivo automático.
+     */
+    @Transactional
+    public void statusPelaExecucao(OrdemProducao o, String para, String motivo, Long usuarioId) {
+        String de = o.getStatus();
+        if (de.equals(para)) return;
+        validarTransicao(de, para);
+        o.setStatus(para);
+        ordemRepo.save(o);
+        registrar(o.getId(), de, para, motivo, usuarioId);
+    }
+
+    /** Travas da mudança manual de status quando a OP já tem execução registrada. */
+    private void exigirExecucaoCompativel(OrdemProducao o, String de, String para) {
+        if (List.of("PAUSADA", "CONCLUIDA", "ENCERRADA").contains(para) && apontamentoRepo.abertosDaOrdem(o.getId()) > 0) {
+            throw new BusinessException("Há apontamentos em andamento nesta OP. Finalize-os antes.");
+        }
+        if ("CANCELADA".equals(para)
+                && (apontamentoRepo.validosDaOrdem(o.getId()) > 0 || consumoRepo.validosDaOrdem(o.getId()) > 0)) {
+            throw new BusinessException("A OP já tem apontamentos ou consumos. Estorne-os antes de cancelar.");
+        }
+        if ("PLANEJADA".equals(para)
+                && (apontamentoRepo.countByOrdemId(o.getId()) > 0 || consumoRepo.validosDaOrdem(o.getId()) > 0)) {
+            throw new BusinessException("A OP já teve apontamento ou consumo e não pode voltar para planejada.");
+        }
     }
 
     private void estornarLiberacao(OrdemProducao o) {

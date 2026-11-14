@@ -4,6 +4,8 @@ import com.acougue.entity.Produto;
 import com.acougue.exception.BusinessException;
 import com.acougue.modules.industrial.engenharia.*;
 import com.acougue.modules.industrial.estrutura.*;
+import com.acougue.modules.industrial.execucao.ApontamentoRepository;
+import com.acougue.modules.industrial.execucao.ConsumoRepository;
 import com.acougue.modules.industrial.pcp.PcpDto.*;
 import com.acougue.repository.ClienteRepository;
 import com.acougue.repository.ProdutoRepository;
@@ -38,6 +40,8 @@ class OrdemProducaoTest {
     private final RoteiroRepository roteiroRepo = mock(RoteiroRepository.class);
     private final MaquinaRepository maquinaRepo = mock(MaquinaRepository.class);
     private final UsuarioRepository usuarioRepo = mock(UsuarioRepository.class);
+    private final ApontamentoRepository apontamentoRepo = mock(ApontamentoRepository.class);
+    private final ConsumoRepository consumoRepo = mock(ConsumoRepository.class);
 
     private OrdemProducaoService service;
     private Produto perfil;
@@ -52,7 +56,7 @@ class OrdemProducaoTest {
     @BeforeEach
     void setUp() {
         service = new OrdemProducaoService(ordemRepo, eventoRepo, produtoRepo, clienteRepo, fichaRepo, bomRepo, roteiroRepo,
-                maquinaRepo, usuarioRepo);
+                maquinaRepo, usuarioRepo, apontamentoRepo, consumoRepo);
         perfil = Produto.builder().id(1L).nome("Perfil U").codigoInterno("P1").unidadeMedida("KG").ativo(true).build();
         tarugo = Produto.builder().id(2L).nome("Tarugo").codigoInterno("P2").unidadeMedida("KG").ativo(true)
                 .estoqueAtual(n("50")).build();
@@ -195,6 +199,21 @@ class OrdemProducaoTest {
             assertThat(o.getMateriais()).isEmpty();
             assertThat(o.getOperacoes()).isEmpty();
             assertThat(o.getBom()).isNull();
+        }
+
+        @Test
+        void execucao_registrada_trava_cancelamento_pausa_e_volta() {
+            planejada();
+            service.mudarStatus(99L, new StatusIn("LIBERADA", 0L, null), 9L);
+            when(consumoRepo.validosDaOrdem(99L)).thenReturn(1L);
+            assertThatThrownBy(() -> service.mudarStatus(99L, new StatusIn("CANCELADA", 0L, "x"), 9L))
+                    .hasMessageContaining("Estorne-os antes de cancelar");
+            assertThatThrownBy(() -> service.mudarStatus(99L, new StatusIn("PLANEJADA", 0L, "x"), 9L))
+                    .hasMessageContaining("não pode voltar para planejada");
+            service.mudarStatus(99L, new StatusIn("EM_PRODUCAO", 0L, null), 9L);
+            when(apontamentoRepo.abertosDaOrdem(99L)).thenReturn(1L);
+            assertThatThrownBy(() -> service.mudarStatus(99L, new StatusIn("PAUSADA", 0L, "x"), 9L))
+                    .hasMessageContaining("apontamentos em andamento");
         }
 
         @Test
