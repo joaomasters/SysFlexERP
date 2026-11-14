@@ -6,7 +6,7 @@ import {
   CreditCard, BarChart2, Scale, AlertTriangle,
   ClipboardList, TrendingDown, ArrowDownCircle, BarChart, LogOut,
   Truck, FileText, Users, ShieldCheck, Home, Contact,
-  ShieldAlert, CalendarClock, Percent, Building2, Store, Printer, Wrench, FileKey
+  ShieldAlert, CalendarClock, Percent, Building2, Store, Printer, Wrench, FileKey, Factory, Layers, ClipboardCheck, HardHat
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import clsx from 'clsx'
@@ -38,6 +38,13 @@ const nav = [
   { separator: 'Fiscal' },
   { label: 'NF de Saída', href: '/fiscal/notas', icon: FileText, modulo: 'NF_SAIDA' },
   { label: 'Emissão de Notas', href: '/fiscal/emissao', icon: FileKey, modulo: 'FISCAL' },
+
+  // Indústria: só nas empresas com os módulos industriais liberados (tela Empresas)
+  { separator: 'Indústria', industrial: true },
+  { label: 'Estrutura industrial', href: '/industrial/estrutura', icon: Factory, modulo: 'IND_ESTRUTURA', industrial: true },
+  { label: 'Engenharia de produto', href: '/industrial/engenharia', icon: Layers, modulo: 'IND_ENGENHARIA', industrial: true },
+  { label: 'Ordens de produção', href: '/industrial/ordens', icon: ClipboardCheck, modulo: 'IND_PCP', industrial: true },
+  { label: 'Chão de fábrica', href: '/industrial/chao', icon: HardHat, modulo: 'IND_APONTAMENTO', industrial: true },
 
   { separator: 'Financeiro' },
   { label: 'Faturamento',      href: '/financeiro/faturamento',    icon: DollarSign,  modulo: 'FATURAMENTO' },
@@ -90,6 +97,13 @@ export default function Sidebar({ aberto, onFechar }: SidebarProps) {
   })
   const qtdPendentesBalanca = pendentesBalanca?.total ?? 0
 
+  const { data: situacaoIndustrial } = useQuery<{ habilitado: boolean }>({
+    queryKey: ['industrial-situacao'],
+    queryFn: () => api.get('/industrial/situacao').then(r => r.data),
+    staleTime: 5 * 60_000,
+  })
+  const industrial = situacaoIndustrial?.habilitado ?? false
+
   const logout = () => {
     removeSessao()
     // Recarrega de propósito: o cache de consultas fica em memória e, numa troca
@@ -100,6 +114,7 @@ export default function Sidebar({ aberto, onFechar }: SidebarProps) {
   // Filtra os itens pelo que o perfil pode VER, e depois remove separadores
   // que ficaram sem nenhum item visível embaixo (evita título "solto").
   const itensVisiveis = nav.filter(item => {
+    if ('industrial' in item && item.industrial && !industrial) return false
     if ('separator' in item || item.sempreVisivel) return true
     if (item.somentePlataforma) return isAdministradorPlataforma
     if (item.somenteSuperAdmin) return isSuperAdmin && !sessao?.somenteLeitura
