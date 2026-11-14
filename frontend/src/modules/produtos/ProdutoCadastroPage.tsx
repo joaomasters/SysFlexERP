@@ -446,13 +446,12 @@ export default function ProdutoCadastroPage() {
                 />
               </Field>
 
-              <Field label="Preço de Custo" hint="Recalculado pelas entradas." className="md:col-span-3">
+              <Field label="Preço de Custo" hint="Atualizado a cada entrada; pode ser corrigido aqui." className="md:col-span-3">
                 <CurrencyInput
                   id="produto-precoCusto"
                   name="precoCusto"
                   value={form.precoCusto}
                   onChange={v => set('precoCusto', v)}
-                  disabled={isEdicao}
                 />
               </Field>
               <Field label="Preço de Venda *" error={erros.precoVenda} className="md:col-span-3">
