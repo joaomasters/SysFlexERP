@@ -35,12 +35,12 @@ public class EngenhariaController {
         return ContextoUsuario.atual().getUsuarioId();
     }
 
-    /** Produtos ativos para as telas industriais: basta ver a engenharia ou o PCP (não exige o módulo Produtos). */
+    /** Produtos ativos para as telas industriais: basta ver a engenharia, o PCP ou a extrusão (não exige o módulo Produtos). */
     @GetMapping("/produtos")
     public List<ProdutoOpcao> produtos() {
         var u = ContextoUsuario.atual();
-        if (!u.pode(Modulo.IND_ENGENHARIA, Acao.VER) && !u.pode(Modulo.IND_PCP, Acao.VER)) {
-            throw new AccessDeniedException("Seu perfil não tem acesso à engenharia nem ao PCP.");
+        if (!u.pode(Modulo.IND_ENGENHARIA, Acao.VER) && !u.pode(Modulo.IND_PCP, Acao.VER) && !u.pode(Modulo.IND_EXTRUSAO, Acao.VER)) {
+            throw new AccessDeniedException("Seu perfil não tem acesso à engenharia, ao PCP nem à extrusão.");
         }
         return fichas.produtos();
     }

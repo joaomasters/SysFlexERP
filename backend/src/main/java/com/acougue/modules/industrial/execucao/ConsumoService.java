@@ -4,6 +4,8 @@ import com.acougue.entity.Produto;
 import com.acougue.exception.BusinessException;
 import com.acougue.modules.estoque.EstoqueService;
 import com.acougue.modules.industrial.execucao.ExecucaoDto.*;
+import com.acougue.modules.industrial.extrusao.LoteMp;
+import com.acougue.modules.industrial.extrusao.LoteMpService;
 import com.acougue.modules.industrial.pcp.OrdemProducao;
 import com.acougue.modules.industrial.pcp.OrdemProducaoRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -31,6 +33,7 @@ public class ConsumoService {
     private final ApontamentoRepository apontamentoRepo;
     private final EstoqueService estoque;
     private final ExecucaoMapper mapper;
+    private final LoteMpService lotes;
 
     static String documento(Consumo c) {
         return c.getOrdem().getNumero() + "/CS" + c.getId();
@@ -54,9 +57,16 @@ public class ConsumoService {
                     .orElseThrow(() -> new EntityNotFoundException("Apontamento não encontrado: " + in.apontamentoId()));
             if (!a.getOrdem().getId().equals(ordem.getId())) throw new BusinessException("O apontamento é de outra OP.");
         }
+        // Material com lotes de matéria-prima cadastrados: o consumo precisa dizer de qual lote saiu (rastreabilidade).
+        LoteMp lote = null;
+        if (in.loteMpId() != null) lote = lotes.exigirConsumivel(in.loteMpId(), produto.getId(), in.quantidade());
+        else if (lotes.controlado(produto.getId())) {
+            throw new BusinessException(produto.getNome() + " é controlado por lote. Escolha o lote consumido.");
+        }
+        String loteTexto = lote != null ? lote.getNumero() : ParadaService.texto(in.loteMaterial());
         Consumo c = consumoRepo.saveAndFlush(Consumo.builder().chave(in.chave()).ordem(ordem).produto(produto)
                 .quantidade(in.quantidade()).custoUnitario(produto.getPrecoCusto())
-                .loteMaterial(ParadaService.texto(in.loteMaterial())).apontamentoId(in.apontamentoId())
+                .loteMaterial(loteTexto).loteMpId(lote == null ? null : lote.getId()).apontamentoId(in.apontamentoId())
                 .observacao(ParadaService.texto(in.observacao())).usuarioId(usuarioId).build());
         // Sem saldo suficiente o EstoqueService recusa com a mensagem de estoque, e nada é gravado.
         estoque.saida(produto, in.quantidade(), "SAIDA_CONSUMO_PRODUCAO", documento(c), usuarioId);

@@ -38,6 +38,7 @@ class ExecucaoTest {
     private final ConsumoRepository consumoRepo = mock(ConsumoRepository.class);
     private final EstoqueService estoque = mock(EstoqueService.class);
     private final UsuarioRepository usuarioRepo = mock(UsuarioRepository.class);
+    private final com.acougue.modules.industrial.extrusao.LoteMpService lotes = mock(com.acougue.modules.industrial.extrusao.LoteMpService.class);
 
     private ApontamentoService apontamentos;
     private ConsumoService consumos;
@@ -57,7 +58,7 @@ class ExecucaoTest {
         ExecucaoMapper mapper = new ExecucaoMapper(usuarioRepo);
         apontamentos = new ApontamentoService(apontamentoRepo, paradaRepo, paradaService, operacaoRepo, maquinaRepo,
                 maquinaService, ordemService, estoque, mapper);
-        consumos = new ConsumoService(consumoRepo, ordemRepo, apontamentoRepo, estoque, mapper);
+        consumos = new ConsumoService(consumoRepo, ordemRepo, apontamentoRepo, estoque, mapper, lotes);
 
         perfil = Produto.builder().id(1L).nome("Perfil U").unidadeMedida("KG").ativo(true).estoqueAtual(BigDecimal.ZERO).build();
         tarugo = Produto.builder().id(2L).nome("Tarugo").unidadeMedida("KG").ativo(true).precoCusto(n("21.5"))
@@ -279,26 +280,38 @@ class ExecucaoTest {
     class ConsumoTeste {
         @Test
         void consumo_da_baixa_no_estoque_com_documento_da_op() {
-            ConsumoOut out = consumos.consumir(99L, new ConsumoIn("c1", 2L, n("60"), "CORRIDA-881", null, null), 9L);
+            ConsumoOut out = consumos.consumir(99L, new ConsumoIn("c1", 2L, n("60"), "CORRIDA-881", null, null, null), 9L);
             assertThat(out.custoUnitario()).isEqualByComparingTo("21.5");
             assertThat(out.loteMaterial()).isEqualTo("CORRIDA-881");
             verify(estoque).saida(tarugo, n("60"), "SAIDA_CONSUMO_PRODUCAO", "OP000001/CS7", 9L);
         }
 
         @Test
+        void material_controlado_por_lote_exige_o_lote_e_usa_o_numero_dele() {
+            when(lotes.controlado(2L)).thenReturn(true);
+            assertThatThrownBy(() -> consumos.consumir(99L, new ConsumoIn("c9", 2L, n("10"), null, null, null, null), 9L))
+                    .hasMessageContaining("controlado por lote");
+            var lote = com.acougue.modules.industrial.extrusao.LoteMp.builder().id(40L).numero("CORRIDA-77").build();
+            when(lotes.exigirConsumivel(40L, 2L, n("10"))).thenReturn(lote);
+            ConsumoOut out = consumos.consumir(99L, new ConsumoIn("c10", 2L, n("10"), "ignorado", null, null, 40L), 9L);
+            assertThat(out.loteMpId()).isEqualTo(40L);
+            assertThat(out.loteMaterial()).isEqualTo("CORRIDA-77");
+        }
+
+        @Test
         void mesma_chave_nao_baixa_duas_vezes() {
             Consumo existente = Consumo.builder().id(7L).chave("c1").ordem(ordem).produto(tarugo).quantidade(n("60")).build();
             when(consumoRepo.findByChave("c1")).thenReturn(Optional.of(existente));
-            consumos.consumir(99L, new ConsumoIn("c1", 2L, n("60"), null, null, null), 9L);
+            consumos.consumir(99L, new ConsumoIn("c1", 2L, n("60"), null, null, null, null), 9L);
             verifyNoInteractions(estoque);
         }
 
         @Test
         void so_material_da_op_e_so_em_op_liberada_ou_produzindo() {
-            assertThatThrownBy(() -> consumos.consumir(99L, new ConsumoIn("c1", 1L, n("1"), null, null, null), 9L))
+            assertThatThrownBy(() -> consumos.consumir(99L, new ConsumoIn("c1", 1L, n("1"), null, null, null, null), 9L))
                     .hasMessageContaining("não faz parte da OP");
             ordem.setStatus("PLANEJADA");
-            assertThatThrownBy(() -> consumos.consumir(99L, new ConsumoIn("c2", 2L, n("1"), null, null, null), 9L))
+            assertThatThrownBy(() -> consumos.consumir(99L, new ConsumoIn("c2", 2L, n("1"), null, null, null, null), 9L))
                     .hasMessageContaining("não aceita consumo");
         }
 

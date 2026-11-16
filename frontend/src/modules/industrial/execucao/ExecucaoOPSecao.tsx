@@ -7,6 +7,7 @@ import { usePermissao } from '@/shared/hooks/usePermissao'
 import { STATUS_APONTAMENTO, type ExecucaoOP } from '@/types/industrial'
 import { dataHoraBR, horas, num } from '../comum'
 import ConsumoModal from './ConsumoModal'
+import MetalurgiaOPSecao from './MetalurgiaOPSecao'
 
 export const MODULO_APONTAMENTO = 'IND_APONTAMENTO'
 
@@ -149,6 +150,8 @@ export default function ExecucaoOPSecao({ ordemId }: { ordemId: number }) {
           )}
         </>
       )}
+
+      <MetalurgiaOPSecao ordemId={ordemId} />
 
       {consumindo && <ConsumoModal ordemId={ordemId} onClose={() => setConsumindo(false)} />}
       {estorno && (

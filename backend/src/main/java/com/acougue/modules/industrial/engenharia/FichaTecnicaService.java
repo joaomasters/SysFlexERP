@@ -21,6 +21,7 @@ public class FichaTecnicaService {
 
     private final FichaTecnicaRepository fichaRepo;
     private final ProdutoRepository produtoRepo;
+    private final com.acougue.modules.industrial.extrusao.LigaRepository ligaRepo;
 
     static String texto(String valor) {
         return valor == null || valor.isBlank() ? null : valor.trim();
@@ -57,6 +58,12 @@ public class FichaTecnicaService {
             throw new BusinessException("O lote mínimo precisa ser múltiplo do lote múltiplo.");
         }
         f.setTipoItem(in.tipoItem());
+        if (in.ligaId() == null) f.setLiga(null);
+        else if (f.getLiga() == null || !f.getLiga().getId().equals(in.ligaId())) {
+            var liga = ligaRepo.findById(in.ligaId()).orElseThrow(() -> new EntityNotFoundException("Liga não encontrada: " + in.ligaId()));
+            if (!liga.getAtivo()) throw new BusinessException("A liga " + liga.getCodigo() + " está inativa.");
+            f.setLiga(liga);
+        }
         f.setCodigoDesenho(texto(in.codigoDesenho()));
         f.setRevisaoDesenho(texto(in.revisaoDesenho()));
         f.setPesoUnitarioKg(in.pesoUnitarioKg());

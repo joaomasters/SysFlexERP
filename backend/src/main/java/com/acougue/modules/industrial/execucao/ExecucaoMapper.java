@@ -68,7 +68,7 @@ public class ExecucaoMapper {
     public ConsumoOut consumo(Consumo c, Map<Long, String> nomes) {
         Produto p = c.getProduto();
         return new ConsumoOut(c.getId(), p.getId(), p.getCodigoInterno(), p.getNome(), p.getUnidadeMedida(), c.getQuantidade(),
-                c.getCustoUnitario(), c.getLoteMaterial(), c.getApontamentoId(), c.getObservacao(), nomes.get(c.getUsuarioId()),
+                c.getCustoUnitario(), c.getLoteMaterial(), c.getLoteMpId(), c.getApontamentoId(), c.getObservacao(), nomes.get(c.getUsuarioId()),
                 c.getCreatedAt(), c.getEstornado(), c.getMotivoEstorno());
     }
 }

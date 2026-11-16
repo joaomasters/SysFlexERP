@@ -50,7 +50,7 @@ class EngenhariaTest {
     void setUp() {
         boms = new BomService(bomRepo, produtoRepo);
         roteiros = new RoteiroService(roteiroRepo, produtoRepo, centroRepo, tipoRepo);
-        fichas = new FichaTecnicaService(fichaRepo, produtoRepo);
+        fichas = new FichaTecnicaService(fichaRepo, produtoRepo, mock(com.acougue.modules.industrial.extrusao.LigaRepository.class));
         perfil = produto(1, "Perfil U 40x20", "KG");
         tarugo = produto(2, "Tarugo 6063", "KG");
         embalagem = produto(3, "Filme stretch", "UN");
@@ -234,7 +234,7 @@ class EngenhariaTest {
     @DisplayName("Ficha técnica")
     class Ficha {
         private FichaIn ficha(String minimo, String multiplo) {
-            return new FichaIn("ACABADO", "DES-1", "A", null, n("0.85"), n("6000"),
+            return new FichaIn("ACABADO", null, "DES-1", "A", null, n("0.85"), n("6000"),
                     minimo == null ? null : n(minimo), multiplo == null ? null : n(multiplo), 3, true, null);
         }
 
@@ -255,7 +255,7 @@ class EngenhariaTest {
 
         @Test
         void recusa_tipo_desconhecido() {
-            assertThatThrownBy(() -> fichas.salvar(1L, new FichaIn("SUCATA", null, null, null, null, null, null, null, null, null, null)))
+            assertThatThrownBy(() -> fichas.salvar(1L, new FichaIn("SUCATA", null, null, null, null, null, null, null, null, null, null, null)))
                     .hasMessageContaining("Tipo de item");
         }
     }

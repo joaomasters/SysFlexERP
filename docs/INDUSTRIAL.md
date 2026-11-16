@@ -9,7 +9,7 @@ Este documento registra a auditoria do SysFlex feita antes de começar os módul
 | Camada | O que existe |
 | --- | --- |
 | Backend | Spring Boot 3, Java 17, monólito modular. Pacotes em `com.acougue`: `entity` e `repository` compartilhados, regras em `modules/<área>` (service, controller, dto). |
-| Banco | PostgreSQL com **um schema por empresa** (`public` para a principal e `tenant_*` para as demais). Flyway (`db/migration`, V1 a V41). O `MigradorSchemasEmpresas` aplica cada migration em todos os schemas no boot. O JPA roda com `ddl-auto: validate`. |
+| Banco | PostgreSQL com **um schema por empresa** (`public` para a principal e `tenant_*` para as demais). Flyway (`db/migration`, V1 a V42). O `MigradorSchemasEmpresas` aplica cada migration em todos os schemas no boot. O JPA roda com `ddl-auto: validate`. |
 | Multi-empresa | O `TenantResolvingFilter` e o `TenantIdentifierResolver` trocam o schema por requisição. `public.tenants` é lida sempre via JDBC (`TenantRepository`). |
 | Segurança | JWT (`JwtAuthFilter`). Permissões por **módulo e ação**: a enum `Modulo`, a anotação `@ExigirPermissao` e a tabela `perfil_permissoes` (ver, criar, editar, excluir). O SUPER_ADMIN tem acesso total. O modo JARVIS é só leitura, garantido também pelo Postgres. |
 | Auditoria | `AuditoriaAspect`: toda ação de escrita com `@ExigirPermissao` é registrada sozinha em `log_auditoria`. |
@@ -58,7 +58,7 @@ Este documento registra a auditoria do SysFlex feita antes de começar os módul
 | 1. Fundação | Habilitação por empresa, permissão, unidades, setores, centros de trabalho, turnos, tipos de máquina com parâmetros, máquinas (status, horímetro, manutenção, histórico, turnos), ferramentas/matrizes e alocação de operadores | **Entregue** |
 | 2. Engenharia e PCP | Ficha técnica industrial (estende o produto), BOM versionada com vigência, roteiro versionado, OP com estados e transições, congelamento da revisão de engenharia na liberação, planejamento básico | **Entregue** |
 | 3. Execução (MES) | Apontamento (início, pausa, fim, parcial), paradas e motivos, consumo real, WIP por lote, tela de chão de fábrica para tablet, baixa idempotente no estoque | **Entregue** |
-| 4. Extrusão | Ligas, tarugos e lotes de matéria-prima com certificado, receitas por liga e equipamento, medições (aquecimento, extrusão, tratamento térmico) com origem manual/sensor, perdas | A fazer |
+| 4. Extrusão | Ligas, tarugos e lotes de matéria-prima com certificado, receitas por liga e equipamento, medições (aquecimento, extrusão, tratamento térmico) com origem manual/sensor, perdas | **Entregue** |
 | 5. Qualidade e rastreabilidade | Planos de inspeção, inspeções e não conformidades, quarentena e liberação, genealogia de lotes (divisão e união), consulta da origem ao cliente, QR por lote | A fazer |
 | 6. Expedição | Pedido de expedição, reserva de lote, separação, conferência, romaneio, carregamento sem dupla baixa, bloqueio por qualidade, ligação com o fiscal existente sem emitir nota automaticamente | A fazer |
 | 7. Custos, MRP e indicadores | Custo estimado × real por OP, MRP com sugestões (sem aprovar sozinho), dashboards, OEE só quando houver dados confiáveis | A fazer |
@@ -373,3 +373,120 @@ A migration cria tabelas e amplia a lista de tipos de movimentação. Voltar o c
 - **Sem modo offline:** a idempotência protege o reenvio, mas o tablet precisa de rede para apontar. Uma fila offline no aparelho fica para depois, se o chão de fábrica pedir.
 - **Ordem das operações:** a ordem não é forçada. Uma operação pode começar antes da anterior terminar, o que é comum com lotes parciais.
 - **Leitura de máquina:** horímetro e contadores não são lidos da máquina. A quantidade é a informada pelo operador. Integração com sensores fica para depois, sempre marcada como origem "sensor".
+
+## 7. Sprint 4: extrusão
+
+### Banco: `V42__industrial_extrusao.sql`
+
+| Tabela | Conteúdo |
+| --- | --- |
+| `ind_liga`, `ind_liga_elemento` | Liga (código, norma, densidade) e a faixa de cada elemento químico em % de massa. Mínimo ou máximo podem ficar em branco |
+| `ind_lote_mp`, `ind_lote_mp_composicao` | Lote de matéria-prima (corrida do fornecedor): material, liga, fornecedor, certificado, data, quantidade, diâmetro e comprimento, situação (quarentena, liberado, bloqueado), composição real do certificado |
+| `ind_receita`, `ind_receita_parametro` | Receita de processo por liga e tipo de máquina, numa etapa (aquecimento, extrusão, resfriamento, tratamento térmico, outra), opcionalmente de um produto. Parâmetros com alvo, mínimo, máximo e obrigatoriedade. Revisão sobe a cada alteração |
+| `ind_medicao`, `ind_medicao_valor` | Medição de processo na OP: receita e revisão usadas, origem (MANUAL/SENSOR), valores com a faixa da época e se ficaram dentro dela |
+| `ind_perda` | Perda metálica em kg (topo de tarugo, ponta de perfil, retalho, sucata de processo, outra), com estorno |
+
+- **Colunas novas e opcionais em tabelas existentes:**
+  - `ind_ficha_tecnica.liga_id`: a liga do produto;
+  - `ind_consumo.lote_mp_id`: o lote de matéria-prima consumido.
+- **Sem valores de processo no código:** a migration **não grava nenhum valor** de temperatura, pressão, velocidade ou composição. Ligas, faixas e receitas são cadastro da empresa.
+- **Permissão `IND_EXTRUSAO`** (cadastros de ligas, lotes e receitas): vem liberada para ADMIN e SUPER_ADMIN. Medições e perdas são registradas no chão de fábrica, com `IND_APONTAMENTO`.
+
+### API
+
+| Rota | Permissão |
+| --- | --- |
+| `GET /industrial/extrusao/recursos` (tipos de máquina e fornecedores ativos) | IND_EXTRUSAO ver |
+| `GET /industrial/extrusao/ligas` · `POST` · `PUT /{id}` · `/{id}/inativar` · `/reativar` | ver: extrusão **ou** engenharia; escrita: IND_EXTRUSAO |
+| `GET /industrial/extrusao/lotes?produtoId=&status=` · `GET /lotes/{id}` · `POST` · `PUT /{id}` · `POST /lotes/{id}/status` `{status, versao, motivo}` | IND_EXTRUSAO |
+| `GET /industrial/extrusao/lotes-disponiveis?produtoId=` | chão de fábrica **ou** extrusão |
+| `GET /industrial/extrusao/receitas?tipoMaquinaId=&ligaId=` · `POST` · `PUT /{id}` · inativar/reativar | IND_EXTRUSAO |
+| `GET /industrial/extrusao/receitas-da-op?ordemId=&maquinaId=` | chão de fábrica **ou** extrusão |
+| `POST /industrial/medicoes` · `GET /industrial/medicoes?de=&ate=&somenteFora=` | apontamento criar / extrusão ver |
+| `POST /industrial/perdas` · `POST /industrial/perdas/{id}/estornar` | apontamento criar / excluir |
+| `GET /industrial/ordens/{id}/metalurgia` | apontamento, PCP **ou** extrusão |
+
+A lista de produtos industriais (`GET /industrial/produtos`) passou a aceitar também quem vê a extrusão.
+
+### Regras de negócio
+
+- **Liga:**
+  - código único em maiúsculas;
+  - o elemento é o símbolo químico (Si, Fe, Mg…) e não se repete;
+  - o mínimo não pode passar do máximo.
+- **Lote de matéria-prima:**
+  - entra em **quarentena**;
+  - o número é único por material;
+  - a liga precisa ser a mesma da ficha técnica do material, quando a ficha tiver liga;
+  - dados e composição só mudam em quarentena e sem consumo;
+  - liberar só passa com **todos os elementos da liga dentro da faixa**: um elemento fora ou sem valor no certificado é recusado, e a mensagem diz qual (ex.: "Mg 0,95% acima do máximo 0,9%");
+  - bloquear e voltar para quarentena exigem motivo;
+  - um lote bloqueado só volta para quarentena, nunca direto para liberado.
+- **Consumo com lote:**
+  - um material que tem lotes cadastrados passa a ser **controlado por lote**, e o consumo precisa indicar o lote;
+  - o lote precisa ser do material, estar liberado e ter saldo (recebido menos consumido);
+  - o lote fica travado no banco durante o consumo, então dois consumos ao mesmo tempo não passam do saldo;
+  - a tela sugere o lote mais antigo (FIFO);
+  - o estorno do consumo devolve o saldo ao lote.
+- **Lote e estoque:** cadastrar o lote **não dá entrada no estoque**. O lote é o registro de rastreabilidade e qualidade; a quantidade física continua entrando pelo recebimento que já existe. O consumo precisa de saldo nos dois.
+- **Receita:**
+  - código único;
+  - os parâmetros não se repetem;
+  - o mínimo não pode passar do máximo, e o alvo precisa estar dentro da faixa;
+  - toda alteração sobe a revisão;
+  - a receita usada numa OP é escolhida pela **liga do produto (ficha técnica) + tipo da máquina**, e só as específicas de outro produto ficam de fora.
+- **Medição:**
+  - os parâmetros obrigatórios precisam vir, e um parâmetro que não é da receita é recusado;
+  - a máquina precisa ser do tipo da receita;
+  - a faixa e a revisão vigentes são **copiadas** para a medição, então mudar a receita depois não altera o histórico;
+  - um valor fora da faixa **não bloqueia nem comanda nada**: marca a medição como fora de especificação e exige a observação da ação tomada;
+  - a origem padrão é MANUAL; SENSOR fica reservado para um adaptador futuro de leitura de equipamento;
+  - o mesmo comando reenviado com a mesma chave não duplica.
+- **Rendimento metálico da OP:**
+  - entrada = consumo de metal (materiais com liga na ficha ou com lote de matéria-prima);
+  - produzido = a quantidade boa da última operação;
+  - não apurado = entrada − produzido − perdas registradas;
+  - tudo é convertido para kg pela unidade (KG direto; M pelo peso linear da ficha; outras unidades pelo peso por unidade da ficha); sem peso para converter, o rendimento fica em branco e a tela diz o que falta;
+  - as perdas não movimentam o estoque.
+
+### Frontend
+
+- **Indústria → Extrusão** (`/industrial/extrusao`), com quatro abas:
+  - **Lotes de matéria-prima:**
+    - receber o lote com a composição do certificado, e o campo fica vermelho quando sai da faixa da liga;
+    - liberar, bloquear e voltar para quarentena;
+    - saldo do lote e aviso de "fora da liga".
+  - **Ligas:** a composição de cada elemento.
+  - **Receitas de processo:** parâmetros com mínimo, alvo e máximo.
+  - **Medições:** por período, com o filtro das que ficaram fora de especificação.
+- **Chão de fábrica:**
+  - o cartão do apontamento ganhou **Medição** e **Perda**;
+  - a medição mostra a faixa de cada parâmetro e marca em vermelho o valor fora dela;
+  - o consumo mostra os lotes liberados do material, com o mais antigo primeiro.
+- **Detalhe da OP (Execução):** bloco **Metalurgia** com o balanço em kg e o rendimento, os lotes consumidos, as medições e as perdas, com estorno.
+- **Ficha técnica:** campo **Liga**.
+
+### Testes
+
+- **Backend:**
+  - `ExtrusaoTest` (14): desvios de composição, liga, liberação só dentro da faixa, motivo e transições do lote, edição só em quarentena, liga do produto, consumo de lote (situação, material e saldo), revisão e alvo da receita, medição dentro e fora da faixa, obrigatórios, parâmetro desconhecido, tipo de máquina, chave repetida, conversão para kg e balanço metálico;
+  - `ExecucaoTest` ganhou o consumo controlado por lote;
+  - suíte completa: 473 testes, 0 falhas.
+- **API de ponta a ponta:** script num Postgres novo depois da V42, sem falhas. Conferiu o balanço de uma OP: 110 kg de tarugo consumidos, 95 kg de perfil bons, 11 kg de perdas, 4 kg não apurados, rendimento de 86,36%.
+- **Correção durante os testes:** a API encontrou um erro 500 ao receber um lote que os testes unitários não pegavam. Com `@Version` iniciado em 0, o Spring Data trata o lote novo como existente e faz *merge*, devolvendo outra instância, e a composição ficava apontando para a original. A composição agora é ligada à instância gravada.
+- **Suíte E2E completa:** 62 passando e 0 falhando com 3 workers.
+  - Com 6 workers, numa máquina carregada, testes de outras áreas estouraram o tempo por carga, sem erro de verificação.
+  - Um deles foi `acesso/troca-empresa.spec.ts`, cujo `beforeAll` cria uma empresa com limite de 30 s.
+- **Tempo de criar uma empresa:** as migrations industriais (V39 a V42) acrescentam cerca de 1,7 s, num total medido de 5,5 s isolado.
+- **E2E:** `playwright/tests/industrial/extrusao.global.spec.ts` (2) cobre a liga e os lotes pela tela (o lote fora da faixa fica sem "Liberar"; o lote dentro libera), a medição fora da receita no chão de fábrica exigindo a ação tomada, e o consumo mostrando só o lote liberado.
+
+### Reversão
+
+A migration cria tabelas e acrescenta duas colunas opcionais. Voltar o código deixa tudo parado, sem efeito: o consumo deixa de exigir o lote. Para esconder a extrusão de um perfil, basta tirar `IND_EXTRUSAO`.
+
+### Limitações conhecidas
+
+- **Lote × estoque:** como dito acima, o lote não lança estoque. Unir o recebimento com nota ao cadastro do lote (receber a nota e criar o lote no mesmo passo) é uma melhoria natural.
+- **Arquivo do certificado:** guarda-se o número, não o PDF. O anexo de arquivos fica para depois.
+- **Sensores:** não há leitura automática. A origem SENSOR existe no modelo, mas só um adaptador futuro poderá gravá-la, sem nunca enviar comando ao equipamento.
+- **Genealogia do lote:** o caminho lote de matéria-prima → OP → lote de produto acabado já fica gravado (consumo com lote, apontamento com lote). A consulta completa "da origem ao cliente" vem na sprint 5.

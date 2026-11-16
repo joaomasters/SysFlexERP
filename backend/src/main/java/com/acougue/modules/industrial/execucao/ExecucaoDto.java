@@ -40,7 +40,7 @@ public final class ExecucaoDto {
 
     public record ConsumoIn(@NotBlank @Size(max = 40) String chave, @NotNull Long produtoId,
                             @NotNull @Positive BigDecimal quantidade, @Size(max = 40) String loteMaterial,
-                            Long apontamentoId, @Size(max = 500) String observacao) {}
+                            Long apontamentoId, @Size(max = 500) String observacao, Long loteMpId) {}
 
     // ── Saídas ───────────────────────────────────────────────────────────
     public record ParadaOut(Long id, Long maquinaId, String maquinaCodigo, Long motivoId, String motivoDescricao,
@@ -56,7 +56,7 @@ public final class ExecucaoDto {
                                  boolean ultimaOperacao, ParadaOut paradaAberta, String observacao, String motivoEstorno) {}
 
     public record ConsumoOut(Long id, Long produtoId, String codigo, String nome, String unidade, BigDecimal quantidade,
-                             BigDecimal custoUnitario, String loteMaterial, Long apontamentoId, String observacao,
+                             BigDecimal custoUnitario, String loteMaterial, Long loteMpId, Long apontamentoId, String observacao,
                              String usuarioNome, LocalDateTime createdAt, boolean estornado, String motivoEstorno) {}
 
     /** Uma operação disponível para apontar num centro de trabalho. */

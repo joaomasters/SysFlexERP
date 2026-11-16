@@ -29,21 +29,22 @@ public final class EngenhariaDto {
     public record Recursos(List<Recurso> centros, List<Recurso> tiposMaquina) {}
 
     // ── Ficha técnica ────────────────────────────────────────────────────
-    public record FichaIn(@NotBlank String tipoItem, @Size(max = 40) String codigoDesenho,
+    public record FichaIn(@NotBlank String tipoItem, Long ligaId, @Size(max = 40) String codigoDesenho,
                           @Size(max = 10) String revisaoDesenho, @Positive BigDecimal pesoUnitarioKg,
                           @Positive BigDecimal pesoLinearKgM, @Positive BigDecimal comprimentoMm,
                           @Positive BigDecimal loteMinimo, @Positive BigDecimal loteMultiplo,
                           @PositiveOrZero @Max(3650) Integer prazoProducaoDias, Boolean controlaLote, String observacao) {}
 
     public record FichaOut(Long id, Long produtoId, String produtoCodigo, String produtoNome, String unidade,
-                           String tipoItem, String codigoDesenho, String revisaoDesenho, BigDecimal pesoUnitarioKg,
+                           String tipoItem, Long ligaId, String ligaCodigo, String codigoDesenho, String revisaoDesenho, BigDecimal pesoUnitarioKg,
                            BigDecimal pesoLinearKgM, BigDecimal comprimentoMm, BigDecimal loteMinimo,
                            BigDecimal loteMultiplo, Integer prazoProducaoDias, boolean controlaLote,
                            String observacao, LocalDateTime updatedAt) {
         static FichaOut de(FichaTecnica f) {
             Produto p = f.getProduto();
             return new FichaOut(f.getId(), p.getId(), p.getCodigoInterno(), p.getNome(), p.getUnidadeMedida(),
-                    f.getTipoItem(), f.getCodigoDesenho(), f.getRevisaoDesenho(), f.getPesoUnitarioKg(),
+                    f.getTipoItem(), f.getLiga() == null ? null : f.getLiga().getId(),
+                    f.getLiga() == null ? null : f.getLiga().getCodigo(), f.getCodigoDesenho(), f.getRevisaoDesenho(), f.getPesoUnitarioKg(),
                     f.getPesoLinearKgM(), f.getComprimentoMm(), f.getLoteMinimo(), f.getLoteMultiplo(),
                     f.getPrazoProducaoDias(), f.getControlaLote(), f.getObservacao(), f.getUpdatedAt());
         }

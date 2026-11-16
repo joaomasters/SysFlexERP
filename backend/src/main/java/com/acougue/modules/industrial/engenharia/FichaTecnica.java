@@ -24,6 +24,10 @@ public class FichaTecnica {
     private Produto produto;
     @Column(name = "tipo_item", nullable = false, length = 15)
     private String tipoItem;
+    /** Liga do produto (perfis e tarugos). Usada para escolher a receita e para o rendimento metálico. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "liga_id")
+    private com.acougue.modules.industrial.extrusao.Liga liga;
     @Column(name = "codigo_desenho", length = 40)
     private String codigoDesenho;
     @Column(name = "revisao_desenho", length = 10)

@@ -8,16 +8,16 @@ import {
 } from '@/shared/components/ui'
 import { usePermissao } from '@/shared/hooks/usePermissao'
 import { usePaginacao } from '@/shared/hooks/usePaginacao'
-import { TIPOS_ITEM, type FichaTecnica, type TipoItem } from '@/types/industrial'
+import { TIPOS_ITEM, type FichaTecnica, type Liga, type TipoItem } from '@/types/industrial'
 import { num, useProdutosIndustriais } from '../comum'
 import { numeroOuNulo, paraTexto } from '../estrutura/CadastroSimples'
 import { MODULO_ENG } from './EstruturasAba'
 
-type Form = Record<'tipoItem' | 'codigoDesenho' | 'revisaoDesenho' | 'pesoUnitarioKg' | 'pesoLinearKgM' | 'comprimentoMm'
+type Form = Record<'tipoItem' | 'ligaId' | 'codigoDesenho' | 'revisaoDesenho' | 'pesoUnitarioKg' | 'pesoLinearKgM' | 'comprimentoMm'
   | 'loteMinimo' | 'loteMultiplo' | 'prazoProducaoDias' | 'observacao', string> & { produtoId: number; controlaLote: boolean }
 
 const paraForm = (f?: FichaTecnica): Form => ({
-  produtoId: f?.produtoId ?? 0, tipoItem: f?.tipoItem ?? '', codigoDesenho: f?.codigoDesenho ?? '', revisaoDesenho: f?.revisaoDesenho ?? '',
+  produtoId: f?.produtoId ?? 0, tipoItem: f?.tipoItem ?? '', ligaId: f?.ligaId ? String(f.ligaId) : '', codigoDesenho: f?.codigoDesenho ?? '', revisaoDesenho: f?.revisaoDesenho ?? '',
   pesoUnitarioKg: paraTexto(f?.pesoUnitarioKg), pesoLinearKgM: paraTexto(f?.pesoLinearKgM), comprimentoMm: paraTexto(f?.comprimentoMm),
   loteMinimo: paraTexto(f?.loteMinimo), loteMultiplo: paraTexto(f?.loteMultiplo), prazoProducaoDias: paraTexto(f?.prazoProducaoDias),
   observacao: f?.observacao ?? '', controlaLote: f?.controlaLote ?? true,
@@ -31,6 +31,7 @@ export default function FichasAba() {
   const { data: fichas = [], isLoading } = useQuery<FichaTecnica[]>({
     queryKey: ['ind-fichas'], queryFn: () => api.get('/industrial/engenharia/fichas').then(r => r.data),
   })
+  const { data: ligas = [] } = useQuery<Liga[]>({ queryKey: ['ind-ligas'], queryFn: () => api.get('/industrial/extrusao/ligas').then(r => r.data) })
   const [busca, setBusca] = useState('')
   const [form, setForm] = useState<{ dados: Form; nova: boolean } | null>(null)
   const visiveis = fichas.filter(f => !busca.trim()
@@ -39,7 +40,7 @@ export default function FichasAba() {
 
   const salvar = useMutation({
     mutationFn: (f: Form) => api.put(`/industrial/engenharia/fichas/${f.produtoId}`, {
-      tipoItem: f.tipoItem, codigoDesenho: f.codigoDesenho || null, revisaoDesenho: f.revisaoDesenho || null,
+      tipoItem: f.tipoItem, ligaId: f.ligaId ? Number(f.ligaId) : null, codigoDesenho: f.codigoDesenho || null, revisaoDesenho: f.revisaoDesenho || null,
       pesoUnitarioKg: numeroOuNulo(f.pesoUnitarioKg), pesoLinearKgM: numeroOuNulo(f.pesoLinearKgM),
       comprimentoMm: numeroOuNulo(f.comprimentoMm), loteMinimo: numeroOuNulo(f.loteMinimo), loteMultiplo: numeroOuNulo(f.loteMultiplo),
       prazoProducaoDias: numeroOuNulo(f.prazoProducaoDias), controlaLote: f.controlaLote, observacao: f.observacao || null,
@@ -83,7 +84,7 @@ export default function FichasAba() {
               {pag.itens.map(f => (
                 <TR key={f.id}>
                   <TD><span className="font-medium">{f.produtoNome}</span> <span className="text-xs text-gray-400 font-mono">{f.produtoCodigo}</span></TD>
-                  <TD><StatusBadge tone="info">{TIPOS_ITEM[f.tipoItem]}</StatusBadge></TD>
+                  <TD><StatusBadge tone="info">{TIPOS_ITEM[f.tipoItem]}</StatusBadge>{f.ligaCodigo && <span className="ml-2 text-xs font-mono text-gray-500">liga {f.ligaCodigo}</span>}</TD>
                   <TD className="font-mono text-sm">{f.codigoDesenho ? `${f.codigoDesenho}${f.revisaoDesenho ? ` rev. ${f.revisaoDesenho}` : ''}` : '—'}</TD>
                   <TD align="right" className="tabular-nums text-sm">
                     {f.pesoLinearKgM ? `${num(f.pesoLinearKgM, 4)} kg/m` : f.pesoUnitarioKg ? `${num(f.pesoUnitarioKg, 4)} kg/un.` : '—'}
@@ -123,6 +124,13 @@ export default function FichasAba() {
                 onChange={e => setForm({ ...form, dados: { ...form.dados, tipoItem: e.target.value as TipoItem } })}>
                 <option value="">Selecione...</option>
                 {Object.entries(TIPOS_ITEM).map(([v, r]) => <option key={v} value={v}>{r}</option>)}
+              </select>
+            </Field>
+            <Field label="Liga" htmlFor="ficha-liga" hint="Perfis e tarugos: escolhe a receita e entra no rendimento metálico">
+              <select id="ficha-liga" value={form.dados.ligaId} className={baseInputClass}
+                onChange={e => setForm({ ...form, dados: { ...form.dados, ligaId: e.target.value } })}>
+                <option value="">Sem liga</option>
+                {ligas.filter(l => l.ativo || String(l.id) === form.dados.ligaId).map(l => <option key={l.id} value={l.id}>{l.codigo} · {l.descricao}</option>)}
               </select>
             </Field>
             <div className="grid grid-cols-2 gap-3">

@@ -101,7 +101,7 @@ export interface ProdutoIndustrial {
 
 export interface FichaTecnica {
   id: number; produtoId: number; produtoCodigo?: string; produtoNome: string; unidade: string; tipoItem: TipoItem
-  codigoDesenho?: string; revisaoDesenho?: string; pesoUnitarioKg?: number | null; pesoLinearKgM?: number | null
+  ligaId?: number | null; ligaCodigo?: string | null; codigoDesenho?: string; revisaoDesenho?: string; pesoUnitarioKg?: number | null; pesoLinearKgM?: number | null
   comprimentoMm?: number | null; loteMinimo?: number | null; loteMultiplo?: number | null
   prazoProducaoDias?: number | null; controlaLote: boolean; observacao?: string; updatedAt: string
 }
@@ -281,3 +281,94 @@ export const STATUS_APONTAMENTO: Record<StatusApontamento, { rotulo: string; tom
 /** Chave de idempotência dos comandos do chão de fábrica (o mesmo comando reenviado não duplica). */
 export const novaChave = () =>
   (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`)
+
+// ── Sprint 4: extrusão ─────────────────────────────────────────────────
+export interface ElementoLiga { elemento: string; minimo?: number | null; maximo?: number | null }
+
+export interface Liga {
+  id: number; codigo: string; descricao: string; norma?: string | null; densidadeGCm3?: number | null
+  observacao?: string | null; ativo: boolean; elementos: ElementoLiga[]
+}
+
+export type StatusLoteMp = 'QUARENTENA' | 'LIBERADO' | 'BLOQUEADO'
+
+export interface ComposicaoLote { elemento: string; percentual: number; minimo?: number | null; maximo?: number | null; dentro: boolean }
+
+export interface LoteMp {
+  id: number; numero: string; produtoId: number; produtoNome: string; unidade: string; ligaId: number; ligaCodigo: string
+  fornecedorId?: number | null; fornecedorNome?: string | null; certificado?: string | null; dataRecebimento: string
+  quantidade: number; consumido: number; saldo: number; diametroMm?: number | null; comprimentoMm?: number | null
+  status: StatusLoteMp; motivoStatus?: string | null; statusEm?: string | null; observacao?: string | null; versao: number
+  composicao: ComposicaoLote[]; desvios: string[]
+}
+
+export interface LoteDisponivel { id: number; numero: string; ligaCodigo: string; saldo: number; dataRecebimento: string; certificado?: string | null }
+
+export type EtapaReceita = 'AQUECIMENTO' | 'EXTRUSAO' | 'RESFRIAMENTO' | 'TRATAMENTO_TERMICO' | 'OUTRA'
+
+export interface ParametroReceita {
+  id?: number; codigo: string; nome: string; unidade?: string | null; alvo?: number | null; minimo?: number | null
+  maximo?: number | null; obrigatorio: boolean
+}
+
+export interface Receita {
+  id: number; codigo: string; descricao: string; etapa: EtapaReceita; ligaId: number; ligaCodigo: string
+  tipoMaquinaId: number; tipoMaquinaNome: string; produtoId?: number | null; produtoNome?: string | null; revisao: number
+  observacao?: string | null; ativo: boolean; updatedAt: string; parametros: ParametroReceita[]
+}
+
+export interface ValorMedicao {
+  codigo: string; nome: string; unidade?: string | null; valor: number; alvo?: number | null; minimo?: number | null
+  maximo?: number | null; dentroFaixa: boolean
+}
+
+export interface Medicao {
+  id: number; ordemId: number; ordemNumero: string; apontamentoId?: number | null; maquinaCodigo?: string | null
+  receitaId: number; receitaCodigo: string; receitaRevisao: number; etapa: EtapaReceita; origem: 'MANUAL' | 'SENSOR'
+  medidoEm: string; foraEspecificacao: boolean; observacao?: string | null; usuarioNome?: string | null; valores: ValorMedicao[]
+}
+
+export type TipoPerda = 'TOPO_TARUGO' | 'PONTA_PERFIL' | 'RETALHO' | 'SUCATA_PROCESSO' | 'OUTRO'
+
+export interface PerdaMetalica {
+  id: number; ordemId: number; apontamentoId?: number | null; tipo: TipoPerda; quantidadeKg: number; observacao?: string | null
+  usuarioNome?: string | null; createdAt: string; estornada: boolean; motivoEstorno?: string | null
+}
+
+export interface Rendimento {
+  entradaKg?: number | null; produzidoKg?: number | null; perdasKg: number; naoApuradoKg?: number | null
+  rendimentoPercentual?: number | null; avisos: string[]
+}
+
+export interface MetalurgiaOP {
+  medicoes: Medicao[]; perdas: PerdaMetalica[]; rendimento: Rendimento
+  lotesConsumidos: { loteId: number; numero: string; ligaCodigo: string; quantidade: number }[]
+}
+
+export const STATUS_LOTE_MP: Record<StatusLoteMp, { rotulo: string; tom: 'success' | 'warning' | 'danger' }> = {
+  QUARENTENA: { rotulo: 'Quarentena', tom: 'warning' },
+  LIBERADO: { rotulo: 'Liberado', tom: 'success' },
+  BLOQUEADO: { rotulo: 'Bloqueado', tom: 'danger' },
+}
+
+export const ETAPAS_RECEITA: Record<EtapaReceita, string> = {
+  AQUECIMENTO: 'Aquecimento', EXTRUSAO: 'Extrusão', RESFRIAMENTO: 'Resfriamento', TRATAMENTO_TERMICO: 'Tratamento térmico', OUTRA: 'Outra',
+}
+
+export const TIPOS_PERDA: Record<TipoPerda, string> = {
+  TOPO_TARUGO: 'Topo de tarugo', PONTA_PERFIL: 'Ponta de perfil', RETALHO: 'Retalho', SUCATA_PROCESSO: 'Sucata de processo', OUTRO: 'Outra',
+}
+
+/** Valor dentro de [mínimo, máximo]; limite em branco não restringe (mesma regra do backend). */
+export const dentroDaFaixa = (v: number, min?: number | null, max?: number | null) =>
+  (min == null || v >= min) && (max == null || v <= max)
+
+/** "460 a 500 °C", "até 0,35", "a partir de 2" ou "sem faixa". */
+export const faixaTexto = (min?: number | null, max?: number | null, unidade?: string | null) => {
+  const f = (x: number) => x.toLocaleString('pt-BR', { maximumFractionDigits: 4 })
+  const u = unidade ? ` ${unidade}` : ''
+  if (min != null && max != null) return `${f(min)} a ${f(max)}${u}`
+  if (max != null) return `até ${f(max)}${u}`
+  if (min != null) return `a partir de ${f(min)}${u}`
+  return 'sem faixa'
+}

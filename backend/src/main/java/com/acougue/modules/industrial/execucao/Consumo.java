@@ -30,6 +30,9 @@ public class Consumo {
     private String loteMaterial;
     @Column(name = "apontamento_id", updatable = false)
     private Long apontamentoId;
+    /** Lote de matéria-prima consumido (extrusão). Obrigatório para materiais controlados por lote. */
+    @Column(name = "lote_mp_id", updatable = false)
+    private Long loteMpId;
     @Column(columnDefinition = "TEXT", updatable = false)
     private String observacao;
     @Column(name = "usuario_id", updatable = false)

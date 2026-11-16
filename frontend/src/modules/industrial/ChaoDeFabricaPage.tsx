@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import { HardHat, Pause, Play, Square, Package, AlertTriangle } from 'lucide-react'
+import { HardHat, Pause, Play, Square, Package, AlertTriangle, Gauge, Recycle } from 'lucide-react'
 import { api } from '@/shared/api/axios'
 import { PageHeader, Modal, Field, baseInputClass, StatusBadge, LoadingState, EmptyState } from '@/shared/components/ui'
 import { usePermissao } from '@/shared/hooks/usePermissao'
@@ -11,6 +11,8 @@ import {
 } from '@/types/industrial'
 import { dataBR, horas, num } from './comum'
 import ConsumoModal from './execucao/ConsumoModal'
+import MedicaoModal from './execucao/MedicaoModal'
+import PerdaModal from './execucao/PerdaModal'
 import { MODULO_APONTAMENTO } from './execucao/ExecucaoOPSecao'
 
 const CHAVE_CENTRO = 'ind-chao-centro'
@@ -180,6 +182,8 @@ function MeuApontamento({ a, atualizadoEm, motivos, onMudou }:
   const [pausando, setPausando] = useState(false)
   const [finalizando, setFinalizando] = useState(false)
   const [consumindo, setConsumindo] = useState(false)
+  const [medindo, setMedindo] = useState(false)
+  const [perdendo, setPerdendo] = useState(false)
   useEffect(() => { const t = setInterval(() => setAgora(Date.now()), 15_000); return () => clearInterval(t) }, [])
 
   const decorrido = Math.max(0, (agora - atualizadoEm) / 60_000)
@@ -206,12 +210,14 @@ function MeuApontamento({ a, atualizadoEm, motivos, onMudou }:
           <AlertTriangle size={18} /> Pausado: {a.paradaAberta.motivoDescricao}
         </div>
       )}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mt-4">
         {pausado
           ? <BotaoGrande cor="sucesso" carregando={retomar.isPending} onClick={() => retomar.mutate()}><Play size={18} /> Retomar</BotaoGrande>
           : <BotaoGrande cor="alerta" onClick={() => setPausando(true)}><Pause size={18} /> Pausar</BotaoGrande>}
         <BotaoGrande cor="perigo" onClick={() => setFinalizando(true)}><Square size={18} /> Finalizar</BotaoGrande>
         <BotaoGrande cor="neutro" onClick={() => setConsumindo(true)}><Package size={18} /> Material</BotaoGrande>
+        <BotaoGrande cor="neutro" onClick={() => setMedindo(true)}><Gauge size={18} /> Medição</BotaoGrande>
+        <BotaoGrande cor="neutro" onClick={() => setPerdendo(true)}><Recycle size={18} /> Perda</BotaoGrande>
       </div>
 
       {pausando && (
@@ -221,6 +227,8 @@ function MeuApontamento({ a, atualizadoEm, motivos, onMudou }:
       )}
       {finalizando && <FinalizarModal a={a} onClose={() => setFinalizando(false)} onFeito={() => { setFinalizando(false); onMudou() }} />}
       {consumindo && <ConsumoModal ordemId={a.ordemId} apontamentoId={a.id} onClose={() => setConsumindo(false)} />}
+      {medindo && <MedicaoModal ordemId={a.ordemId} apontamentoId={a.id} maquinaId={a.maquinaId} onClose={() => setMedindo(false)} />}
+      {perdendo && <PerdaModal ordemId={a.ordemId} apontamentoId={a.id} onClose={() => setPerdendo(false)} />}
     </div>
   )
 }

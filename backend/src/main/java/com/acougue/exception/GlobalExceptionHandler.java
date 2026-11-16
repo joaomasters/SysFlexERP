@@ -141,7 +141,13 @@ public class GlobalExceptionHandler {
             Map.entry("uk_ind_parada_aberta", "Esta máquina já está parada. Recarregue a tela."),
             Map.entry("uk_ind_apontamento_chave", "Este apontamento já foi registrado. Recarregue a tela."),
             Map.entry("uk_ind_consumo_chave", "Este consumo já foi registrado. Recarregue a tela."),
-            Map.entry("uk_ind_parada_chave", "Esta parada já foi registrada. Recarregue a tela.")
+            Map.entry("uk_ind_parada_chave", "Esta parada já foi registrada. Recarregue a tela."),
+            // Extrusão (V42)
+            Map.entry("uk_ind_liga_codigo", "Já existe uma liga com este código."),
+            Map.entry("uk_ind_lote_mp_numero", "Já existe um lote com este número para este material."),
+            Map.entry("uk_ind_receita_codigo", "Já existe uma receita com este código."),
+            Map.entry("uk_ind_medicao_chave", "Esta medição já foi registrada. Recarregue a tela."),
+            Map.entry("uk_ind_perda_chave", "Esta perda já foi registrada. Recarregue a tela.")
     );
 
     // Violação de regra do banco (valor fora da lista, duplicado...): 422 com mensagem

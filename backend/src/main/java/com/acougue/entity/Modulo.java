@@ -30,7 +30,8 @@ public enum Modulo {
     IND_ESTRUTURA("Indústria: Estrutura produtiva"),
     IND_ENGENHARIA("Indústria: Engenharia de produto"),
     IND_PCP("Indústria: Ordens de produção e PCP"),
-    IND_APONTAMENTO("Indústria: Chão de fábrica (apontamentos)");
+    IND_APONTAMENTO("Indústria: Chão de fábrica (apontamentos)"),
+    IND_EXTRUSAO("Indústria: Extrusão (ligas, lotes de matéria-prima, receitas)");
 
     private final String rotulo;
 

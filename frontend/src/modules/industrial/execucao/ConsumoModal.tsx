@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { api } from '@/shared/api/axios'
 import { Modal, Button, Field, baseInputClass, LoadingState } from '@/shared/components/ui'
-import { novaChave, type ExecucaoOP } from '@/types/industrial'
+import { novaChave, type ExecucaoOP, type LoteDisponivel } from '@/types/industrial'
 import { num } from '../comum'
 
 /**
@@ -20,16 +20,26 @@ export default function ConsumoModal({ ordemId, apontamentoId, onClose }: { orde
   const [quantidade, setQuantidade] = useState('')
   const [lote, setLote] = useState('')
   const [chave, setChave] = useState(novaChave)
+  const [loteMpId, setLoteMpId] = useState<number | null>(null)
 
   const material = exec?.materiais.find(m => m.produtoId === produtoId)
+  // Lotes de matéria-prima liberados com saldo (FIFO: o primeiro é o mais antigo)
+  const { data: lotesMp = [] } = useQuery<LoteDisponivel[]>({
+    queryKey: ['ind-lotes-disponiveis', produtoId], enabled: !!produtoId,
+    queryFn: () => api.get('/industrial/extrusao/lotes-disponiveis', { params: { produtoId } }).then(r => r.data),
+  })
+  const loteEscolhido = loteMpId ?? lotesMp[0]?.id ?? null
 
   const registrar = useMutation({
     mutationFn: () => api.post(`/industrial/ordens/${ordemId}/consumos`, {
       chave, produtoId, quantidade: Number(quantidade), loteMaterial: lote || null, apontamentoId: apontamentoId ?? null,
+      loteMpId: lotesMp.length ? loteEscolhido : null,
     }),
     onSuccess: () => {
       toast.success(`Consumo de ${num(Number(quantidade), 4)} ${material?.unidade ?? ''} registrado.`)
       qc.invalidateQueries({ queryKey: ['ind-execucao', ordemId] })
+      qc.invalidateQueries({ queryKey: ['ind-lotes-disponiveis', produtoId] })
+      qc.invalidateQueries({ queryKey: ['ind-metalurgia', ordemId] })
       setChave(novaChave())
       setQuantidade('')
       setLote('')
@@ -38,6 +48,7 @@ export default function ConsumoModal({ ordemId, apontamentoId, onClose }: { orde
 
   function escolher(id: number) {
     setProdutoId(id)
+    setLoteMpId(null)
     const m = exec?.materiais.find(x => x.produtoId === id)
     setQuantidade(m && m.sugerido > 0 ? String(m.sugerido) : '')
   }
@@ -79,9 +90,25 @@ export default function ConsumoModal({ ordemId, apontamentoId, onClose }: { orde
                 <input id="consumo-qtd" type="number" inputMode="decimal" step="any" min="0" value={quantidade}
                   onChange={e => setQuantidade(e.target.value)} className={`${baseInputClass} text-lg py-3`} />
               </Field>
-              <Field label="Lote / corrida do material" htmlFor="consumo-lote" hint="Rastreabilidade: o lote do fornecedor">
-                <input id="consumo-lote" value={lote} maxLength={40} onChange={e => setLote(e.target.value)} className={`${baseInputClass} text-lg py-3`} />
-              </Field>
+              {lotesMp.length === 0 && (
+                <Field label="Lote / corrida do material" htmlFor="consumo-lote" hint="Rastreabilidade: o lote do fornecedor">
+                  <input id="consumo-lote" value={lote} maxLength={40} onChange={e => setLote(e.target.value)} className={`${baseInputClass} text-lg py-3`} />
+                </Field>
+              )}
+            </div>
+          )}
+          {material && lotesMp.length > 0 && (
+            <div>
+              <div className="text-sm font-semibold text-gray-700 mb-2">Lote de matéria-prima (o mais antigo primeiro)</div>
+              <div className="grid gap-2">
+                {lotesMp.map(l => (
+                  <button key={l.id} type="button" onClick={() => setLoteMpId(l.id)}
+                    className={`text-left rounded-xl border-2 p-3 ${loteEscolhido === l.id ? 'border-success-500 bg-success-50' : 'border-gray-200'}`}>
+                    <span className="font-mono font-bold">{l.numero}</span> · liga {l.ligaCodigo}
+                    <span className="block text-sm text-gray-500 tabular-nums">saldo {num(l.saldo, 4)} {material.unidade}{l.certificado ? ` · cert. ${l.certificado}` : ''}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>
