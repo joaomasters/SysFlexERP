@@ -41,6 +41,17 @@ export default function TenantsPage() {
     },
   })
 
+  const moduloIndustrial = useMutation({
+    mutationFn: (t: Tenant) => api.patch(`/admin/tenants/${t.id}/modulo-industrial`, { habilitado: !t.moduloIndustrial }),
+    onSuccess: (_, t) => {
+      toast.success(t.moduloIndustrial
+        ? `Indústria bloqueada para ${t.nome}. Os cadastros industriais continuam guardados.`
+        : `Indústria liberada para ${t.nome}. Os usuários veem o menu ao recarregar a página.`)
+      qc.invalidateQueries({ queryKey: ['tenants'] })
+      qc.invalidateQueries({ queryKey: ['industrial-situacao'] })
+    },
+  })
+
   if (!isAdministradorPlataforma) {
     return (
       <div className="p-4 sm:p-6">
@@ -81,6 +92,7 @@ export default function TenantsPage() {
                 <TH>Código</TH>
                 <TH>Nome</TH>
                 <TH>Status</TH>
+                <TH>Indústria</TH>
                 <TH align="right">Ações</TH>
               </tr>
             </THead>
@@ -98,6 +110,19 @@ export default function TenantsPage() {
                       <StatusBadge tone={t.ativo ? 'success' : 'neutral'}>
                         {t.ativo ? 'Ativa' : 'Inativa'}
                       </StatusBadge>
+                    </TD>
+                    <TD>
+                      <button
+                        type="button"
+                        title={t.moduloIndustrial ? 'Clique para bloquear os módulos industriais' : 'Clique para liberar os módulos industriais'}
+                        disabled={moduloIndustrial.isPending}
+                        onClick={() => moduloIndustrial.mutate(t)}
+                        className="disabled:opacity-50"
+                      >
+                        <StatusBadge tone={t.moduloIndustrial ? 'success' : 'neutral'}>
+                          {t.moduloIndustrial ? 'Liberada' : 'Bloqueada'}
+                        </StatusBadge>
+                      </button>
                     </TD>
                     <TD align="right">
                       <div className="flex justify-end gap-2">
