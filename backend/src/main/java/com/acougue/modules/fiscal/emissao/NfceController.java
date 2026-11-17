@@ -30,6 +30,16 @@ public class NfceController {
         return ResponseEntity.ok(nfce.emitirParaVenda(vendaId, dto == null ? null : dto.getDocumento()));
     }
 
+    /**
+     * Resolve uma NFC-e com resultado desconhecido consultando a SEFAZ pela chave. Permissão do PDV:
+     * o caixa que ficou sem resposta precisa poder conferir antes de emitir de novo.
+     */
+    @ExigirPermissao(modulo = Modulo.PDV, acao = Acao.CRIAR)
+    @PostMapping("/documentos/{documentoId}/consultar")
+    public ResponseEntity<NfceDTO> consultar(@PathVariable Long documentoId) {
+        return ResponseEntity.ok(nfce.consultar(documentoId));
+    }
+
     /** Para reimprimir o DANFE; 204 quando a venda não tem NFC-e. */
     @ExigirPermissao(modulo = Modulo.PDV, acao = Acao.VER)
     @GetMapping("/venda/{vendaId}")

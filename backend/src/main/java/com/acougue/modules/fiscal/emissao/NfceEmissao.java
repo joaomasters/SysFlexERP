@@ -20,7 +20,8 @@ public record NfceEmissao(
         List<Pagamento> pagamentos,
         BigDecimal troco,
         BigDecimal total,
-        Long vendaId) {
+        Long vendaId,
+        String chave) {                // gerada e gravada pelo ERP antes do envio: o provedor usa esta
 
     public record Emitente(String cnpj, String inscricaoEstadual, String razaoSocial, String nomeFantasia,
                            short regimeTributario, String logradouro, String numero, String complemento,

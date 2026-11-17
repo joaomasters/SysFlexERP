@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Search, RotateCcw } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { api } from '@/shared/api/axios'
+import { documentoValido, formatarCpfCnpj, normalizarDocumento, soDigitos } from '@/shared/utils/documento'
 import type { Fornecedor } from '@/types/fornecedor'
 import {
   PageHeader, Modal, Button, StatusBadge, Field, baseInputClass, ConfirmDialog,
@@ -23,22 +24,6 @@ type FormState = {
 }
 
 // ── Máscaras e validação (mesmo padrão do cadastro de Clientes) ───────
-const soDigitos = (v: string) => v.replace(/\D/g, '')
-
-function formatarCpfCnpj(v: string, tipo: 'PF' | 'PJ'): string {
-  const d = soDigitos(v).slice(0, tipo === 'PF' ? 11 : 14)
-  if (tipo === 'PF') {
-    return d
-      .replace(/^(\d{3})(\d)/, '$1.$2')
-      .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
-      .replace(/\.(\d{3})(\d)/, '.$1-$2')
-  }
-  return d
-    .replace(/^(\d{2})(\d)/, '$1.$2')
-    .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
-    .replace(/\.(\d{3})(\d)/, '.$1/$2')
-    .replace(/(\d{4})(\d)/, '$1-$2')
-}
 
 function formatarTelefone(v: string): string {
   const d = soDigitos(v).slice(0, 11)
@@ -48,27 +33,6 @@ function formatarTelefone(v: string): string {
   return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`
 }
 
-/** Confere os dígitos verificadores (mesma regra do backend). */
-function documentoValido(v: string, tipo: 'PF' | 'PJ'): boolean {
-  const d = soDigitos(v)
-  if (d.length !== (tipo === 'PF' ? 11 : 14) || /^(\d)\1+$/.test(d)) return false
-  const n = (i: number) => Number(d[i])
-  if (tipo === 'PF') {
-    const dv = (qtd: number) => {
-      let s = 0
-      for (let i = 0; i < qtd; i++) s += n(i) * (qtd + 1 - i)
-      const r = (s * 10) % 11
-      return r === 10 ? 0 : r
-    }
-    return dv(9) === n(9) && dv(10) === n(10)
-  }
-  const dv = (pesos: number[]) => {
-    const r = pesos.reduce((s, p, i) => s + n(i) * p, 0) % 11
-    return r < 2 ? 0 : 11 - r
-  }
-  return dv([5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]) === n(12)
-      && dv([6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]) === n(13)
-}
 
 /** Limites iguais aos do backend/banco. */
 const LIMITE = { nome: 150, email: 100, contato: 100, endereco: 255 } as const
@@ -80,12 +44,12 @@ function validarFornecedor(f: FormState) {
   const novo = !f.id
   const nDoc = f.tipoPessoa === 'PF' ? 11 : 14
   const tel = soDigitos(f.telefone).length
-  const docPreenchido = soDigitos(f.cpfCnpj).length > 0
+  const docPreenchido = normalizarDocumento(f.cpfCnpj, f.tipoPessoa).length > 0
   return {
     nome:     f.nome.trim() ? '' : 'Informe o nome.',
     cpfCnpj:  !(novo || docPreenchido) ? ''
-              : soDigitos(f.cpfCnpj).length !== nDoc
-                ? `${f.tipoPessoa === 'PF' ? 'CPF' : 'CNPJ'} deve ter ${nDoc} dígitos.`
+              : normalizarDocumento(f.cpfCnpj, f.tipoPessoa).length !== nDoc
+                ? `${f.tipoPessoa === 'PF' ? 'CPF' : 'CNPJ'} deve ter ${nDoc} ${f.tipoPessoa === 'PF' ? 'dígitos' : 'caracteres'}.`
               : !documentoValido(f.cpfCnpj, f.tipoPessoa)
                 ? `${f.tipoPessoa === 'PF' ? 'CPF' : 'CNPJ'} inválido.` : '',
     telefone: (novo || tel > 0) && tel !== 10 && tel !== 11 ? 'Informe o telefone com DDD.' : '',
@@ -116,7 +80,7 @@ export default function FornecedoresPage() {
   const visiveis = fornecedores.filter(f =>
     !termo ||
     f.nome.toLowerCase().includes(termo) ||
-    (f.cpfCnpj ?? '').replace(/\D/g, '').includes(termo.replace(/\D/g, '') || '\u0000') ||
+    (f.cpfCnpj ?? '').toUpperCase().replace(/[^0-9A-Z]/g, '').includes(termo.toUpperCase().replace(/[^0-9A-Z]/g, '') || '\u0000') ||
     (f.contato ?? '').toLowerCase().includes(termo)
   )
 
@@ -302,9 +266,9 @@ export default function FornecedoresPage() {
             </Field>
             <Field label={`${form.tipoPessoa === 'PF' ? 'CPF' : 'CNPJ'}${novo ? ' *' : ''}`} error={mostrar(erros?.cpfCnpj)}>
               <input
-                type="text" inputMode="numeric" value={form.cpfCnpj}
+                type="text" inputMode={form.tipoPessoa === 'PF' ? 'numeric' : 'text'} value={form.cpfCnpj}
                 onChange={e => setForm({ ...form, cpfCnpj: formatarCpfCnpj(e.target.value, form.tipoPessoa) })}
-                placeholder={form.tipoPessoa === 'PF' ? '000.000.000-00' : '00.000.000/0000-00'}
+                placeholder={form.tipoPessoa === 'PF' ? '000.000.000-00' : '00.000.000/0000-00 (aceita letras)'}
                 className={`${baseInputClass} ${campoErro(erros?.cpfCnpj)}`}
               />
             </Field>

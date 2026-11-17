@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Search, Pencil, Ban, RotateCcw } from 'lucide-react'
 import { api } from '@/shared/api/axios'
+import { documentoValido, formatarCpfCnpj, normalizarDocumento, soDigitos } from '@/shared/utils/documento'
 import toast from 'react-hot-toast'
 import type { Cliente } from '@/types/venda'
 import { formatBRL } from '@/shared/utils/mask'
@@ -47,22 +48,6 @@ type FormState = {
 }
 
 // ── Máscaras e validação do cadastro ─────────────────────────────────
-const soDigitos = (v: string) => v.replace(/\D/g, '')
-
-function formatarCpfCnpj(v: string, tipo: 'PF' | 'PJ'): string {
-  const d = soDigitos(v).slice(0, tipo === 'PF' ? 11 : 14)
-  if (tipo === 'PF') {
-    return d
-      .replace(/^(\d{3})(\d)/, '$1.$2')
-      .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
-      .replace(/\.(\d{3})(\d)/, '.$1-$2')
-  }
-  return d
-    .replace(/^(\d{2})(\d)/, '$1.$2')
-    .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
-    .replace(/\.(\d{3})(\d)/, '.$1/$2')
-    .replace(/(\d{4})(\d)/, '$1-$2')
-}
 
 function formatarTelefone(v: string): string {
   const d = soDigitos(v).slice(0, 11)
@@ -81,8 +66,11 @@ function validarCliente(f: FormState) {
   const tel = soDigitos(f.telefone).length
   return {
     nome:          f.nome.trim() ? '' : 'Informe o nome.',
-    cpfCnpj:       !novo || soDigitos(f.cpfCnpj).length === nDoc
-                     ? '' : `${f.tipoPessoa === 'PF' ? 'CPF' : 'CNPJ'} deve ter ${nDoc} dígitos.`,
+    cpfCnpj:       !f.cpfCnpj.trim() ? (novo ? `Informe o ${f.tipoPessoa === 'PF' ? 'CPF' : 'CNPJ'}.` : '')
+                     : normalizarDocumento(f.cpfCnpj, f.tipoPessoa).length !== nDoc
+                       ? `${f.tipoPessoa === 'PF' ? 'CPF' : 'CNPJ'} deve ter ${nDoc} ${f.tipoPessoa === 'PF' ? 'dígitos' : 'caracteres'}.`
+                     // na edição, documento antigo inválido não trava o cadastro (aparece no saneamento fiscal)
+                     : novo && !documentoValido(f.cpfCnpj, f.tipoPessoa) ? `${f.tipoPessoa === 'PF' ? 'CPF' : 'CNPJ'} inválido.` : '',
     telefone:      !novo || tel === 10 || tel === 11 ? '' : 'Informe o telefone com DDD.',
     email:         !f.email.trim() || /^\S+@\S+\.\S+$/.test(f.email.trim()) ? '' : 'E-mail inválido.',
     endereco:      !novo || f.endereco.trim() ? '' : 'Informe o endereço.',
@@ -310,9 +298,9 @@ export default function ClientesPage() {
               </select>
             </Field>
             <Field label={`${form.tipoPessoa === 'PF' ? 'CPF' : 'CNPJ'}${novo ? ' *' : ''}`} error={mostrar(erros?.cpfCnpj)}>
-              <input type="text" inputMode="numeric" value={form.cpfCnpj}
+              <input type="text" inputMode={form.tipoPessoa === 'PF' ? 'numeric' : 'text'} value={form.cpfCnpj}
                 onChange={e => setForm({ ...form, cpfCnpj: formatarCpfCnpj(e.target.value, form.tipoPessoa) })}
-                placeholder={form.tipoPessoa === 'PF' ? '000.000.000-00' : '00.000.000/0000-00'}
+                placeholder={form.tipoPessoa === 'PF' ? '000.000.000-00' : '00.000.000/0000-00 (aceita letras)'}
                 className={`${baseInputClass} ${campoErro(erros?.cpfCnpj)}`} />
             </Field>
           </div>

@@ -3,6 +3,15 @@ export type AmbienteFiscal = 'HOMOLOGACAO' | 'PRODUCAO'
 export type ModoNfce = 'SOB_DEMANDA' | 'TODAS'
 export type StatusDocumentoFiscal =
   | 'PENDENTE' | 'AUTORIZADA' | 'REJEITADA' | 'DENEGADA' | 'CANCELADA' | 'CONTINGENCIA' | 'INUTILIZADA' | 'ERRO'
+  /** Transmitida sem resposta: pode ter sido autorizada; só a consulta pela chave resolve. */
+  | 'DESCONHECIDO'
+
+/** Rótulo para o usuário: nenhum estado além de AUTORIZADA indica nota válida. */
+export const ROTULO_STATUS_DOCUMENTO: Record<StatusDocumentoFiscal, string> = {
+  PENDENTE: 'Em transmissão', AUTORIZADA: 'Autorizada', REJEITADA: 'Rejeitada', DENEGADA: 'Denegada',
+  CANCELADA: 'Cancelada', CONTINGENCIA: 'Contingência', INUTILIZADA: 'Inutilizada', ERRO: 'Não transmitida',
+  DESCONHECIDO: 'Resultado desconhecido',
+}
 
 export interface ConfiguracaoFiscal {
   emitirNfce: boolean

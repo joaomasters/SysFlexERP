@@ -56,9 +56,12 @@ test.describe('Emissão de notas (NFC-e / NF-e)', () => {
         await expect(page.getByText(/confira o arquivo .pfx e a senha/)).toBeVisible()
     })
 
-    test('Deve listar os documentos fiscais (vazio enquanto não há emissão)', async ({ page }) => {
+    test('Deve listar os documentos fiscais (vazio enquanto não há emissão)', async ({ page, request }) => {
+        // o banco de teste pode já ter NFC-e de execuções anteriores do nfce-pdv.global.spec
+        const docs = await (await request.get('/api/fiscal/documentos', { headers })).json()
         await page.goto('/fiscal/emissao')
         await page.getByRole('button', { name: 'Documentos emitidos' }).click()
-        await expect(page.getByText('Nenhuma nota emitida ainda.')).toBeVisible()
+        if (docs.length === 0) await expect(page.getByText('Nenhuma nota emitida ainda.')).toBeVisible()
+        else await expect(page.getByRole('columnheader', { name: 'Série / Número' })).toBeVisible()
     })
 })

@@ -47,11 +47,17 @@ const NATUREZAS_OPERACAO = [
   'SIMPLES REMESSA',
 ]
 
-// PENDENTE = aguardando emissão (atenção); EMITIDA = concluída; CANCELADA = negativa.
+// Registro manual de notas emitidas FORA do sistema (emissor da SEFAZ, contador...): nada aqui é
+// transmitido. EMITIDA = a saída foi registrada (baixa o estoque); não quer dizer nota autorizada.
 const statusTom: Record<string, BadgeTone> = {
   PENDENTE:  'warning',
   EMITIDA:   'success',
   CANCELADA: 'danger',
+}
+const statusRotulo: Record<string, string> = {
+  PENDENTE:  'Pendente',
+  EMITIDA:   'Saída registrada',
+  CANCELADA: 'Cancelada',
 }
 
 // Mesmos padrões de filtro da tela de Recebimento de Mercadoria: por padrão,
@@ -141,7 +147,7 @@ export default function NotaFiscalPage() {
     mutationFn: ({ id, xml }: { id: number; xml: string }) =>
       api.put(`/fiscal/notas/${id}/xml`, { xml }),
     onSuccess: () => {
-      toast.success('XML vinculado e status atualizado para EMITIDA!')
+      toast.success('XML vinculado e saída registrada.')
       qc.invalidateQueries({ queryKey: ['notas-fiscais'] })
     },
   })
@@ -259,10 +265,10 @@ export default function NotaFiscalPage() {
     <div className="p-4 sm:p-6">
       <PageHeader
         title="Notas Fiscais de Saída"
-        subtitle="Emissão de Nota fiscal"
+        subtitle="Registro manual de notas emitidas fora do sistema. Nada aqui é transmitido à SEFAZ: a NFC-e autorizada fica em Emissão de Notas."
         actions={
           <Button variant="primary" onClick={() => setShowForm(true)}>
-            Nova Danfe
+            Registrar nota de saída
           </Button>
         }
       />
@@ -320,7 +326,7 @@ export default function NotaFiscalPage() {
                   <p className="text-sm font-medium text-gray-800 tabular-nums">{brl(nf.valorTotal)}</p>
                 </div>
                 <div className="flex items-center">
-                  <StatusBadge tone={statusTom[nf.status] ?? 'neutral'}>{nf.status}</StatusBadge>
+                  <StatusBadge tone={statusTom[nf.status] ?? 'neutral'}>{statusRotulo[nf.status] ?? nf.status}</StatusBadge>
                 </div>
                 {podeVerIdentificacao && (
                   <div>
@@ -347,7 +353,7 @@ export default function NotaFiscalPage() {
                 {nf.status === 'PENDENTE' && (
                   <Button variant="ghost" size="sm" className="hover:!text-success-600"
                     onClick={e => { e.stopPropagation(); atualizarStatus.mutate({ id: nf.id, status: 'EMITIDA' }) }}
-                    title="Marcar como Emitida">
+                    title="Registrar a saída (baixa o estoque)">
                     <CheckCircle size={16} />
                   </Button>
                 )}
@@ -453,7 +459,7 @@ export default function NotaFiscalPage() {
       {/* Modal Nova NF */}
       {showForm && (
         <Modal
-          title="Nova Nota Fiscal de Saída"
+          title="Registrar nota fiscal de saída"
           onClose={resetForm}
           maxWidth="xl"
           footer={
