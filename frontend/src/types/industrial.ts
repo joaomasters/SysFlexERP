@@ -372,3 +372,107 @@ export const faixaTexto = (min?: number | null, max?: number | null, unidade?: s
   if (min != null) return `a partir de ${f(min)}${u}`
   return 'sem faixa'
 }
+
+// ── Sprints 5 e 6: qualidade, rastreabilidade e expedição ──────────────
+export type SituacaoLote = 'QUARENTENA' | 'LIBERADO' | 'BLOQUEADO' | 'ESTORNADO'
+
+export interface LoteProduto {
+  id: number; codigo: string; produtoId: number; produtoNome: string; unidade: string; ordemId?: number | null
+  ordemNumero?: string | null; origem: 'PRODUCAO' | 'DIVISAO' | 'UNIAO'; quantidadeInicial: number; saldo: number
+  reservado: number; disponivel: number; situacao: SituacaoLote; motivoSituacao?: string | null; situacaoEm?: string | null
+  createdAt: string; versao: number; temPlano: boolean
+}
+
+export interface Etiqueta {
+  codigo: string; produtoNome: string; unidade: string; quantidade: number; ordemNumero?: string | null
+  data?: string | null; situacao: SituacaoLote; qrSvg: string
+}
+
+export interface CaracteristicaPlano {
+  id?: number; codigo: string; nome: string; tipo: 'MEDIDA' | 'ATRIBUTO'; unidade?: string | null
+  minimo?: number | null; maximo?: number | null; obrigatorio: boolean
+}
+
+export interface PlanoInspecao {
+  id: number; codigo: string; descricao: string; produtoId: number; produtoNome: string; revisao: number
+  observacao?: string | null; ativo: boolean; updatedAt: string; caracteristicas: CaracteristicaPlano[]
+}
+
+export interface InspecaoLote {
+  id: number; loteId: number; loteCodigo: string; planoCodigo: string; planoRevisao: number; resultado: 'APROVADO' | 'REPROVADO'
+  amostra?: number | null; observacao?: string | null; inspetorNome?: string | null; createdAt: string
+  valores: { codigo: string; nome: string; tipo: string; unidade?: string | null; valorNumero?: number | null; minimo?: number | null; maximo?: number | null; conforme: boolean }[]
+  naoConformidadeNumero?: string | null
+}
+
+export type DisposicaoNc = 'USAR_COMO_ESTA' | 'RETRABALHAR' | 'SUCATEAR' | 'SEM_LOTE'
+
+export interface NaoConformidade {
+  id: number; numero: string; origem: 'INSPECAO' | 'PROCESSO' | 'CLIENTE' | 'INTERNA'; loteId?: number | null
+  loteCodigo?: string | null; ordemId?: number | null; ordemNumero?: string | null; inspecaoId?: number | null
+  descricao: string; status: 'ABERTA' | 'ENCERRADA'; disposicao?: DisposicaoNc | null; causa?: string | null
+  acaoCorretiva?: string | null; abertaPorNome?: string | null; createdAt: string; encerradaPorNome?: string | null
+  encerradaEm?: string | null; versao: number
+}
+
+export interface LoteResumo { id: number; codigo: string; produtoNome: string; situacao: SituacaoLote; quantidadeInicial: number; saldo: number; ordemNumero?: string | null; nivel: number }
+export interface DestinoLote { expedicaoNumero: string; cliente: string; clienteDocumento?: string | null; carregadaEm?: string | null; loteCodigo: string; quantidade: number }
+
+export interface RastreioLote {
+  lote: LoteProduto; qrSvg: string; ascendentes: LoteResumo[]; descendentes: LoteResumo[]
+  origens: { loteMpId: number; numero: string; material: string; ligaCodigo: string; fornecedor?: string | null; certificado?: string | null; quantidade: number; ordemNumero?: string | null }[]
+  destinos: DestinoLote[]; inspecoes: InspecaoLote[]; naoConformidades: NaoConformidade[]
+  movimentos: { tipo: string; quantidade: number; documento?: string | null; usuarioNome?: string | null; createdAt: string }[]
+  medicoesForaDaFaixa: number
+}
+
+export interface RastreioLoteMp {
+  loteMpId: number; numero: string; material: string; ligaCodigo: string; fornecedor?: string | null; certificado?: string | null
+  status: StatusLoteMp; ordens: string[]; lotesProduzidos: LoteResumo[]; destinos: DestinoLote[]
+}
+
+export interface ResultadoBusca { tipo: 'LOTE' | 'LOTE_MP'; id: number; codigo: string; descricao: string }
+
+export type StatusExpedicao = 'ABERTA' | 'CONFERIDA' | 'CARREGADA' | 'CANCELADA'
+
+export interface ExpedicaoResumo {
+  id: number; numero: string; clienteId: number; clienteNome: string; pedidoReferencia?: string | null; dataPrevista: string
+  status: StatusExpedicao; itens: number; notaFiscalId?: number | null
+}
+
+export interface ReservaExpedicao { id: number; loteId: number; loteCodigo: string; loteSituacao: SituacaoLote; quantidade: number; conferida: boolean; conferidaEm?: string | null }
+
+export interface ItemExpedicao {
+  id: number; produtoId: number; produtoNome: string; unidade: string; quantidade: number; reservado: number; pendente: number
+  pesoKg?: number | null; reservas: ReservaExpedicao[]
+}
+
+export interface Expedicao {
+  id: number; numero: string; clienteId: number; clienteNome: string; clienteDocumento?: string | null; clienteEndereco?: string | null
+  pedidoReferencia?: string | null; dataPrevista: string; status: StatusExpedicao; transportadora?: string | null; placa?: string | null
+  motorista?: string | null; observacao?: string | null; carregadaEm?: string | null; carregadaPorNome?: string | null
+  notaFiscalId?: number | null; motivoCancelamento?: string | null; versao: number; pesoTotalKg: number; pesoCompleto: boolean
+  itens: ItemExpedicao[]; pendencias: string[]
+}
+
+export const SITUACAO_LOTE: Record<SituacaoLote, { rotulo: string; tom: 'success' | 'warning' | 'danger' | 'neutral' }> = {
+  QUARENTENA: { rotulo: 'Quarentena', tom: 'warning' },
+  LIBERADO: { rotulo: 'Liberado', tom: 'success' },
+  BLOQUEADO: { rotulo: 'Bloqueado', tom: 'danger' },
+  ESTORNADO: { rotulo: 'Estornado', tom: 'neutral' },
+}
+
+export const DISPOSICOES_NC: Record<Exclude<DisposicaoNc, 'SEM_LOTE'>, string> = {
+  USAR_COMO_ESTA: 'Usar como está (concessão)', RETRABALHAR: 'Retrabalhar (fica bloqueado até reinspeção)', SUCATEAR: 'Sucatear (baixa o saldo e o estoque)',
+}
+
+export const ORIGENS_NC: Record<NaoConformidade['origem'], string> = {
+  INSPECAO: 'Inspeção', PROCESSO: 'Processo', CLIENTE: 'Reclamação de cliente', INTERNA: 'Interna',
+}
+
+export const STATUS_EXPEDICAO: Record<StatusExpedicao, { rotulo: string; tom: 'info' | 'purple' | 'success' | 'neutral' }> = {
+  ABERTA: { rotulo: 'Aberta', tom: 'info' },
+  CONFERIDA: { rotulo: 'Conferida', tom: 'purple' },
+  CARREGADA: { rotulo: 'Carregada', tom: 'success' },
+  CANCELADA: { rotulo: 'Cancelada', tom: 'neutral' },
+}

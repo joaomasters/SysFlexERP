@@ -147,7 +147,14 @@ public class GlobalExceptionHandler {
             Map.entry("uk_ind_lote_mp_numero", "Já existe um lote com este número para este material."),
             Map.entry("uk_ind_receita_codigo", "Já existe uma receita com este código."),
             Map.entry("uk_ind_medicao_chave", "Esta medição já foi registrada. Recarregue a tela."),
-            Map.entry("uk_ind_perda_chave", "Esta perda já foi registrada. Recarregue a tela.")
+            Map.entry("uk_ind_perda_chave", "Esta perda já foi registrada. Recarregue a tela."),
+            // Qualidade e expedição (V43)
+            Map.entry("uk_ind_lote_codigo", "Já existe um lote com este código."),
+            Map.entry("uk_ind_plano_codigo", "Já existe um plano de inspeção com este código."),
+            Map.entry("uk_ind_plano_ativo", "Este produto já tem um plano de inspeção ativo. Recarregue a tela."),
+            Map.entry("uk_ind_inspecao_chave", "Esta inspeção já foi registrada. Recarregue a tela."),
+            Map.entry("uk_ind_expedicao_item", "Este produto já está na expedição."),
+            Map.entry("uk_ind_expedicao_reserva", "Este lote já está reservado neste item. Recarregue a tela.")
     );
 
     // Violação de regra do banco (valor fora da lista, duplicado...): 422 com mensagem

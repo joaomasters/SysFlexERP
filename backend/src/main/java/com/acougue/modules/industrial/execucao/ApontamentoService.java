@@ -47,6 +47,7 @@ public class ApontamentoService {
     private final OrdemProducaoService ordemService;
     private final EstoqueService estoque;
     private final ExecucaoMapper mapper;
+    private final com.acougue.modules.industrial.qualidade.LoteService lotes;
 
     /** Documento das movimentações de estoque do apontamento (cabe nos 50 caracteres de documento_ref). */
     static String documento(Apontamento a) {
@@ -176,6 +177,8 @@ public class ApontamentoService {
             Produto produto = ordem.getProduto();
             estoque.entrada(produto, in.quantidadeBoa(), null, "ENTRADA_PRODUCAO", documento(a), usuarioId);
             a.setEntradaEstoque(true);
+            // o lote ganha saldo e situação (quarentena se o produto tem plano de inspeção ativo)
+            lotes.registrarProducao(ordem, a.getId(), a.getLote(), in.quantidadeBoa(), usuarioId);
             a = apontamentoRepo.saveAndFlush(a);
         }
         if (a.getMaquina() != null) {
@@ -203,6 +206,8 @@ public class ApontamentoService {
             throw new BusinessException("A OP " + ordem.getNumero() + " está " + ordem.getStatus().toLowerCase() + ".");
         }
         if (Boolean.TRUE.equals(a.getEntradaEstoque())) {
+            // o lote precisa estar intacto (sem divisão, reserva ou expedição) para o estorno
+            lotes.estornarProducao(a.getId(), usuarioId);
             // falha com mensagem clara se o produto já saiu do estoque (vendido ou consumido)
             estoque.saida(ordem.getProduto(), a.getQuantidadeBoa(), "SAIDA_ESTORNO_PRODUCAO", documento(a), usuarioId);
         }

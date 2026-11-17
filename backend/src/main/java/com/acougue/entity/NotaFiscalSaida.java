@@ -68,6 +68,11 @@ public class NotaFiscalSaida {
     @Column(name = "usuario_criacao_id")
     private Long usuarioCriacaoId;
 
+    // Expedição industrial que originou a nota: o estoque já saiu no carregamento, então emitir ou
+    // cancelar esta nota NÃO movimenta o estoque de novo (sem dupla baixa).
+    @Column(name = "expedicao_id")
+    private Long expedicaoId;
+
     // Quem efetivou a saída (virou EMITIDA = baixa de estoque).
     @JsonIgnore
     @Column(name = "usuario_emissao_id")

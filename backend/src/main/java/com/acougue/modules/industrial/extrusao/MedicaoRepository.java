@@ -11,6 +11,8 @@ import java.util.Optional;
 public interface MedicaoRepository extends JpaRepository<Medicao, Long> {
     Optional<Medicao> findByChave(String chave);
 
+    long countByOrdemIdAndForaEspecificacaoTrue(Long ordemId);
+
     @Query("SELECT DISTINCT m FROM Medicao m JOIN FETCH m.receita LEFT JOIN FETCH m.maquina LEFT JOIN FETCH m.valores "
             + "WHERE m.ordem.id = :ordemId ORDER BY m.medidoEm DESC")
     List<Medicao> daOrdem(@Param("ordemId") Long ordemId);

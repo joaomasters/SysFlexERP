@@ -140,7 +140,7 @@ public class PerdaService {
     }
 
     /** Converte para kg: KG direto; UN/PC pelo peso por unidade; M pelo peso linear. Senão, nulo. */
-    static BigDecimal emKg(Produto p, BigDecimal quantidade, FichaTecnica f) {
+    public static BigDecimal emKg(Produto p, BigDecimal quantidade, FichaTecnica f) {
         String un = p.getUnidadeMedida() == null ? "" : p.getUnidadeMedida().trim().toUpperCase(Locale.ROOT);
         if (un.equals("KG")) return quantidade;
         if (un.equals("T")) return quantidade.multiply(BigDecimal.valueOf(1000));

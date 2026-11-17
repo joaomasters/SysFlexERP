@@ -20,6 +20,8 @@ public interface LoteMpRepository extends JpaRepository<LoteMp, Long> {
 
     boolean existsByProdutoId(Long produtoId);
 
+    List<LoteMp> findTop20ByNumeroContainingIgnoreCaseOrderByIdDesc(String numero);
+
     /** Trava o lote até o fim da transação: dois consumos ao mesmo tempo não passam do saldo. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT l FROM LoteMp l WHERE l.id = :id")

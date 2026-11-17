@@ -38,6 +38,7 @@ class ExecucaoTest {
     private final ConsumoRepository consumoRepo = mock(ConsumoRepository.class);
     private final EstoqueService estoque = mock(EstoqueService.class);
     private final UsuarioRepository usuarioRepo = mock(UsuarioRepository.class);
+    private final com.acougue.modules.industrial.qualidade.LoteService loteQualidade = mock(com.acougue.modules.industrial.qualidade.LoteService.class);
     private final com.acougue.modules.industrial.extrusao.LoteMpService lotes = mock(com.acougue.modules.industrial.extrusao.LoteMpService.class);
 
     private ApontamentoService apontamentos;
@@ -57,7 +58,7 @@ class ExecucaoTest {
     void setUp() {
         ExecucaoMapper mapper = new ExecucaoMapper(usuarioRepo);
         apontamentos = new ApontamentoService(apontamentoRepo, paradaRepo, paradaService, operacaoRepo, maquinaRepo,
-                maquinaService, ordemService, estoque, mapper);
+                maquinaService, ordemService, estoque, mapper, loteQualidade);
         consumos = new ConsumoService(consumoRepo, ordemRepo, apontamentoRepo, estoque, mapper, lotes);
 
         perfil = Produto.builder().id(1L).nome("Perfil U").unidadeMedida("KG").ativo(true).estoqueAtual(BigDecimal.ZERO).build();
@@ -222,6 +223,7 @@ class ExecucaoTest {
             assertThat(out.lote()).isEqualTo("OP000001-L01");
             assertThat(out.entradaEstoque()).isTrue();
             verify(estoque).entrada(perfil, n("95"), null, "ENTRADA_PRODUCAO", "OP000001/AP50", 9L);
+            verify(loteQualidade).registrarProducao(ordem, 50L, "OP000001-L01", n("95"), 9L);
 
             // o tablet reenviou o mesmo "finalizar": nada muda
             assertThat(a.getStatus()).isEqualTo("FINALIZADO");
@@ -259,6 +261,7 @@ class ExecucaoTest {
             ApontamentoOut out = apontamentos.estornar(50L, new EstornoIn("Quantidade errada"), 9L);
 
             assertThat(out.status()).isEqualTo("ESTORNADO");
+            verify(loteQualidade).estornarProducao(50L, 9L);
             verify(estoque).saida(perfil, n("95"), "SAIDA_ESTORNO_PRODUCAO", "OP000001/AP50", 9L);
             assertThat(embalar.getStatus()).isEqualTo("EM_EXECUCAO");
             verify(ordemService).statusPelaExecucao(eq(ordem), eq("EM_PRODUCAO"), contains("Quantidade errada"), eq(9L));

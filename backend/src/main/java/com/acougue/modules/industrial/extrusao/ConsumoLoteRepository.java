@@ -21,4 +21,8 @@ public interface ConsumoLoteRepository extends JpaRepository<Consumo, Long> {
     /** Consumos válidos de uma OP com o lote (para o rendimento e a rastreabilidade). */
     @Query("SELECT c FROM Consumo c JOIN FETCH c.produto WHERE c.ordem.id = :ordemId AND c.estornado = FALSE")
     List<Consumo> validosDaOrdem(@Param("ordemId") Long ordemId);
+
+    /** Consumos válidos de um lote de matéria-prima, com a OP (rastreabilidade para frente). */
+    @Query("SELECT c FROM Consumo c JOIN FETCH c.ordem WHERE c.loteMpId = :loteMpId AND c.estornado = FALSE")
+    List<Consumo> validosDoLoteMp(@Param("loteMpId") Long loteMpId);
 }

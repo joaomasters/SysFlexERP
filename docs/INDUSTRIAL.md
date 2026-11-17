@@ -9,7 +9,7 @@ Este documento registra a auditoria do SysFlex feita antes de começar os módul
 | Camada | O que existe |
 | --- | --- |
 | Backend | Spring Boot 3, Java 17, monólito modular. Pacotes em `com.acougue`: `entity` e `repository` compartilhados, regras em `modules/<área>` (service, controller, dto). |
-| Banco | PostgreSQL com **um schema por empresa** (`public` para a principal e `tenant_*` para as demais). Flyway (`db/migration`, V1 a V42). O `MigradorSchemasEmpresas` aplica cada migration em todos os schemas no boot. O JPA roda com `ddl-auto: validate`. |
+| Banco | PostgreSQL com **um schema por empresa** (`public` para a principal e `tenant_*` para as demais). Flyway (`db/migration`, V1 a V43). O `MigradorSchemasEmpresas` aplica cada migration em todos os schemas no boot. O JPA roda com `ddl-auto: validate`. |
 | Multi-empresa | O `TenantResolvingFilter` e o `TenantIdentifierResolver` trocam o schema por requisição. `public.tenants` é lida sempre via JDBC (`TenantRepository`). |
 | Segurança | JWT (`JwtAuthFilter`). Permissões por **módulo e ação**: a enum `Modulo`, a anotação `@ExigirPermissao` e a tabela `perfil_permissoes` (ver, criar, editar, excluir). O SUPER_ADMIN tem acesso total. O modo JARVIS é só leitura, garantido também pelo Postgres. |
 | Auditoria | `AuditoriaAspect`: toda ação de escrita com `@ExigirPermissao` é registrada sozinha em `log_auditoria`. |
@@ -59,8 +59,8 @@ Este documento registra a auditoria do SysFlex feita antes de começar os módul
 | 2. Engenharia e PCP | Ficha técnica industrial (estende o produto), BOM versionada com vigência, roteiro versionado, OP com estados e transições, congelamento da revisão de engenharia na liberação, planejamento básico | **Entregue** |
 | 3. Execução (MES) | Apontamento (início, pausa, fim, parcial), paradas e motivos, consumo real, WIP por lote, tela de chão de fábrica para tablet, baixa idempotente no estoque | **Entregue** |
 | 4. Extrusão | Ligas, tarugos e lotes de matéria-prima com certificado, receitas por liga e equipamento, medições (aquecimento, extrusão, tratamento térmico) com origem manual/sensor, perdas | **Entregue** |
-| 5. Qualidade e rastreabilidade | Planos de inspeção, inspeções e não conformidades, quarentena e liberação, genealogia de lotes (divisão e união), consulta da origem ao cliente, QR por lote | A fazer |
-| 6. Expedição | Pedido de expedição, reserva de lote, separação, conferência, romaneio, carregamento sem dupla baixa, bloqueio por qualidade, ligação com o fiscal existente sem emitir nota automaticamente | A fazer |
+| 5. Qualidade e rastreabilidade | Planos de inspeção, inspeções e não conformidades, quarentena e liberação, genealogia de lotes (divisão e união), consulta da origem ao cliente, QR por lote | **Entregue** |
+| 6. Expedição | Pedido de expedição, reserva de lote, separação, conferência, romaneio, carregamento sem dupla baixa, bloqueio por qualidade, ligação com o fiscal existente sem emitir nota automaticamente | **Entregue** |
 | 7. Custos, MRP e indicadores | Custo estimado × real por OP, MRP com sugestões (sem aprovar sozinho), dashboards, OEE só quando houver dados confiáveis | A fazer |
 
 ## 4. Sprint 1: o que foi entregue
@@ -490,3 +490,152 @@ A migration cria tabelas e acrescenta duas colunas opcionais. Voltar o código d
 - **Arquivo do certificado:** guarda-se o número, não o PDF. O anexo de arquivos fica para depois.
 - **Sensores:** não há leitura automática. A origem SENSOR existe no modelo, mas só um adaptador futuro poderá gravá-la, sem nunca enviar comando ao equipamento.
 - **Genealogia do lote:** o caminho lote de matéria-prima → OP → lote de produto acabado já fica gravado (consumo com lote, apontamento com lote). A consulta completa "da origem ao cliente" vem na sprint 5.
+
+## 8. Sprints 5 e 6: qualidade, rastreabilidade e expedição
+
+### Banco: `V43__industrial_qualidade_expedicao.sql`
+
+| Tabela | Conteúdo |
+| --- | --- |
+| `ind_lote`, `ind_lote_movimento` | Lote de produto com saldo e situação (quarentena, liberado, bloqueado, estornado) e o extrato de cada variação de saldo, com o documento |
+| `ind_lote_genealogia` | De quais lotes um lote veio (divisão e união), com a quantidade |
+| `ind_plano_inspecao`, `ind_plano_caracteristica` | Plano de inspeção por produto (um ativo por produto, garantido no banco), com características MEDIDA (faixa) ou ATRIBUTO (conforme ou não), e revisão |
+| `ind_inspecao`, `ind_inspecao_valor` | Inspeção do lote com a revisão e as faixas da época, o resultado e o inspetor |
+| `ind_nao_conformidade` | Não conformidade com origem, lote, OP, disposição, causa e ação corretiva (número `NC000001`) |
+| `ind_expedicao`, `ind_expedicao_item`, `ind_expedicao_reserva` | Pedido de expedição (`EXP000001`) do cliente, itens, lotes reservados e a conferência de cada um |
+
+- **Mudanças em tabelas existentes:**
+  - a lista de tipos de `movimentacao_estoque` foi **ampliada** com `SAIDA_EXPEDICAO`; todos os anteriores continuam valendo;
+  - a coluna nova e opcional `nota_fiscal_saida.expedicao_id` liga a nota à expedição.
+- **Permissões novas:** `IND_QUALIDADE` e `IND_EXPEDICAO`, liberadas para ADMIN e SUPER_ADMIN.
+- **Única mudança de comportamento em código existente:** em `NotaFiscalService`, uma NF de saída **com** `expedicao_id` não movimenta o estoque ao ser emitida nem ao ser cancelada, porque a mercadoria já saiu no carregamento. As demais notas continuam exatamente como antes.
+
+### API
+
+| Rota | Permissão |
+| --- | --- |
+| `GET /industrial/lotes?situacao=&produtoId=` · `GET /industrial/lotes/{id}/etiqueta` | qualidade, expedição **ou** PCP (ver) |
+| `POST /industrial/lotes/{id}/situacao` `{situacao, versao, motivo}` | IND_QUALIDADE editar |
+| `POST /industrial/lotes/{id}/dividir` `{quantidades}` · `POST /industrial/lotes/unir` `{partes:[{loteId, quantidade}]}` | IND_QUALIDADE criar |
+| `GET POST PUT /industrial/qualidade/planos` · `/{id}/inativar` · `/reativar` | IND_QUALIDADE |
+| `POST /industrial/qualidade/inspecoes` · `GET /industrial/lotes/{id}/inspecoes` | IND_QUALIDADE criar / ver |
+| `GET POST /industrial/qualidade/nao-conformidades` · `POST /{id}/encerrar` `{disposicao, causa, acaoCorretiva, versao}` | IND_QUALIDADE |
+| `GET /industrial/rastreabilidade/busca?texto=` · `/lote/{codigo}` · `/lote-mp/{id}` | qualidade, expedição **ou** PCP |
+| `GET /industrial/expedicoes/clientes` · `GET POST /industrial/expedicoes` · `GET PUT /{id}` | IND_EXPEDICAO ver / criar / editar |
+| `POST /{id}/reservas` · `/reservar-automatico` · `DELETE /{id}/reservas/{reservaId}` | criar |
+| `POST /{id}/conferencia` `{codigoLote}` · `/concluir-conferencia` · `/reabrir` · `/carregar` · `/nota-fiscal` | editar |
+| `POST /{id}/cancelar` `{versao, motivo}` | excluir |
+
+### Regras de negócio
+
+- **Lote de produto:**
+  - nasce ao finalizar a última operação com quantidade boa, com o código `OP000001-L01`;
+  - fica em **quarentena** se o produto tem plano de inspeção ativo; senão, nasce **liberado**. Produtos sem plano não mudam de comportamento;
+  - divisões e uniões geram lotes `LT000001…`;
+  - todo lote carrega o extrato de saldo.
+- **Situações do lote:**
+  - quarentena → liberado: só pela inspeção aprovada quando há plano; sem plano, manualmente;
+  - bloquear exige motivo;
+  - bloqueado → quarentena (reinspeção) exige motivo e nenhuma NC aberta;
+  - bloqueado → liberado só pela NC encerrada com "usar como está";
+  - estornado é final.
+- **Estorno do apontamento:** recusado se o lote produzido já foi dividido, reservado, expedido ou sucateado. O lote precisa estar intacto.
+- **Divisão e união:**
+  - só do saldo **disponível**, que é o saldo menos o reservado em expedições abertas;
+  - a união aceita só lotes do mesmo produto e na mesma situação;
+  - os lotes ficam travados no banco durante a operação;
+  - a genealogia registra pai, filho e quantidade.
+- **Inspeção:**
+  - só de lote em quarentena, contra o plano ativo do produto;
+  - as obrigatórias precisam vir; a medida é conferida contra a faixa, e o atributo é conforme ou não;
+  - aprovada → lote liberado;
+  - reprovada → lote bloqueado e NC aberta sozinha, listando as características reprovadas;
+  - a revisão e as faixas do plano são copiadas para a inspeção.
+- **Não conformidade:**
+  - aberta com lote, bloqueia o lote;
+  - o encerramento exige causa e ação corretiva e, com lote, a disposição:
+    - **usar como está:** concessão, libera o lote se não houver outra NC aberta;
+    - **retrabalhar:** o lote continua bloqueado até a reinspeção;
+    - **sucatear:** zera o saldo do lote e baixa o estoque como `SAIDA_DESCARTE`; é recusado se o lote estiver reservado.
+- **Expedição:**
+  - **Pedido:** cliente ativo, data prevista e itens (produto e quantidade). Os itens podem mudar enquanto a expedição está aberta, sem ficar abaixo do já reservado.
+  - **Reserva:** só lote **liberado**, do mesmo produto, até o disponível e até a quantidade do item. A reserva automática segue o FIFO (o lote mais antigo primeiro).
+  - **Conferência:** lê o código do lote (o QR da etiqueta), sem diferenciar maiúsculas. Um lote fora da expedição é recusado; ler de novo não muda nada.
+  - **Concluir a conferência:** exige todos os itens reservados por inteiro, todos os lotes conferidos e nenhum lote fora de liberado.
+  - **Bloqueio por qualidade:** se a qualidade bloquear um lote depois da conferência, **o carregamento é recusado** e nada sai do estoque. Reabre-se a expedição para trocar o lote.
+  - **Carregamento:** baixa o saldo de cada lote e o estoque do produto (`SAIDA_EXPEDICAO`, documento `EXP000001`) uma única vez; repetir o comando não baixa de novo.
+  - **Cancelamento:** só antes do carregamento, com motivo; as reservas deixam de contar.
+- **Ligação com o fiscal:**
+  - "Gerar NF de saída" cria uma nota **PENDENTE** no módulo fiscal que já existe, com o cliente, os itens (descrição com os lotes, preço de venda do cadastro) e a observação com a expedição e o pedido;
+  - **nada é emitido automaticamente**: a emissão continua na tela de NF de saída;
+  - **sem dupla baixa**: a nota é marcada com a expedição, então emitir ou cancelar não movimenta o estoque;
+  - gerar de novo devolve a mesma nota.
+- **Rastreabilidade:**
+  - a partir de um lote de produto:
+    - para trás: lotes de que veio, as OPs e os lotes de matéria-prima consumidos (corrida, liga, fornecedor e certificado);
+    - para frente: lotes derivados, expedições carregadas e clientes;
+    - além de inspeções, NCs, o extrato e as medições fora da faixa da OP;
+  - a partir de um lote de matéria-prima: as OPs que o consumiram, os lotes produzidos (e derivados) e os clientes que receberam. É a base para um recall.
+- **Etiqueta:** QR em SVG gerado no servidor com a mesma biblioteca da NFC-e (zxing), com o código do lote, para impressão.
+
+### Frontend
+
+- **Indústria → Qualidade** (`/industrial/qualidade`):
+  - **Lotes:** filtro por situação, saldo e disponível, inspecionar, liberar, bloquear, quarentena, dividir, unir (selecionando lotes), etiqueta com QR para impressão, e o código abre a rastreabilidade;
+  - **Não conformidades:** abrir, com ou sem lote, e encerrar com a disposição;
+  - **Planos de inspeção:** características com faixa ou atributo;
+  - **Rastreabilidade:** busca por lote ou corrida, com origem, genealogia, clientes, qualidade e extrato.
+- **Indústria → Expedição** (`/industrial/expedicao`):
+  - lista por situação e nova expedição (cliente, itens, transporte);
+  - no detalhe:
+    - reservar lote (lista dos liberados com saldo) ou reservar automático;
+    - campo de conferência para leitor de QR;
+    - pendências, concluir a conferência, carregar e gerar a NF de saída;
+    - **romaneio** para impressão, com os lotes, o peso em kg (pela ficha técnica) e as assinaturas.
+
+### Testes
+
+- **Backend:**
+  - `QualidadeExpedicaoTest` (15):
+    - lote em quarentena ou liberado conforme o plano;
+    - estorno só com o lote intacto;
+    - regras de situação;
+    - divisão pelo disponível e união por produto e situação;
+    - inspeção aprovada, reprovada com NC e obrigatória faltando;
+    - NC com concessão e com sucata;
+    - reserva só de lote liberado, com saldo e dentro do item;
+    - FIFO;
+    - conferência e pendências;
+    - carregamento recusado com lote bloqueado e baixa única;
+    - NF pendente gerada uma vez;
+    - NF da expedição sem movimentar o estoque ao emitir e ao cancelar;
+  - `ExecucaoTest`: o fim da última operação passou a criar o lote, e o estorno a estornar o lote;
+  - suíte completa: 488 testes, 0 falhas.
+- **API de ponta a ponta:** script num Postgres novo depois da V43, sem falhas. Percorreu:
+  - a corrida do tarugo liberada e consumida na OP;
+  - dois lotes em quarentena: um aprovado; o outro reprovado, com NC encerrada por concessão;
+  - a divisão (20 + 15) e a união (20 + 40);
+  - um lote bloqueado sem poder ser reservado;
+  - a reserva FIFO e a conferência;
+  - o bloqueio pela qualidade depois da conferência, que barrou o carregamento sem tocar no estoque;
+  - a troca da reserva, com o item reduzido;
+  - o carregamento: estoque de 100 para 75, uma vez só;
+  - a NF gerada uma vez, emitida e cancelada sem mexer no estoque;
+  - a rastreabilidade do lote até a corrida e até o cliente, e da corrida até o cliente;
+  - a sucata pela NC: −15 kg no lote e no estoque.
+- **E2E:** `playwright/tests/industrial/qualidade-expedicao.global.spec.ts` (2) cobre:
+  - o lote em quarentena inspecionado pela tela e liberado, com a rastreabilidade;
+  - a expedição completa: reserva automática, conferência lendo o código, carregamento e NF pendente.
+
+### Reversão
+
+A migration cria tabelas, amplia a lista de tipos de movimentação e acrescenta uma coluna opcional na NF de saída.
+- **Voltar o código:** as notas antigas continuam funcionando. Uma nota gerada por expedição voltaria a baixar estoque ao ser emitida; por isso, antes de reverter, emita ou cancele as notas de expedição pendentes.
+- **Desligar sem reverter:** basta tirar `IND_QUALIDADE` e `IND_EXPEDICAO` dos perfis.
+
+### Limitações conhecidas
+
+- **PDV e NF manual:** a venda pelo PDV e a NF de saída digitada à mão baixam o estoque do produto, mas não o saldo dos lotes; o saldo de lote só acompanha a expedição industrial. Para produtos industriais, a recomendação é expedir pela expedição.
+- **Devolução de cliente:** o estorno de uma expedição já carregada ainda não existe. Por enquanto, registra-se como NC de origem CLIENTE.
+- **Preço da NF:** a nota gerada usa o preço de venda do cadastro. O pedido de venda B2B, com preço negociado, é a peça que falta (ver a seção 1).
+- **Leitura do QR:** a conferência aceita qualquer leitor que "digita" o código no campo (leitor USB ou Bluetooth em modo teclado). A câmera do tablet ainda não é usada.
