@@ -106,6 +106,11 @@ export default function PDVPage() {
         toast.success(`NFC-e nº ${data.numero} autorizada`)
         return data
       }
+      if (data.status === 'DESCONHECIDO') {
+        toast.error(`NFC-e nº ${data.numero} sem resposta da SEFAZ: pode ter sido autorizada. Sai o cupom não fiscal; `
+          + 'consulte a situação em Fiscal → Emissão de Notas antes de emitir de novo.', { duration: 10000 })
+        return null
+      }
       toast.error(`NFC-e não autorizada: ${data.mensagem ?? data.status}. A venda foi registrada; sai o cupom não fiscal.`, { duration: 8000 })
     } catch (e) {
       const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message

@@ -44,4 +44,15 @@ class DocumentoFiscalTest {
         assertThat(DocumentoFiscal.formatar("52998224725")).isEqualTo("529.982.247-25");
         assertThat(DocumentoFiscal.formatar("11222333000181")).isEqualTo("11.222.333/0001-81");
     }
+
+    @Test
+    @DisplayName("CNPJ alfanumérico (Receita, jul/2026): exemplo oficial 12.ABC.345/01DE-35, com ou sem máscara")
+    void cnpjAlfanumerico() {
+        assertThat(DocumentoFiscal.cnpjValido("12.ABC.345/01DE-35")).isTrue();
+        assertThat(DocumentoFiscal.cnpjValido("12abc34501de35")).isTrue();
+        assertThat(DocumentoFiscal.cnpjValido("12.ABC.345/01DE-36")).isFalse();
+        assertThat(DocumentoFiscal.cnpjValido("12.ABC.345/01DE-3A")).isFalse();
+        assertThat(DocumentoFiscal.formatar("12abc34501de35")).isEqualTo("12.ABC.345/01DE-35");
+        assertThat(DocumentoFiscal.cpfValido("529.982.247-2A")).isFalse();
+    }
 }

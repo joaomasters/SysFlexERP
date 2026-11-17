@@ -1,17 +1,21 @@
 package com.acougue.modules.fiscal.emissao;
 
 import com.acougue.entity.ConfiguracaoFiscal;
+import com.acougue.entity.DocumentoFiscal;
 import com.acougue.exception.BusinessException;
 import com.acougue.modules.fiscal.emissao.dto.CertificadoDTO;
 import com.acougue.modules.fiscal.emissao.dto.ConfiguracaoFiscalDTO;
 import com.acougue.modules.fiscal.emissao.dto.SalvarConfiguracaoFiscalDTO;
 import com.acougue.modules.pagamento.CredencialCripto;
+import com.acougue.modules.fiscal.parametros.EnquadramentoService;
 import com.acougue.repository.ConfiguracaoFiscalRepository;
+import com.acougue.repository.DocumentoFiscalRepository;
 import com.acougue.repository.ProdutoRepository;
 import com.acougue.security.ContextoUsuario;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.Base64;
 import java.util.List;
 
@@ -23,22 +27,29 @@ public class ConfiguracaoFiscalService {
     private final ProdutoRepository produtoRepo;
     private final CredencialCripto cripto;
     private final List<ProvedorFiscal> provedores;
+    private final EnquadramentoService enquadramento;
+    private final DocumentoFiscalRepository documentoRepo;
 
     public ConfiguracaoFiscalService(ConfiguracaoFiscalRepository repo, ProdutoRepository produtoRepo,
-                                     CredencialCripto cripto, List<ProvedorFiscal> provedores) {
+                                     CredencialCripto cripto, List<ProvedorFiscal> provedores,
+                                     EnquadramentoService enquadramento, DocumentoFiscalRepository documentoRepo) {
         this.repo = repo;
         this.produtoRepo = produtoRepo;
         this.cripto = cripto;
         this.provedores = provedores;
+        this.enquadramento = enquadramento;
+        this.documentoRepo = documentoRepo;
     }
 
     @Transactional
     public ConfiguracaoFiscalDTO buscar() {
+        enquadramento.sincronizarConfiguracao(); // vigência futura que começou hoje passa a valer na tela
         return paraDto(carregar());
     }
 
     @Transactional
     public ConfiguracaoFiscalDTO salvar(SalvarConfiguracaoFiscalDTO dto) {
+        enquadramento.sincronizarConfiguracao();
         ConfiguracaoFiscal c = carregar();
         if (!"NENHUM".equals(dto.getProvedor()) && provedores.stream().noneMatch(p -> p.codigo().equals(dto.getProvedor()))) {
             throw new BusinessException("Provedor fiscal desconhecido: " + dto.getProvedor());
@@ -53,7 +64,6 @@ public class ConfiguracaoFiscalService {
         c.setNomeFantasia(texto(dto.getNomeFantasia()));
         c.setCnpj(DocumentosFiscais.limpar(dto.getCnpj()));
         c.setInscricaoEstadual(DocumentosFiscais.limpar(dto.getInscricaoEstadual()));
-        c.setRegimeTributario(dto.getRegimeTributario());
         c.setLogradouro(texto(dto.getLogradouro()));
         c.setNumeroEndereco(texto(dto.getNumeroEndereco()));
         c.setComplemento(texto(dto.getComplemento()));
@@ -62,6 +72,9 @@ public class ConfiguracaoFiscalService {
         c.setMunicipio(texto(dto.getMunicipio()));
         c.setCep(digitos(dto.getCep()));
         c.setTelefone(digitos(dto.getTelefone()));
+        // Numeração nunca volta: o próximo número tem de ser maior que o último já usado na série
+        exigirNumeroLivre(DocumentoFiscal.MODELO_NFCE, dto.getNfceSerie(), dto.getAmbiente(), dto.getNfceProximoNumero(), "NFC-e");
+        exigirNumeroLivre(DocumentoFiscal.MODELO_NFE, dto.getNfeSerie(), dto.getAmbiente(), dto.getNfeProximoNumero(), "NF-e");
         c.setNfceSerie(dto.getNfceSerie());
         c.setNfceProximoNumero(dto.getNfceProximoNumero());
         c.setNfeSerie(dto.getNfeSerie());
@@ -87,7 +100,20 @@ public class ConfiguracaoFiscalService {
         c.setEmitirNfce(dto.isEmitirNfce());
         c.setEmitirNfe(dto.isEmitirNfe());
         c.setUpdatedBy(ContextoUsuario.atual().getUsuarioId());
-        return paraDto(repo.save(c));
+        ConfiguracaoFiscal salva = repo.save(c);
+        // Trocar o regime na tela abre uma nova vigência a partir de hoje (a anterior é preservada)
+        if (dto.getRegimeTributario() != salva.getRegimeTributario()) {
+            enquadramento.registrar(dto.getRegimeTributario(), LocalDate.now(), "Alterado na configuração fiscal");
+        }
+        return paraDto(salva);
+    }
+
+    private void exigirNumeroLivre(short modelo, short serie, String ambiente, int proximo, String nome) {
+        Integer ultimo = documentoRepo.maiorNumero(modelo, serie, ambiente);
+        if (ultimo != null && proximo <= ultimo) {
+            throw new BusinessException("O próximo número da " + nome + " (série " + serie + ") precisa ser maior que "
+                    + ultimo + ", o último já usado. Numeração fiscal nunca volta.");
+        }
     }
 
     /** Guarda o A1 cifrado depois de conferir que abre com a senha; devolve titular e validade. */

@@ -107,12 +107,13 @@ const CAMPOS_POR_ABA: Record<Aba, (keyof FormState)[]> = {
 const usaBalanca = (unidade: FormState['unidadeMedida']) => unidade === 'KG' || unidade === 'G'
 const soDigitos = (v: string) => v.replace(/\D/g, '')
 
-function validarProduto(f: FormState, exigeEan: boolean): Erros {
+function validarProduto(f: FormState, exigeEan: boolean, exigeEstoque: boolean): Erros {
   const e: Erros = {}
   if (f.codigoInterno.trim().length > 20) e.codigoInterno = 'Máximo de 20 caracteres.'
   if (exigeEan && !f.ean13) e.ean13 = 'Informe o código de barras.'
   if (!f.nome.trim()) e.nome = 'Informe a descrição do produto.'
   if (f.precoVenda <= 0) e.precoVenda = 'Informe o preço de venda.'
+  if (exigeEstoque) e.estoqueAtual = 'Informe o estoque inicial (digite 0 se ainda não houver).'
   if (f.estoqueMaximo > 0 && f.estoqueMaximo < f.estoqueMinimo) {
     e.estoqueMaximo = 'Deve ser maior ou igual ao estoque mínimo.'
   }
@@ -136,6 +137,8 @@ export default function ProdutoCadastroPage() {
   // Estado de partida (vazio ou o produto carregado) — base para detectar alterações não salvas.
   const [inicial, setInicial] = useState<FormState>(FORM_VAZIO)
   const [tentouSalvar, setTentouSalvar] = useState(false)
+  // Produto novo: o estoque inicial precisa ser informado de propósito (0 vale, mas é uma escolha).
+  const [estoqueInformado, setEstoqueInformado] = useState(false)
   const [confirmandoSaida, setConfirmandoSaida] = useState(false)
 
   const { data: produto } = useQuery<Produto>({
@@ -181,7 +184,8 @@ export default function ProdutoCadastroPage() {
 
   // Código de barras obrigatório no cadastro novo; produto antigo sem código pode continuar sem.
   const exigeEan = !isEdicao || Boolean(produto?.ean13)
-  const erros = tentouSalvar ? validarProduto(form, exigeEan) : {}
+  const exigeEstoque = !isEdicao && !estoqueInformado
+  const erros = tentouSalvar ? validarProduto(form, exigeEan, exigeEstoque) : {}
   const abaTemErro = (a: Aba) => CAMPOS_POR_ABA[a].some(c => erros[c])
   const alterado = JSON.stringify(form) !== JSON.stringify(inicial)
   // Produto de fornecedor já inativado: mantém o nome na lista para não "perder" o vínculo ao editar.
@@ -262,7 +266,7 @@ export default function ProdutoCadastroPage() {
   function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     setTentouSalvar(true)
-    const errosAtuais = validarProduto(form, exigeEan)
+    const errosAtuais = validarProduto(form, exigeEan, exigeEstoque)
     for (const a of ABAS) {
       const primeiro = CAMPOS_POR_ABA[a.value].find(c => errosAtuais[c])
       if (primeiro) {
@@ -514,12 +518,13 @@ export default function ProdutoCadastroPage() {
                   decimals={casas}
                 />
               </Field>
-              <Field label="Estoque Atual" hint={isEdicao ? 'Movimentado pelas entradas e saídas.' : 'Saldo inicial.'} className="md:col-span-3">
+              <Field label={isEdicao ? 'Estoque Atual' : 'Estoque Atual *'} error={erros.estoqueAtual} hint={isEdicao ? 'Movimentado pelas entradas e saídas.' : 'Saldo inicial.'} className="md:col-span-3">
                 <WeightInput
                   id="produto-estoqueAtual"
                   name="estoqueAtual"
                   value={form.estoqueAtual}
-                  onChange={v => set('estoqueAtual', v)}
+                  onChange={v => { setEstoqueInformado(true); set('estoqueAtual', v) }}
+                  aria-invalid={Boolean(erros.estoqueAtual)}
                   disabled={isEdicao}
                   unit={unidade}
                   decimals={casas}

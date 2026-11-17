@@ -135,8 +135,12 @@ class ModuloFiscalTest {
     class Servico {
 
         private final ConfiguracaoFiscalRepository repo = mock(ConfiguracaoFiscalRepository.class);
+        private final com.acougue.modules.fiscal.parametros.EnquadramentoService enquadramento =
+                mock(com.acougue.modules.fiscal.parametros.EnquadramentoService.class);
+        private final com.acougue.repository.DocumentoFiscalRepository documentoRepo = mock(com.acougue.repository.DocumentoFiscalRepository.class);
         private final ConfiguracaoFiscalService service = new ConfiguracaoFiscalService(
-                repo, mock(ProdutoRepository.class), new CredencialCripto("chave-de-teste-com-tamanho-suficiente-123"), List.of());
+                repo, mock(ProdutoRepository.class), new CredencialCripto("chave-de-teste-com-tamanho-suficiente-123"), List.of(),
+                enquadramento, documentoRepo);
 
         Servico() {
             when(repo.findById((short) 1)).thenReturn(Optional.of(ModuloFiscalTest.completa()));
@@ -159,6 +163,30 @@ class ModuloFiscalTest {
             dto.setEmitirNfce(true);
             assertThatThrownBy(() -> service.salvar(dto))
                     .isInstanceOf(BusinessException.class).hasMessageContaining("provedor");
+        }
+
+        @Test
+        @DisplayName("numeração nunca volta: próximo número menor ou igual ao último usado é recusado")
+        void numeracaoNaoVolta() {
+            when(documentoRepo.maiorNumero((short) 65, (short) 1, "HOMOLOGACAO")).thenReturn(40);
+            SalvarConfiguracaoFiscalDTO dto = new SalvarConfiguracaoFiscalDTO();
+            dto.setAmbiente("HOMOLOGACAO");
+            dto.setProvedor("NENHUM");
+            dto.setNfceProximoNumero(40);
+            assertThatThrownBy(() -> service.salvar(dto)).hasMessageContaining("maior que 40");
+            dto.setNfceProximoNumero(41);
+            service.salvar(dto);
+        }
+
+        @Test
+        @DisplayName("trocar o regime na tela abre vigência nova a partir de hoje, sem reescrever o passado")
+        void regimeAbreVigencia() {
+            SalvarConfiguracaoFiscalDTO dto = new SalvarConfiguracaoFiscalDTO();
+            dto.setAmbiente("HOMOLOGACAO");
+            dto.setProvedor("NENHUM");
+            dto.setRegimeTributario((short) 3);
+            service.salvar(dto);
+            verify(enquadramento).registrar(eq((short) 3), eq(java.time.LocalDate.now()), any());
         }
 
         @Test

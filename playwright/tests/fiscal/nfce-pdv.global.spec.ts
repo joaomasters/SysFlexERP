@@ -12,6 +12,8 @@ const headers = { Authorization: `Bearer ${process.env.E2E_TOKEN}` }
 // Certificado autoassinado, só para teste (CN "LOJA TESTE LTDA:11222333000181", senha senha123)
 const PFX = readFileSync(fileURLToPath(new URL('../../support/a1-teste.pfx', import.meta.url))).toString('base64')
 const CPF = '52998224725'
+// O provedor simulado "fica sem resposta" para este CPF (ProvedorFiscalSimulado.CPF_SEM_RESPOSTA)
+const CPF_SEM_RESPOSTA = '11144477735'
 const fiscais = { ncm: '02013000', cfop: '5102', csosn: '102', origem: '0' }
 
 async function configurar(request: APIRequestContext, emitirNfce: boolean, provedor = 'SIMULADO') {
@@ -120,6 +122,60 @@ test.describe('NFC-e no PDV: CPF na nota', () => {
         await expect(page.getByRole('dialog', { name: 'CPF na nota' })).toHaveCount(0)
         // O pagamento continua lançado, pronto para finalizar de novo
         await expect(page.getByRole('button', { name: /Finalizar Venda/ })).toBeEnabled()
+    })
+
+    test('Sem resposta da SEFAZ: resultado desconhecido bloqueia nova emissão até a consulta resolver', async ({ page, request }) => {
+        await dadosFiscaisDaPicanha(request, fiscais)
+        const vendaId = await abrirVenda(request)
+        await pagarEmDinheiro(page, vendaId)
+        await expect(page.getByRole('dialog', { name: 'CPF na nota' })).toBeVisible()
+        await page.getByLabel('CPF ou CNPJ do cliente').fill(CPF_SEM_RESPOSTA)
+        await expect(page.getByLabel('CPF ou CNPJ do cliente')).toHaveValue('111.444.777-35')
+        await page.keyboard.press('Enter')
+        await expect(page.getByText(/sem resposta da SEFAZ: pode ter sido autorizada/)).toBeVisible()
+        // não é nota fiscal: sai o comprovante não fiscal
+        await expect(page.getByText('Imprimir o comprovante para o cliente?')).toBeVisible()
+
+        const nfce = await (await request.get(`/api/fiscal/nfce/venda/${vendaId}`, { headers })).json()
+        expect(nfce.status).toBe('DESCONHECIDO')
+        expect(nfce.chave).toMatch(/^4\d{43}$/)   // gravada antes do envio
+        const outra = await request.post(`/api/fiscal/nfce/venda/${vendaId}`, { headers, data: { documento: CPF } })
+        expect(outra.status()).toBe(422)
+        expect((await outra.json()).message).toContain('resultado desconhecido')
+
+        await page.goto('/fiscal/emissao')
+        await page.getByRole('button', { name: 'Documentos emitidos' }).click()
+        await expect(page.getByText(/nota\(s\) com resultado desconhecido/)).toBeVisible()
+        const linha = page.getByRole('row').filter({ hasText: `/ ${nfce.numero}` })
+        await expect(linha.getByText('Resultado desconhecido')).toBeVisible()
+        await linha.getByRole('button', { name: 'Consultar situação' }).click()
+        await expect(page.getByText('Situação na SEFAZ: Autorizada')).toBeVisible()
+        await expect(linha.getByText('Autorizada')).toBeVisible()
+
+        const resolvida = await (await request.get(`/api/fiscal/nfce/venda/${vendaId}`, { headers })).json()
+        expect(resolvida.status).toBe('AUTORIZADA')
+        expect(resolvida.chave).toBe(nfce.chave)
+    })
+
+    test('Número pulado aparece na numeração a inutilizar e é inutilizado pela tela', async ({ page, request }) => {
+        // pula dois números: o próximo da série avança sem nota emitida
+        const atual = await (await request.get('/api/fiscal/configuracao', { headers })).json()
+        const pulado = atual.nfceProximoNumero
+        const r = await request.put('/api/fiscal/configuracao', { headers, data: { ...atual, cscToken: null, nfceProximoNumero: pulado + 2 } })
+        expect(r.ok(), await r.text()).toBeTruthy()
+        // e não deixa voltar a numeração
+        const volta = await request.put('/api/fiscal/configuracao', { headers, data: { ...atual, cscToken: null, nfceProximoNumero: 1 } })
+        expect(volta.status()).toBe(422)
+
+        await page.goto('/fiscal/emissao')
+        await page.getByRole('button', { name: 'Documentos emitidos' }).click()
+        const linha = page.getByRole('row').filter({ hasText: `${pulado} a ${pulado + 1}` })
+        await expect(linha).toContainText('Sem documento')
+        await linha.getByRole('button', { name: 'Inutilizar' }).click()
+        await page.getByLabel('Justificativa').fill('Numeracao pulada no teste automatizado')
+        await page.getByRole('button', { name: 'Pedir inutilização' }).click()
+        await expect(page.getByText(`Números ${pulado} a ${pulado + 1} inutilizados.`)).toBeVisible()
+        await expect(page.getByRole('row').filter({ hasText: `${pulado} a ${pulado + 1}` })).toHaveCount(0)
     })
 
     test('Produto sem NCM: a venda é registrada e avisa o que completar', async ({ page, request }) => {
