@@ -33,7 +33,8 @@ public enum Modulo {
     IND_APONTAMENTO("Indústria: Chão de fábrica (apontamentos)"),
     IND_EXTRUSAO("Indústria: Extrusão (ligas, lotes de matéria-prima, receitas)"),
     IND_QUALIDADE("Indústria: Qualidade e rastreabilidade"),
-    IND_EXPEDICAO("Indústria: Expedição");
+    IND_EXPEDICAO("Indústria: Expedição"),
+    IND_CUSTOS("Indústria: Custos, MRP e indicadores");
 
     private final String rotulo;
 

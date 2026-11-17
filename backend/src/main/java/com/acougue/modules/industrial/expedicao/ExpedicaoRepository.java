@@ -15,6 +15,9 @@ public interface ExpedicaoRepository extends JpaRepository<Expedicao, Long> {
     @Query(value = "SELECT nextval('ind_expedicao_numero_seq')", nativeQuery = true)
     long proximoNumero();
 
+    @Query("SELECT e FROM Expedicao e WHERE e.status = 'CARREGADA' AND e.carregadaEm >= :de AND e.carregadaEm < :ate")
+    List<Expedicao> carregadasNoPeriodo(@Param("de") java.time.LocalDateTime de, @Param("ate") java.time.LocalDateTime ate);
+
     /** Quanto do lote está reservado em expedições ainda não carregadas nem canceladas. */
     @Query("SELECT COALESCE(SUM(r.quantidade), 0) FROM ExpedicaoReserva r "
             + "WHERE r.lote.id = :loteId AND r.item.expedicao.status IN ('ABERTA', 'CONFERIDA')")

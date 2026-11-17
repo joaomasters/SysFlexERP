@@ -9,7 +9,7 @@ Este documento registra a auditoria do SysFlex feita antes de começar os módul
 | Camada | O que existe |
 | --- | --- |
 | Backend | Spring Boot 3, Java 17, monólito modular. Pacotes em `com.acougue`: `entity` e `repository` compartilhados, regras em `modules/<área>` (service, controller, dto). |
-| Banco | PostgreSQL com **um schema por empresa** (`public` para a principal e `tenant_*` para as demais). Flyway (`db/migration`, V1 a V43). O `MigradorSchemasEmpresas` aplica cada migration em todos os schemas no boot. O JPA roda com `ddl-auto: validate`. |
+| Banco | PostgreSQL com **um schema por empresa** (`public` para a principal e `tenant_*` para as demais). Flyway (`db/migration`, V1 a V44). O `MigradorSchemasEmpresas` aplica cada migration em todos os schemas no boot. O JPA roda com `ddl-auto: validate`. |
 | Multi-empresa | O `TenantResolvingFilter` e o `TenantIdentifierResolver` trocam o schema por requisição. `public.tenants` é lida sempre via JDBC (`TenantRepository`). |
 | Segurança | JWT (`JwtAuthFilter`). Permissões por **módulo e ação**: a enum `Modulo`, a anotação `@ExigirPermissao` e a tabela `perfil_permissoes` (ver, criar, editar, excluir). O SUPER_ADMIN tem acesso total. O modo JARVIS é só leitura, garantido também pelo Postgres. |
 | Auditoria | `AuditoriaAspect`: toda ação de escrita com `@ExigirPermissao` é registrada sozinha em `log_auditoria`. |
@@ -61,7 +61,7 @@ Este documento registra a auditoria do SysFlex feita antes de começar os módul
 | 4. Extrusão | Ligas, tarugos e lotes de matéria-prima com certificado, receitas por liga e equipamento, medições (aquecimento, extrusão, tratamento térmico) com origem manual/sensor, perdas | **Entregue** |
 | 5. Qualidade e rastreabilidade | Planos de inspeção, inspeções e não conformidades, quarentena e liberação, genealogia de lotes (divisão e união), consulta da origem ao cliente, QR por lote | **Entregue** |
 | 6. Expedição | Pedido de expedição, reserva de lote, separação, conferência, romaneio, carregamento sem dupla baixa, bloqueio por qualidade, ligação com o fiscal existente sem emitir nota automaticamente | **Entregue** |
-| 7. Custos, MRP e indicadores | Custo estimado × real por OP, MRP com sugestões (sem aprovar sozinho), dashboards, OEE só quando houver dados confiáveis | A fazer |
+| 7. Custos, MRP e indicadores | Custo estimado × real por OP, MRP com sugestões (sem aprovar sozinho), dashboards, OEE só quando houver dados confiáveis | **Entregue** |
 
 ## 4. Sprint 1: o que foi entregue
 
@@ -639,3 +639,99 @@ A migration cria tabelas, amplia a lista de tipos de movimentação e acrescenta
 - **Devolução de cliente:** o estorno de uma expedição já carregada ainda não existe. Por enquanto, registra-se como NC de origem CLIENTE.
 - **Preço da NF:** a nota gerada usa o preço de venda do cadastro. O pedido de venda B2B, com preço negociado, é a peça que falta (ver a seção 1).
 - **Leitura do QR:** a conferência aceita qualquer leitor que "digita" o código no campo (leitor USB ou Bluetooth em modo teclado). A câmera do tablet ainda não é usada.
+
+## 9. Sprint 7: custos, MRP e indicadores
+
+### Banco: `V44__industrial_custos_mrp.sql`
+
+- **Sem tabelas novas:** custos, MRP e indicadores são **calculados** a partir do que já está gravado (consumos, apontamentos, paradas, estruturas, estoque).
+- **A migration só cria:**
+  - índices para as consultas por período (apontamento, evento da OP, inspeção, expedição);
+  - a permissão `IND_CUSTOS` ("Indústria: Custos, MRP e indicadores"), liberada para ADMIN e SUPER_ADMIN.
+
+### API (todas IND_CUSTOS ver; só consultas)
+
+| Rota | O que devolve |
+| --- | --- |
+| `GET /industrial/gestao/custos?status=` | OPs em produção, pausadas, concluídas e encerradas, com o custo unitário estimado e o real e o desvio |
+| `GET /industrial/gestao/custos/{ordemId}` | Custo detalhado da OP (materiais e processo, estimado × real, avisos) |
+| `GET /industrial/gestao/mrp?incluirEstoqueMinimo=` | Sugestões de produzir e comprar |
+| `GET /industrial/gestao/indicadores?de=&ate=` | Painel do período (até 92 dias) com o OEE por máquina |
+
+Para aprovar uma sugestão do MRP usa-se a rota normal de criação de OP (`POST /industrial/ordens`, permissão do PCP): a OP nasce **planejada**.
+
+### Regras de negócio
+
+- **Custo estimado da OP:**
+  - materiais previstos (os congelados na liberação; na OP planejada, a prévia da estrutura ativa) × custo médio atual do produto;
+  - mais o tempo previsto de cada operação × custo/hora (da máquina planejada pelo PCP; senão, do centro de trabalho);
+  - unitário = total ÷ quantidade da OP.
+- **Custo real da OP:**
+  - consumos válidos × custo médio **do momento do consumo** (gravado no consumo);
+  - mais o tempo trabalhado dos apontamentos finalizados (sem as pausas) × custo/hora da máquina apontada, senão do centro;
+  - unitário = total ÷ quantidade **boa** da última operação. O desvio compara os unitários.
+- **Dados faltando:** produto sem custo médio ou centro sem custo/hora conta zero na parcela e gera um **aviso** dizendo o que cadastrar. O número nunca é inventado.
+- **MRP:**
+  - **Necessidade bruta:** o que as OPs abertas ainda vão consumir. Nas liberadas e em produção, é o previsto menos o já consumido; nas planejadas, vem da estrutura ativa.
+  - **Necessidade líquida:** bruta − estoque − o que OPs abertas do mesmo produto ainda vão entregar (+ estoque mínimo do cadastro, se marcado).
+  - **Produzir ou comprar:** item com **estrutura e roteiro ativos** vira sugestão de **produzir**, arredondada pelo lote mínimo e múltiplo da ficha técnica, e a quantidade sugerida explode para os componentes. Os demais itens viram **comprar**.
+  - **Ordem de cálculo:** os itens são liquidados por **código de nível baixo** (o nível mais profundo em que aparecem), para cada produto ser liquidado uma vez só, com toda a demanda de todos os níveis.
+  - **Datas:** "precisa em" é o início previsto mais cedo das OPs que pedem o item; "iniciar em" é essa data menos o prazo de produção da ficha (nunca antes de hoje).
+  - **Nada é aprovado sozinho:** a tela só cria a OP (planejada) quando o usuário clica. A lista de compras sai em CSV (o sistema ainda não tem pedido de compra).
+- **Indicadores do período:**
+  - produção boa por produto (última operação) e % de refugo;
+  - OPs concluídas no período e quantas dentro do prazo, e OPs abertas atrasadas hoje;
+  - paradas recortadas ao período, por motivo (planejada × perda) e por máquina;
+  - inspeções aprovadas e reprovadas, NCs abertas, lotes bloqueados e em quarentena;
+  - expedições carregadas e kg expedidos (pela unidade ou pelo peso da ficha).
+- **OEE por máquina** = disponibilidade × performance × qualidade:
+  - **disponibilidade** = tempo trabalhado ÷ tempo planejado (turnos da máquina no período menos as paradas planejadas);
+  - **performance** = (quantidade × tempo padrão por unidade do roteiro) ÷ tempo trabalhado;
+  - **qualidade** = boa ÷ (boa + refugo).
+- **Quando o OEE aparece:** só **quando os dados sustentam o número**. Faltando qualquer um dos itens abaixo, a tela mostra "dados insuficientes" e o motivo:
+  - a máquina tem turnos;
+  - há ao menos 3 apontamentos finalizados no período;
+  - todas as operações apontadas têm tempo padrão;
+  - o tempo apontado não passa do tempo dos turnos;
+  - a performance é de até 120%.
+
+### Frontend
+
+- **Indústria → Gestão industrial** (`/industrial/gestao`), com três abas:
+  - **Indicadores:**
+    - período padrão dos últimos 30 dias;
+    - números em destaque (prazo, atraso, refugo, paradas, qualidade, expedição);
+    - barras horizontais de uma série com o valor escrito: produção por produto e paradas por motivo, com a marca "planejada";
+    - tabela de OEE com os motivos quando não é confiável.
+  - **Custos por OP:** estimado × real por unidade, com o desvio e o detalhe por material e por operação, com os avisos.
+  - **MRP:** sugestões com bruta, estoque, em produção, líquida e sugerida, além de "Criar OP planejada", a lista de compras em CSV e a opção de repor o estoque mínimo.
+
+### Testes
+
+- **Backend:**
+  - `GestaoTest` (7):
+    - custo por hora e desvio;
+    - minutos recortados ao período;
+    - lote mínimo e múltiplo;
+    - MRP em dois níveis, descontando estoque e o que está em produção (produzir 100 do semiacabado e comprar 130 de tarugo);
+    - OEE confiável (disponibilidade 37,5%, performance 83,3%, qualidade 90%);
+    - OEE recusado por poucos apontamentos e por máquina sem turnos;
+  - suíte completa: 495 testes, 0 falhas.
+- **API de ponta a ponta:** script num Postgres novo depois da V44, sem falhas, com os valores conferidos à mão:
+  - custo estimado R$ 2.400 (R$ 24/kg);
+  - custo real R$ 2.740 para 90 kg bons (R$ 30,44/kg, +26,9%);
+  - MRP: produzir 100 do semiacabado e comprar 50 de tarugo; depois de criada a OP do semiacabado, ele sai das sugestões;
+  - OEE com performance de 93/180 e qualidade de 90/93.
+- **Correção durante os testes:** a subida real da aplicação acusou um conflito de nome com o `IndicadoresService` que já existia no financeiro, que os testes unitários não pegavam. O serviço industrial passou a se chamar `IndicadoresIndustriaisService`.
+- **E2E:** `playwright/tests/industrial/gestao.global.spec.ts` (2) cobre o MRP sugerindo produzir e comprar, a OP criada pela tela a partir da sugestão, e os indicadores e custos abrindo.
+
+### Reversão
+
+A migration só cria índices e a permissão. Voltar o código não deixa nada para trás. Para esconder a gestão de um perfil, basta tirar `IND_CUSTOS`.
+
+### Limitações conhecidas
+
+- **Custo no estoque:** a entrada do produto acabado continua sem custo. O custo real da OP é mostrado, mas **não é apropriado ao custo médio do estoque**, porque isso mudaria o custo usado em vendas e no DRE. Fica como decisão de negócio a tomar.
+- **Pedido de compra:** o sistema não tem pedido de compra; a sugestão de compra sai em CSV. O recebimento continua pelo módulo de estoque.
+- **Capacidade no MRP:** o MRP não considera a capacidade. A carga dos centros (sprint 2) mostra se a produção sugerida cabe nos turnos.
+- **OEE e microparadas:** o OEE usa o tempo apontado; microparadas não apontadas aparecem como queda de performance, não de disponibilidade.

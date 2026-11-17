@@ -476,3 +476,43 @@ export const STATUS_EXPEDICAO: Record<StatusExpedicao, { rotulo: string; tom: 'i
   CARREGADA: { rotulo: 'Carregada', tom: 'success' },
   CANCELADA: { rotulo: 'Cancelada', tom: 'neutral' },
 }
+
+// ── Sprint 7: custos, MRP e indicadores ────────────────────────────────
+export interface ParcelaCusto { materiais: number; processo: number; total: number; unitario?: number | null }
+
+export interface CustoOP {
+  ordemId: number; numero: string; produtoNome: string; unidade: string; status: StatusOP; quantidade: number; produzido: number
+  estimado: ParcelaCusto; real: ParcelaCusto; desvioPercentual?: number | null
+  materiais: { produtoId: number; nome: string; unidade: string; quantidadePrevista: number; quantidadeConsumida: number; custoPrevisto: number; custoReal: number }[]
+  processo: { sequencia: number; descricao: string; centroNome: string; custoHora?: number | null; minutosPrevistos: number; minutosReais: number; custoPrevisto: number; custoReal: number }[]
+  avisos: string[]
+}
+
+export interface CustoResumo {
+  ordemId: number; numero: string; produtoNome: string; unidade: string; status: StatusOP; quantidade: number; produzido: number
+  estimadoUnitario?: number | null; realUnitario?: number | null; desvioPercentual?: number | null; avisos: number
+}
+
+export interface SugestaoMrp {
+  produtoId: number; codigo?: string | null; nome: string; unidade: string; tipo: 'PRODUZIR' | 'COMPRAR'; nivel: number
+  necessidadeBruta: number; estoque: number; emProducao: number; estoqueMinimo: number; liquida: number; sugerida: number
+  necessarioEm: string; iniciarEm: string; origens: string[]; observacao?: string | null
+}
+
+export interface ResultadoMrp { calculadoEm: string; ordensConsideradas: number; incluiuEstoqueMinimo: boolean; sugestoes: SugestaoMrp[]; avisos: string[] }
+
+export interface OeeMaquina {
+  maquinaId: number; codigo: string; descricao: string; minutosPlanejados: number; minutosOperando: number; apontamentos: number
+  disponibilidade?: number | null; performance?: number | null; qualidade?: number | null; oee?: number | null; confiavel: boolean; motivos: string[]
+}
+
+export interface PainelIndicadores {
+  de: string; ate: string; refugoPercentual?: number | null; apontamentos: number
+  producao: { produtoId: number; nome: string; unidade: string; boa: number; refugo: number }[]
+  opsConcluidas: number; opsConcluidasNoPrazo: number; opsAbertasAtrasadas: number; opsAbertas: number
+  minutosParadaPerda: number; minutosParadaPlanejada: number
+  paradasPorMotivo: { motivo: string; categoria: CategoriaParada; planejada: boolean; minutos: number; ocorrencias: number }[]
+  paradasPorMaquina: { maquinaCodigo: string; minutosPerda: number; minutosPlanejados: number }[]
+  inspecoesAprovadas: number; inspecoesReprovadas: number; ncsAbertas: number; lotesBloqueados: number; lotesEmQuarentena: number
+  expedicoesCarregadas: number; kgExpedidos: number; kgCompleto: boolean; oee: OeeMaquina[]
+}

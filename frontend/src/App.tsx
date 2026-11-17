@@ -30,6 +30,7 @@ import ChaoDeFabricaPage from './modules/industrial/ChaoDeFabricaPage'
 import ExtrusaoPage from './modules/industrial/ExtrusaoPage'
 import QualidadePage from './modules/industrial/QualidadePage'
 import ExpedicaoPage from './modules/industrial/ExpedicaoPage'
+import GestaoPage from './modules/industrial/GestaoPage'
 import UsuariosPage from './modules/acesso/UsuariosPage'
 import AuditoriaPage from './modules/acesso/AuditoriaPage'
 import PerfisPage from './modules/acesso/PerfisPage'
@@ -85,6 +86,7 @@ export default function App() {
             <Route path="/industrial/extrusao"       element={<ExtrusaoPage />} />
             <Route path="/industrial/qualidade"      element={<QualidadePage />} />
             <Route path="/industrial/expedicao"      element={<ExpedicaoPage />} />
+            <Route path="/industrial/gestao"         element={<GestaoPage />} />
             <Route path="/financeiro/clientes"       element={<ClientesPage />} />
             <Route path="/financeiro/faturamento"    element={<FaturamentoPage />} />
             <Route path="/financeiro/contas-receber" element={<ContasReceberPage />} />

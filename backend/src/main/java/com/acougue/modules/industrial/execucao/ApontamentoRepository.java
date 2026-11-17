@@ -32,6 +32,11 @@ public interface ApontamentoRepository extends JpaRepository<Apontamento, Long> 
 
     long countByOrdemId(Long ordemId);
 
+    /** Apontamentos finalizados no período (pelo fim), com operação, OP, produto e máquina. */
+    @Query("SELECT a FROM Apontamento a JOIN FETCH a.operacao op JOIN FETCH a.ordem o JOIN FETCH o.produto LEFT JOIN FETCH a.maquina "
+            + "WHERE a.status = 'FINALIZADO' AND a.fim >= :de AND a.fim < :ate")
+    List<Apontamento> finalizadosNoPeriodo(@Param("de") java.time.LocalDateTime de, @Param("ate") java.time.LocalDateTime ate);
+
     @Query("SELECT COUNT(a) FROM Apontamento a WHERE a.ordem.id = :ordemId AND a.lote IS NOT NULL")
     long lotesDaOrdem(@Param("ordemId") Long ordemId);
 }

@@ -37,7 +37,7 @@ public class CargaService {
     private final MaquinaRepository maquinaRepo;
 
     /** Minutos de trabalho de uma máquina em [de, ate], somando os turnos ativos dela em cada dia da semana marcado. */
-    static long capacidadeMinutos(Collection<Turno> turnos, LocalDate de, LocalDate ate) {
+    public static long capacidadeMinutos(Collection<Turno> turnos, LocalDate de, LocalDate ate) {
         long total = 0;
         for (LocalDate d = de; !d.isAfter(ate); d = d.plusDays(1)) {
             int dia = d.getDayOfWeek().getValue() - 1; // diasSemana começa na segunda
