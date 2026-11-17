@@ -152,6 +152,34 @@ Nenhuma integração externa foi chamada. SEFAZ, calculadoras e DANFSe não fora
 
 ---
 
+## 3b. Etapa 1b: vigências, numeração e inutilização
+
+### O que mudou
+- **Regime tributário por vigência** (`fiscal_enquadramento`, V46; `modules/fiscal/parametros`):
+  - Nada é editado nem apagado. Uma vigência nova encerra a aberta na véspera e não pode começar antes da atual (o passado não se reescreve).
+  - Na migração, o regime que estava configurado vira a primeira vigência, desde 2000-01-01, com a observação de que o início real é desconhecido.
+  - Trocar o regime na tela de configuração abre uma vigência a partir de hoje.
+  - A NFC-e lê o regime vigente na data (`EnquadramentoService.regimeEm`) e nunca supõe um regime: dia sem vigência é recusado.
+  - Endpoints `GET/POST /fiscal/enquadramentos`, com o histórico em Configuração.
+- **A numeração nunca volta.** Salvar a configuração com o próximo número ≤ o último já usado na série/ambiente é recusado. Antes, dava para voltar e reaproveitar números.
+- **Inutilização de numeração** (`fiscal_inutilizacao`, V46; `InutilizacaoService`):
+  - Lacunas da série: números rejeitados, não transmitidos ou pulados. "Resultado desconhecido" aparece, mas não pode ser inutilizado antes da consulta.
+  - Pedido com justificativa de 15 a 255 caracteres, gravado como `DESCONHECIDO` antes da transmissão (fora da transação).
+  - `HOMOLOGADA` marca os documentos da faixa como `INUTILIZADA`. Sem resposta, o pedido fica `DESCONHECIDO` e bloqueia nova tentativa na mesma faixa. Provedor sem suporte desfaz o pedido.
+  - Porta `ProvedorFiscal.inutilizar`; o simulado homologa em homologação.
+  - Tela em Documentos emitidos → "Numeração da NFC-e a inutilizar".
+
+### Verificação
+- Backend: 519 testes, 0 falhas. Novos: `EnquadramentoServiceTest`, `InutilizacaoServiceTest` (lacunas, homologação, recusas, sem resposta, provedor sem suporte) e testes de numeração/vigência no `ModuloFiscalTest`.
+- V46 aplicada no banco descartável: uma vigência migrada por schema.
+- E2E fiscal 13/13: número pulado aparece como lacuna e é inutilizado pela tela; voltar a numeração é recusado (422); a vigência em vigor aparece.
+
+### Limitações
+- Estabelecimentos (matriz e filiais) continuam pendentes: a configuração ainda é uma linha por empresa. A mudança é grande (emitente, séries e certificado por estabelecimento) e fica para quando houver o primeiro cliente com filial.
+- A inutilização de NF-e (55) usa o mesmo serviço, mas não há tela, porque a NF-e ainda não é emitida pelo sistema.
+
+---
+
 ## 4. RTC: matriz de transição (planejamento, nada implementado)
 
 | Período | O que vale | O que o ERP precisará |
@@ -167,10 +195,7 @@ Fontes a confirmar a cada etapa antes de implementar: LC 214/2025 e regulamenta�
 
 ## 5. Pendências e próximas etapas
 
-**Etapa 1 (fundação), restante:**
-- Estabelecimentos por empresa (matriz/filiais), tirando a configuração da linha única.
-- Parâmetros fiscais versionados por vigência (regime, enquadramentos).
-- Inutilização de numeração.
+**Etapa 1 (fundação), restante:** estabelecimentos por empresa (matriz/filiais).
 
 **Etapa 2, fluxo fiscal:**
 - Primeiro provedor real (consulta, cancelamento, inutilização).

@@ -8,6 +8,7 @@ import com.acougue.entity.Produto;
 import com.acougue.entity.Venda;
 import com.acougue.exception.BusinessException;
 import com.acougue.modules.fiscal.emissao.dto.NfceDTO;
+import com.acougue.modules.fiscal.parametros.EnquadramentoService;
 import com.acougue.modules.pagamento.CredencialCripto;
 import com.acougue.repository.ConfiguracaoFiscalRepository;
 import com.acougue.repository.DocumentoFiscalRepository;
@@ -58,11 +59,12 @@ public class NfceService {
     private final CredencialCripto cripto;
     private final List<ProvedorFiscal> provedores;
     private final TransactionOperations tx;
+    private final EnquadramentoService enquadramento;
 
     public NfceService(ConfiguracaoFiscalRepository configRepo, DocumentoFiscalRepository documentoRepo,
                        VendaRepository vendaRepo, ItensVendaRepository itensRepo,
                        PagamentoVendaRepository pagamentoRepo, CredencialCripto cripto,
-                       List<ProvedorFiscal> provedores, TransactionOperations tx) {
+                       List<ProvedorFiscal> provedores, TransactionOperations tx, EnquadramentoService enquadramento) {
         this.configRepo = configRepo;
         this.documentoRepo = documentoRepo;
         this.vendaRepo = vendaRepo;
@@ -71,6 +73,7 @@ public class NfceService {
         this.cripto = cripto;
         this.provedores = provedores;
         this.tx = tx;
+        this.enquadramento = enquadramento;
     }
 
     /** O que o PDV precisa saber para perguntar "CPF na nota?". */
@@ -169,7 +172,9 @@ public class NfceService {
         if (provedor.simulado() && "PRODUCAO".equals(c.getAmbiente())) {
             throw new BusinessException("O provedor simulado não emite em produção. Escolha um provedor de verdade.");
         }
-        if (c.getRegimeTributario() == 3) {
+        // regime vigente hoje (vigência cadastrada), não o campo solto da configuração
+        short regime = enquadramento.regimeEm(java.time.LocalDate.now());
+        if (regime == 3) {
             throw new BusinessException("A NFC-e do regime normal (CST) ainda não está disponível: só Simples Nacional e MEI.");
         }
 
@@ -215,7 +220,7 @@ public class NfceService {
         venda.setNfceStatus("PENDENTE");
         vendaRepo.save(venda);
 
-        NfceEmissao nota = new NfceEmissao(c.getAmbiente(), c.getUf(), emitente(c), c.getNfceSerie(), numero, agora,
+        NfceEmissao nota = new NfceEmissao(c.getAmbiente(), c.getUf(), emitente(c, regime), c.getNfceSerie(), numero, agora,
                 destinatario, itens, pagamentos, venda.getTroco(), venda.getTotal(), vendaId, chave);
         return new Preparada(null, doc.getId(), provedor, nota, credencial);
     }
@@ -327,9 +332,9 @@ public class NfceService {
         return iv.getTotalItem().add(desconto);
     }
 
-    private static NfceEmissao.Emitente emitente(ConfiguracaoFiscal c) {
+    private static NfceEmissao.Emitente emitente(ConfiguracaoFiscal c, short regime) {
         return new NfceEmissao.Emitente(c.getCnpj(), c.getInscricaoEstadual(), c.getRazaoSocial(), c.getNomeFantasia(),
-                c.getRegimeTributario(), c.getLogradouro(), c.getNumeroEndereco(), c.getComplemento(), c.getBairro(),
+                regime, c.getLogradouro(), c.getNumeroEndereco(), c.getComplemento(), c.getBairro(),
                 c.getCodigoMunicipio(), c.getMunicipio(), c.getCep(), c.getTelefone());
     }
 

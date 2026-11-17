@@ -30,4 +30,13 @@ public interface DocumentoFiscalRepository extends JpaRepository<DocumentoFiscal
     Optional<DocumentoFiscal> findFirstByVendaIdAndModeloAndStatus(Long vendaId, Short modelo, String status);
 
     Optional<DocumentoFiscal> findFirstByVendaIdAndModeloAndStatusIn(Long vendaId, Short modelo, Collection<String> status);
+
+    @Query("SELECT MAX(d.numero) FROM DocumentoFiscal d WHERE d.modelo = :modelo AND d.serie = :serie AND d.ambiente = :ambiente")
+    Integer maiorNumero(@Param("modelo") Short modelo, @Param("serie") Short serie, @Param("ambiente") String ambiente);
+
+    @Query("SELECT MIN(d.numero) FROM DocumentoFiscal d WHERE d.modelo = :modelo AND d.serie = :serie AND d.ambiente = :ambiente")
+    Integer menorNumero(@Param("modelo") Short modelo, @Param("serie") Short serie, @Param("ambiente") String ambiente);
+
+    List<DocumentoFiscal> findByModeloAndSerieAndAmbienteAndNumeroBetweenOrderByNumero(Short modelo, Short serie, String ambiente,
+                                                                                      Integer de, Integer ate);
 }

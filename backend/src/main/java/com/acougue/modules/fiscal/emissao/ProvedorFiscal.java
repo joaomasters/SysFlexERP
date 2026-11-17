@@ -13,7 +13,7 @@ import java.util.Optional;
  * - qualquer outra exceção (timeout, conexão caída no meio) → resultado DESCONHECIDO: a nota
  *   pode ter sido autorizada, e só uma consulta pela chave resolve.
  *
- * Cancelamento e inutilização entram aqui junto com o primeiro provedor de verdade.
+ * Cancelamento entra aqui junto com o primeiro provedor de verdade.
  */
 public interface ProvedorFiscal {
 
@@ -38,6 +38,14 @@ public interface ProvedorFiscal {
      * (aí o usuário confere no portal da SEFAZ). Falha de comunicação pode lançar exceção.
      */
     default Optional<RetornoEmissao> consultarNfce(String chave, String ambiente, CredencialFiscal credencial) {
+        return Optional.empty();
+    }
+
+    /**
+     * Pede à SEFAZ a inutilização da faixa. Vazio = o provedor não inutiliza. Recusa volta como
+     * Retorno REJEITADA; falha de comunicação pode lançar exceção (resultado desconhecido).
+     */
+    default Optional<PedidoInutilizacao.Retorno> inutilizar(PedidoInutilizacao pedido, CredencialFiscal credencial) {
         return Optional.empty();
     }
 }

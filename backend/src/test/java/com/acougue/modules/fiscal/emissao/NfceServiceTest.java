@@ -48,6 +48,8 @@ class NfceServiceTest {
     private final PagamentoVendaRepository pagamentoRepo = mock(PagamentoVendaRepository.class);
     private final CredencialCripto cripto = mock(CredencialCripto.class);
     private final ProvedorFiscal provedor = mock(ProvedorFiscal.class);
+    private final com.acougue.modules.fiscal.parametros.EnquadramentoService enquadramento =
+            mock(com.acougue.modules.fiscal.parametros.EnquadramentoService.class);
 
     private NfceService service;
     private ConfiguracaoFiscal config;
@@ -57,7 +59,8 @@ class NfceServiceTest {
     @BeforeEach
     void setUp() {
         service = new NfceService(configRepo, documentoRepo, vendaRepo, itensRepo, pagamentoRepo, cripto, List.of(provedor),
-                TransactionOperations.withoutTransaction());
+                TransactionOperations.withoutTransaction(), enquadramento);
+        when(enquadramento.regimeEm(any())).thenReturn((short) 1);
         config = ConfiguracaoFiscal.builder().id((short) 1).emitirNfce(true).provedor("FOCUS").ambiente("HOMOLOGACAO")
                 .razaoSocial("Loja Teste Ltda").cnpj("11222333000181").inscricaoEstadual("1234567850")
                 .logradouro("Rua XV").numeroEndereco("100").bairro("Centro").municipio("Rolândia")

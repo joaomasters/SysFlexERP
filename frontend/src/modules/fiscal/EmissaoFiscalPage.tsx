@@ -15,6 +15,8 @@ import {
   REGIMES_TRIBUTARIOS, ROTULO_STATUS_DOCUMENTO, type ConfiguracaoFiscal, type DocumentoFiscal, type StatusDocumentoFiscal,
 } from '@/types/fiscal'
 import SaneamentoCadastral from './components/SaneamentoCadastral'
+import VigenciasRegime from './components/VigenciasRegime'
+import NumeracaoInutilizar from './components/NumeracaoInutilizar'
 
 /*
  Emissão de NFC-e (modelo 65) e NF-e (modelo 55), Paraná primeiro.
@@ -75,7 +77,9 @@ export default function EmissaoFiscalPage() {
         value={aba}
         onChange={setAba}
       />
-      {aba === 'configuracao' ? <Configuracao /> : aba === 'documentos' ? <Documentos /> : <SaneamentoCadastral />}
+      {aba === 'configuracao' && <><Configuracao /><VigenciasRegime /></>}
+      {aba === 'documentos' && <><Documentos /><NumeracaoInutilizar /></>}
+      {aba === 'saneamento' && <SaneamentoCadastral />}
     </div>
   )
 }
@@ -226,7 +230,7 @@ function Configuracao() {
         <div className="grid md:grid-cols-3 gap-3">
           {texto('cnpj', 'CNPJ *', { placeholder: '00.000.000/0000-00', max: 20, hint: 'Aceita o CNPJ com letras (a partir de jul/2026).' })}
           {texto('inscricaoEstadual', 'Inscrição Estadual (PR) *', { placeholder: '000.00000-00', max: 20 })}
-          <Field label="Regime tributário *" htmlFor="fiscal-regime">
+          <Field label="Regime tributário *" htmlFor="fiscal-regime" hint="Mudar aqui abre uma vigência a partir de hoje (histórico abaixo).">
             <select id="fiscal-regime" value={form.regimeTributario} disabled={!editavel}
                     onChange={e => set('regimeTributario', Number(e.target.value))} className={baseInputClass}>
               {REGIMES_TRIBUTARIOS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}

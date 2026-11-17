@@ -64,4 +64,10 @@ test.describe('Emissão de notas (NFC-e / NF-e)', () => {
         if (docs.length === 0) await expect(page.getByText('Nenhuma nota emitida ainda.')).toBeVisible()
         else await expect(page.getByRole('columnheader', { name: 'Série / Número' })).toBeVisible()
     })
+
+    test('Deve mostrar o regime tributário com vigência em vigor', async ({ page }) => {
+        await page.goto('/fiscal/emissao')
+        await expect(page.getByRole('heading', { name: 'Vigências do regime tributário' })).toBeVisible()
+        await expect(page.getByRole('cell', { name: 'em vigor' })).toHaveCount(1)
+    })
 })

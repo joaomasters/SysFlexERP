@@ -70,6 +70,13 @@ public class ProvedorFiscalSimulado implements ProvedorFiscal {
                 "SIM-" + chave, LocalDateTime.now()));
     }
 
+    @Override
+    public java.util.Optional<PedidoInutilizacao.Retorno> inutilizar(PedidoInutilizacao pedido, CredencialFiscal credencial) {
+        if (!"HOMOLOGACAO".equals(pedido.ambiente())) return java.util.Optional.empty();
+        String protocolo = "9" + String.format("%014d", Math.abs(aleatorio.nextLong()) % 100_000_000_000_000L);
+        return java.util.Optional.of(new PedidoInutilizacao.Retorno("HOMOLOGADA", protocolo, "Inutilização de número homologada (simulado)"));
+    }
+
     /**
      * QR Code versão 2, emissão on-line: chave|2|ambiente|id do CSC|hash, e o hash é o
      * SHA-1 (hexadecimal maiúsculo) desses quatro campos seguidos do código CSC.
