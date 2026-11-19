@@ -180,6 +180,52 @@ Nenhuma integração externa foi chamada. SEFAZ, calculadoras e DANFSe não fora
 
 ---
 
+## 3c. Provedor real: Focus NFe
+
+Primeiro provedor que fala com a SEFAZ de verdade. A emissão continua passando pelo fluxo de três passos: documento gravado antes do envio, transmissão fora da transação, resultado desconhecido preservado.
+
+- **`ProvedorFocusNfe`** (API REST v2; URLs em `fiscal.focus.url-homologacao` / `fiscal.focus.url-producao`):
+  - A Focus guarda o **certificado A1 e o CSC** de cada empresa e assina e transmite as notas. O sistema manda os dados da venda com o **token da empresa** para o ambiente (homologação ou produção).
+  - **Idempotência:** cada tentativa vai com `ref = sysflex-nfce-{id do documento}`, e a consulta usa a mesma `ref`.
+  - **Mapeamento das respostas:**
+
+    | Resposta da Focus | Status no sistema |
+    |---|---|
+    | `autorizado` | `AUTORIZADA` (chave, protocolo, QR Code, URL de consulta e **XML baixado e guardado**) |
+    | `erro_autorizacao` | `REJEITADA` |
+    | `denegado` | `DENEGADA` |
+    | `cancelado` | `CANCELADA` |
+    | `processando` ou status novo | `DESCONHECIDO` |
+    | HTTP 4xx | a Focus recusou antes da SEFAZ: `ERRO` (`FalhaAntesDoEnvioException`) |
+    | 5xx ou timeout | `DESCONHECIDO` |
+    | consulta 404 | a Focus nunca recebeu (`NAO_ENCONTRADA`): `ERRO`, e a venda pode emitir de novo |
+  - Inutilização de NFC-e e NF-e (`/v2/nfce/inutilizacao`, `/v2/nfe/inutilizacao`).
+  - Em homologação, o 1º item leva o texto obrigatório da SEFAZ ("NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL").
+  - Cartão e PIX vão com `tipo_integracao = 2` (maquininha não integrada à nota).
+- **Configuração** (V47):
+  - Tokens de homologação e de produção são guardados **cifrados** e nunca voltam pela API.
+  - O **CST de PIS/COFINS** é definido pela contabilidade. Nulo = pendência: o sistema não supõe.
+  - Com provedor de API, as pendências não cobram certificado nem CSC aqui; cobram o token do ambiente e o CST.
+- A porta ganhou `usaCertificadoLocal()`, `exigeToken()` e a consulta por `ref`.
+
+### Verificação
+- Backend: 528 testes, 0 falhas. O `ProvedorFocusNfeTest` roda o adaptador contra um servidor HTTP local que responde como a Focus. Cobre:
+  - JSON enviado, token Basic e `ref`;
+  - autorizada com download do XML;
+  - rejeitada e denegada;
+  - 4xx tratado como falha antes do envio;
+  - 5xx e "processando" tratados como desconhecido;
+  - consulta encontrada e não encontrada;
+  - inutilização em produção.
+- E2E fiscal: 14/14 com o simulado, incluindo a tela que mostra token e CST quando o provedor é a Focus.
+- **Ainda não testado contra a homologação real da Focus**: depende do token da empresa. É o próximo passo, antes de qualquer emissão em produção.
+
+### Pendências
+- **Responsável técnico (`infRespTec`) e CSRT:** depende da resposta da Focus sobre usar o CNPJ da software house no XML, e do cadastro de fornecedor no UPD da Receita do PR.
+- **NFC-e para destinatário com CNPJ:** as fontes divergem sobre a vigência da proibição (Ajuste SINIEF). Confirmar com a contabilidade.
+
+---
+
 ## 4. RTC: matriz de transição (planejamento, nada implementado)
 
 | Período | O que vale | O que o ERP precisará |

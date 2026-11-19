@@ -128,12 +128,13 @@ public class NfceService {
             }
             ConfiguracaoFiscal c = configRepo.findById(ConfiguracaoFiscal.ID_UNICO)
                     .orElseThrow(() -> new BusinessException("A empresa ainda não tem configuração fiscal."));
-            return new Consulta(provedor(d.getProvedor()), credencial(c), d.getChave(), d.getAmbiente());
+            ProvedorFiscal p = provedor(d.getProvedor());
+            return new Consulta(p, credencial(c, p, d.getAmbiente()), d.getChave(), d.getAmbiente());
         });
 
         Optional<RetornoEmissao> r;
         try {
-            r = q.provedor().consultarNfce(q.chave(), q.ambiente(), q.credencial());
+            r = q.provedor().consultarNfce(referencia(documentoId), q.chave(), q.ambiente(), q.credencial());
         } catch (RuntimeException e) {
             log.warn("Consulta da NFC-e {} sem resposta: {}", q.chave(), e.getMessage());
             throw new BusinessException("A consulta não teve resposta do provedor fiscal. A nota continua com resultado desconhecido: tente de novo.");
@@ -145,6 +146,10 @@ public class NfceService {
         RetornoEmissao retorno = r.get();
         return tx.execute(s -> {
             if (DEFINITIVOS.contains(retorno.status())) return registrar(documentoId, retorno);
+            if (RetornoEmissao.NAO_ENCONTRADA.equals(retorno.status())) {
+                // o provedor garante que nunca recebeu: não foi transmitida, a venda pode emitir de novo
+                return registrar(documentoId, RetornoEmissao.erro("Não transmitida: " + retorno.mensagem()));
+            }
             DocumentoFiscal d = documentoRepo.findById(documentoId).orElseThrow();
             d.setStatus("DESCONHECIDO");
             d.setMensagem("Consulta sem resposta definitiva: " + retorno.mensagem());
@@ -201,7 +206,7 @@ public class NfceService {
         List<NfceEmissao.Pagamento> pagamentos = pagamentoRepo.findByVendaId(vendaId).stream()
                 .map(p -> new NfceEmissao.Pagamento(TPAG.getOrDefault(p.getFormaPagamento(), "99"), p.getValor()))
                 .toList();
-        CredencialFiscal credencial = credencial(c);
+        CredencialFiscal credencial = credencial(c, provedor, c.getAmbiente());
 
         // Número reservado sob a trava da configuração: nunca se repete, mesmo se a SEFAZ recusar
         int numero = c.getNfceProximoNumero();
@@ -221,7 +226,7 @@ public class NfceService {
         vendaRepo.save(venda);
 
         NfceEmissao nota = new NfceEmissao(c.getAmbiente(), c.getUf(), emitente(c, regime), c.getNfceSerie(), numero, agora,
-                destinatario, itens, pagamentos, venda.getTroco(), venda.getTotal(), vendaId, chave);
+                destinatario, itens, pagamentos, venda.getTroco(), venda.getTotal(), vendaId, chave, referencia(doc.getId()));
         return new Preparada(null, doc.getId(), provedor, nota, credencial);
     }
 
@@ -243,7 +248,7 @@ public class NfceService {
         DocumentoFiscal doc = documentoRepo.findById(documentoId)
                 .orElseThrow(() -> new EntityNotFoundException("Documento fiscal não encontrado: " + documentoId));
         if (r.chave() != null && !r.chave().equals(doc.getChave())) {
-            log.warn("Provedor devolveu a chave {} para a NFC-e gravada com {}", r.chave(), doc.getChave());
+            log.info("Provedor devolveu a chave {} para a NFC-e gravada com {} (provedor que gera a própria chave)", r.chave(), doc.getChave());
         }
         doc.setStatus(r.status());
         if (r.chave() != null) doc.setChave(r.chave());
@@ -335,14 +340,16 @@ public class NfceService {
     private static NfceEmissao.Emitente emitente(ConfiguracaoFiscal c, short regime) {
         return new NfceEmissao.Emitente(c.getCnpj(), c.getInscricaoEstadual(), c.getRazaoSocial(), c.getNomeFantasia(),
                 regime, c.getLogradouro(), c.getNumeroEndereco(), c.getComplemento(), c.getBairro(),
-                c.getCodigoMunicipio(), c.getMunicipio(), c.getCep(), c.getTelefone());
+                c.getCodigoMunicipio(), c.getMunicipio(), c.getCep(), c.getTelefone(), c.getPisCofinsCst());
     }
 
-    private CredencialFiscal credencial(ConfiguracaoFiscal c) {
-        return new CredencialFiscal(
-                Base64.getDecoder().decode(cripto.decifrar(c.getCertificadoCripto())),
-                cripto.decifrar(c.getCertificadoSenhaCripto()),
-                c.getCscId(), cripto.decifrar(c.getCscTokenCripto()));
+    /** Identificador da tentativa no provedor: o id do documento, único na empresa. */
+    static String referencia(Long documentoId) {
+        return "sysflex-nfce-" + documentoId;
+    }
+
+    private CredencialFiscal credencial(ConfiguracaoFiscal c, ProvedorFiscal provedor, String ambiente) {
+        return Credenciais.de(c, provedor, ambiente, cripto);
     }
 
     private static NfceDTO paraDto(DocumentoFiscal d, ConfiguracaoFiscal c) {

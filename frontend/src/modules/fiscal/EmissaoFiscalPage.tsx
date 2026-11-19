@@ -31,7 +31,13 @@ type Form = Pick<ConfiguracaoFiscal,
   'emitirNfce' | 'emitirNfe' | 'ambiente' | 'provedor' | 'razaoSocial' | 'nomeFantasia' | 'cnpj'
   | 'inscricaoEstadual' | 'regimeTributario' | 'logradouro' | 'numeroEndereco' | 'complemento' | 'bairro'
   | 'codigoMunicipio' | 'municipio' | 'cep' | 'telefone' | 'nfceSerie' | 'nfceProximoNumero' | 'nfeSerie'
-  | 'nfeProximoNumero' | 'nfceModo' | 'cscId'> & { cscToken: string; limparCsc: boolean }
+  | 'nfeProximoNumero' | 'nfceModo' | 'cscId'> & {
+    cscToken: string; limparCsc: boolean
+    tokenHomologacao: string; tokenProducao: string; limparTokens: boolean; pisCofinsCst: string
+  }
+
+/** Provedores que guardam certificado e CSC do lado deles: aqui só vão o token e o CST de PIS/COFINS. */
+const PROVEDORES_API = ['FOCUS_NFE']
 
 const TOM_STATUS: Record<StatusDocumentoFiscal, BadgeTone> = {
   AUTORIZADA: 'success', PENDENTE: 'info', CONTINGENCIA: 'warning', REJEITADA: 'danger', DENEGADA: 'danger',
@@ -47,6 +53,7 @@ function paraForm(c: ConfiguracaoFiscal): Form {
     cep: c.cep, telefone: c.telefone, nfceSerie: c.nfceSerie, nfceProximoNumero: c.nfceProximoNumero,
     nfeSerie: c.nfeSerie, nfeProximoNumero: c.nfeProximoNumero, nfceModo: c.nfceModo ?? 'SOB_DEMANDA',
     cscId: c.cscId, cscToken: '', limparCsc: false,
+    tokenHomologacao: '', tokenProducao: '', limparTokens: false, pisCofinsCst: c.pisCofinsCst ?? '',
   }
 }
 
@@ -266,6 +273,39 @@ function Configuracao() {
           </div>
         </Card>
 
+        {PROVEDORES_API.includes(form.provedor) ? (
+        <Card padding="md" className="space-y-4">
+          <h2 className="text-sm font-semibold text-gray-800">Acesso ao provedor fiscal</h2>
+          <p className="text-xs text-gray-500">
+            Com este provedor, o certificado A1 e o CSC ficam cadastrados no painel dele. Aqui vai só o token de acesso da
+            empresa (aba Tokens da empresa no painel) e o CST de PIS/COFINS. Os tokens ficam cifrados e não são mostrados de novo.
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Token de homologação" htmlFor="fiscal-tokenHomologacao">
+              <input id="fiscal-tokenHomologacao" type="password" autoComplete="off" value={form.tokenHomologacao}
+                     disabled={!editavel || form.limparTokens}
+                     placeholder={config.tokenHomologacaoConfigurado ? '•••••••• cadastrado — deixe em branco para manter' : 'Cole aqui'}
+                     onChange={e => set('tokenHomologacao', e.target.value)} className={baseInputClass} />
+            </Field>
+            <Field label="Token de produção" htmlFor="fiscal-tokenProducao">
+              <input id="fiscal-tokenProducao" type="password" autoComplete="off" value={form.tokenProducao}
+                     disabled={!editavel || form.limparTokens}
+                     placeholder={config.tokenProducaoConfigurado ? '•••••••• cadastrado — deixe em branco para manter' : 'Cole aqui'}
+                     onChange={e => set('tokenProducao', e.target.value)} className={baseInputClass} />
+            </Field>
+            <Field label="CST de PIS/COFINS" htmlFor="fiscal-pisCofinsCst" hint="Definido pela contabilidade (Simples costuma usar 49).">
+              <input id="fiscal-pisCofinsCst" value={form.pisCofinsCst} maxLength={2} disabled={!editavel} inputMode="numeric"
+                     placeholder="49" onChange={e => set('pisCofinsCst', e.target.value.replace(/\D/g, ''))} className={baseInputClass} />
+            </Field>
+          </div>
+          {(config.tokenHomologacaoConfigurado || config.tokenProducaoConfigurado) && (
+            <label className="flex items-center gap-2 text-xs text-gray-500">
+              <input type="checkbox" checked={form.limparTokens} disabled={!editavel} onChange={e => set('limparTokens', e.target.checked)} />
+              Remover tokens cadastrados
+            </label>
+          )}
+        </Card>
+        ) : (
         <Card padding="md" className="space-y-4">
           <h2 className="text-sm font-semibold text-gray-800">CSC da NFC-e</h2>
           <p className="text-xs text-gray-500">
@@ -286,6 +326,7 @@ function Configuracao() {
             </label>
           )}
         </Card>
+        )}
       </div>
 
       {/* Certificado */}

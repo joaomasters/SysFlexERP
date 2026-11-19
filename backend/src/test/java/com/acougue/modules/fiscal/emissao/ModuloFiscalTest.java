@@ -97,6 +97,30 @@ class ModuloFiscalTest {
     class Pendencias {
 
         @Test
+        @DisplayName("provedor de API (Focus): não cobra certificado nem CSC aqui, cobra token do ambiente e CST de PIS/COFINS")
+        void provedorDeApi() {
+            ProvedorFiscal api = new ProvedorFiscal() {
+                public String codigo() { return "FOCUS_NFE"; }
+                public String rotulo() { return "Focus"; }
+                public boolean usaCertificadoLocal() { return false; }
+                public boolean exigeToken() { return true; }
+                public RetornoEmissao emitirNfce(NfceEmissao n, CredencialFiscal c) { return null; }
+            };
+            var c = ModuloFiscalTest.completa();
+            c.setCertificadoCripto(null);
+            c.setCscId(null);
+            c.setCscTokenCripto(null);
+            assertThat(PendenciasFiscais.calcular(c, true, true, api).nfce())
+                    .containsExactly("Informe o token de homologação do provedor fiscal.",
+                            "Informe o CST de PIS/COFINS dos itens (confirme com a contabilidade).");
+            c.setProvedorTokenHomologacaoCripto("v1:x");
+            c.setPisCofinsCst("49");
+            assertThat(PendenciasFiscais.calcular(c, true, true, api).nfce()).isEmpty();
+            c.setAmbiente("PRODUCAO");
+            assertThat(PendenciasFiscais.calcular(c, true, true, api).nfce()).containsExactly("Informe o token de produção do provedor fiscal.");
+        }
+
+        @Test
         @DisplayName("tudo certo e com provedor: nenhuma pendência")
         void completa() {
             PendenciasFiscais p = PendenciasFiscais.calcular(ModuloFiscalTest.completa(), true, true);

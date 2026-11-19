@@ -13,6 +13,13 @@ import java.util.List;
 public record PendenciasFiscais(List<String> nfce, List<String> nfe) {
 
     public static PendenciasFiscais calcular(ConfiguracaoFiscal c, boolean criptoConfigurada, boolean provedorDisponivel) {
+        return calcular(c, criptoConfigurada, provedorDisponivel, null);
+    }
+
+    /** provedor nulo = ainda não escolhido (cobra certificado e CSC, o caso mais exigente). */
+    public static PendenciasFiscais calcular(ConfiguracaoFiscal c, boolean criptoConfigurada, boolean provedorDisponivel,
+                                             ProvedorFiscal provedor) {
+        boolean local = provedor == null || provedor.usaCertificadoLocal();
         List<String> comuns = new ArrayList<>();
         if (!criptoConfigurada) {
             comuns.add("O servidor está sem PAGAMENTO_CRIPTO_CHAVE: sem ela não dá para guardar o certificado.");
@@ -31,7 +38,16 @@ public record PendenciasFiscais(List<String> nfce, List<String> nfe) {
         if (c.getCep() == null || !c.getCep().matches("8[0-7][0-9]{6}")) {
             comuns.add("Informe um CEP do Paraná (80000-000 a 87999-999).");
         }
-        if (c.getCertificadoCripto() == null) {
+        if (!local) {
+            // certificado e CSC ficam no provedor; aqui só o token do ambiente e o CST de PIS/COFINS
+            boolean producao = "PRODUCAO".equals(c.getAmbiente());
+            if ((producao ? c.getProvedorTokenProducaoCripto() : c.getProvedorTokenHomologacaoCripto()) == null) {
+                comuns.add("Informe o token de " + (producao ? "produção" : "homologação") + " do provedor fiscal.");
+            }
+            if (c.getPisCofinsCst() == null) {
+                comuns.add("Informe o CST de PIS/COFINS dos itens (confirme com a contabilidade).");
+            }
+        } else if (c.getCertificadoCripto() == null) {
             comuns.add("Envie o certificado digital A1 (.pfx) da empresa.");
         } else {
             if (c.getCertificadoValidade() != null && c.getCertificadoValidade().isBefore(LocalDateTime.now())) {
@@ -48,7 +64,7 @@ public record PendenciasFiscais(List<String> nfce, List<String> nfe) {
         }
 
         List<String> nfce = new ArrayList<>(comuns);
-        if (vazio(c.getCscId()) || c.getCscTokenCripto() == null) {
+        if (local && (vazio(c.getCscId()) || c.getCscTokenCripto() == null)) {
             nfce.add("Informe o CSC (identificador e código) gerado no portal da SEFAZ-PR.");
         }
         return new PendenciasFiscais(List.copyOf(nfce), List.copyOf(comuns));

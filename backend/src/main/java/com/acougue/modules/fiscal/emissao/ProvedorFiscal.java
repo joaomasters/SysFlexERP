@@ -28,16 +28,31 @@ public interface ProvedorFiscal {
     }
 
     /**
+     * true = o sistema assina (precisa do certificado A1 e do CSC aqui). false = o provedor guarda
+     * certificado e CSC do lado dele (API de terceiro) e o sistema só precisa do token de acesso.
+     */
+    default boolean usaCertificadoLocal() {
+        return true;
+    }
+
+    /** Precisa de token de acesso por ambiente (configuracao_fiscal.provedor_token_*). */
+    default boolean exigeToken() {
+        return false;
+    }
+
+    /**
      * Assina, transmite e devolve o resultado da SEFAZ. A chave de acesso vem pronta em
      * {@link NfceEmissao#chave()} (gravada antes do envio) e deve ser usada como está.
      */
     RetornoEmissao emitirNfce(NfceEmissao nota, CredencialFiscal credencial);
 
     /**
-     * Situação atual da nota na SEFAZ, pela chave. Vazio = o provedor não sabe consultar
-     * (aí o usuário confere no portal da SEFAZ). Falha de comunicação pode lançar exceção.
+     * Situação atual da nota. ref = identificador que o sistema mandou na emissão (idempotência);
+     * chave = a chave gravada antes do envio. Vazio = o provedor não sabe consultar (o usuário confere
+     * no portal da SEFAZ). Status NAO_ENCONTRADA = o provedor garante que nunca recebeu a nota.
+     * Falha de comunicação pode lançar exceção.
      */
-    default Optional<RetornoEmissao> consultarNfce(String chave, String ambiente, CredencialFiscal credencial) {
+    default Optional<RetornoEmissao> consultarNfce(String ref, String chave, String ambiente, CredencialFiscal credencial) {
         return Optional.empty();
     }
 
