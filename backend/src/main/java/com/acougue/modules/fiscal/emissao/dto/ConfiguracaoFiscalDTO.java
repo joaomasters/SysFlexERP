@@ -11,6 +11,7 @@ public record ConfiguracaoFiscalDTO(
         String codigoMunicipio, String municipio, String cep, String telefone,
         short nfceSerie, int nfceProximoNumero, short nfeSerie, int nfeProximoNumero, String nfceModo,
         String cscId, boolean cscConfigurado,
+        boolean tokenHomologacaoConfigurado, boolean tokenProducaoConfigurado, String pisCofinsCst,
         boolean certificadoConfigurado, String certificadoTitular, String certificadoCnpj,
         LocalDateTime certificadoValidade,
         boolean criptoConfigurada,

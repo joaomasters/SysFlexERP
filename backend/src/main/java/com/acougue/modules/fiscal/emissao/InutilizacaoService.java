@@ -141,15 +141,12 @@ public class InutilizacaoService {
             if (provedor.simulado() && "PRODUCAO".equals(c.getAmbiente())) {
                 throw new BusinessException("O provedor simulado não inutiliza em produção.");
             }
-            if (c.getCertificadoCripto() == null) throw new BusinessException("Envie o certificado A1 antes de inutilizar numeração.");
             int ano = LocalDate.now().getYear() % 100;
             Inutilizacao i = repo.save(Inutilizacao.builder().modelo(p.modelo()).serie(serie)
                     .numeroInicial(p.numeroInicial()).numeroFinal(p.numeroFinal()).ano((short) ano)
                     .ambiente(c.getAmbiente()).justificativa(justificativa).status("DESCONHECIDO")
                     .provedor(provedor.codigo()).usuarioId(ContextoUsuario.atual().getUsuarioId()).build());
-            CredencialFiscal cred = new CredencialFiscal(
-                    Base64.getDecoder().decode(cripto.decifrar(c.getCertificadoCripto())),
-                    cripto.decifrar(c.getCertificadoSenhaCripto()), c.getCscId(), null);
+            CredencialFiscal cred = Credenciais.de(c, provedor, c.getAmbiente(), cripto);
             return new Preparado(i.getId(), provedor, new PedidoInutilizacao(c.getAmbiente(), c.getUf(), c.getCnpj(),
                     p.modelo(), serie, p.numeroInicial(), p.numeroFinal(), ano, justificativa), cred);
         });

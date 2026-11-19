@@ -70,6 +70,7 @@ class NfceServiceTest {
         when(configRepo.travar()).thenReturn(Optional.of(config));
         when(configRepo.findById((short) 1)).thenReturn(Optional.of(config));
         when(provedor.codigo()).thenReturn("FOCUS");
+        when(provedor.usaCertificadoLocal()).thenReturn(true); // mock não executa o default da interface
         when(cripto.decifrar("c")).thenReturn("AAEC");
         when(cripto.decifrar("s")).thenReturn("senha");
         when(cripto.decifrar("t")).thenReturn("CSC");
@@ -240,7 +241,7 @@ class NfceServiceTest {
     void consultaResolve() {
         salvo = DocumentoFiscal.builder().id(99L).modelo((short) 65).serie((short) 2).numero(41).ambiente("HOMOLOGACAO")
                 .status("DESCONHECIDO").chave("41261111222333000181650020000000411123456780").vendaId(7L).provedor("FOCUS").build();
-        when(provedor.consultarNfce(eq(salvo.getChave()), eq("HOMOLOGACAO"), any())).thenReturn(Optional.of(new RetornoEmissao(
+        when(provedor.consultarNfce(eq("sysflex-nfce-99"), eq(salvo.getChave()), eq("HOMOLOGACAO"), any())).thenReturn(Optional.of(new RetornoEmissao(
                 "AUTORIZADA", salvo.getChave(), "141260000000009", "Autorizado", null, null, null, null, LocalDateTime.now())));
 
         NfceDTO r = service.consultar(99L);
@@ -255,18 +256,31 @@ class NfceServiceTest {
     void consultaInconclusiva() {
         salvo = DocumentoFiscal.builder().id(99L).modelo((short) 65).serie((short) 2).numero(41).ambiente("HOMOLOGACAO")
                 .status("DESCONHECIDO").chave("41261111222333000181650020000000411123456780").vendaId(7L).provedor("FOCUS").build();
-        when(provedor.consultarNfce(any(), any(), any())).thenReturn(Optional.of(RetornoEmissao.erro("SEFAZ fora do ar")));
+        when(provedor.consultarNfce(any(), any(), any(), any())).thenReturn(Optional.of(RetornoEmissao.erro("SEFAZ fora do ar")));
         assertThat(service.consultar(99L).status()).isEqualTo("DESCONHECIDO");
 
-        when(provedor.consultarNfce(any(), any(), any())).thenReturn(Optional.empty());
+        when(provedor.consultarNfce(any(), any(), any(), any())).thenReturn(Optional.empty());
         assertThatThrownBy(() -> service.consultar(99L)).hasMessageContaining("portal da SEFAZ");
 
-        when(provedor.consultarNfce(any(), any(), any())).thenThrow(new RuntimeException("timeout"));
+        when(provedor.consultarNfce(any(), any(), any(), any())).thenThrow(new RuntimeException("timeout"));
         assertThatThrownBy(() -> service.consultar(99L)).hasMessageContaining("continua com resultado desconhecido");
         assertThat(salvo.getStatus()).isEqualTo("DESCONHECIDO");
 
         salvo.setStatus("AUTORIZADA");
         assertThatThrownBy(() -> service.consultar(99L)).hasMessageContaining("Só se consulta");
+    }
+
+    @Test
+    @DisplayName("consulta em que o provedor nunca recebeu a nota: vira ERRO e a venda pode emitir de novo")
+    void consultaNaoEncontrada() {
+        salvo = DocumentoFiscal.builder().id(99L).modelo((short) 65).serie((short) 2).numero(41).ambiente("HOMOLOGACAO")
+                .status("DESCONHECIDO").chave("41261111222333000181650020000000411123456780").vendaId(7L).provedor("FOCUS").build();
+        when(provedor.consultarNfce(any(), any(), any(), any())).thenReturn(Optional.of(RetornoEmissao.naoEncontrada("nunca recebida")));
+
+        NfceDTO r = service.consultar(99L);
+
+        assertThat(r.status()).isEqualTo("ERRO");
+        assertThat(r.mensagem()).contains("Não transmitida");
     }
 
     @Test
@@ -303,9 +317,9 @@ class NfceServiceTest {
     void provedorSimulado() {
         ProvedorFiscalSimulado simulado = new ProvedorFiscalSimulado();
         NfceEmissao nota = new NfceEmissao("HOMOLOGACAO", "PR",
-                new NfceEmissao.Emitente("11222333000181", null, null, null, (short) 1, null, null, null, null, null, null, null, null),
+                new NfceEmissao.Emitente("11222333000181", null, null, null, (short) 1, null, null, null, null, null, null, null, null, "49"),
                 (short) 2, 41, LocalDateTime.of(2026, 11, 8, 10, 0), null, List.of(), List.of(), BigDecimal.ZERO,
-                BigDecimal.TEN, 7L, ChaveAcesso.gerar("41", LocalDateTime.of(2026, 11, 8, 10, 0), "11222333000181", 65, 2, 41, 1, 12345678));
+                BigDecimal.TEN, 7L, ChaveAcesso.gerar("41", LocalDateTime.of(2026, 11, 8, 10, 0), "11222333000181", 65, 2, 41, 1, 12345678), "ref-1");
 
         RetornoEmissao r = simulado.emitirNfce(nota, new CredencialFiscal(new byte[0], "", "000001", "CSC"));
 
@@ -315,7 +329,7 @@ class NfceServiceTest {
         assertThat(r.urlQrcode()).matches("http://www\\.fazenda\\.pr\\.gov\\.br/nfce/qrcode\\?p=" + r.chave() + "\\|2\\|2\\|1\\|[0-9A-F]{40}");
 
         NfceEmissao producao = new NfceEmissao("PRODUCAO", "PR", nota.emitente(), (short) 2, 41, nota.dataEmissao(),
-                null, List.of(), List.of(), BigDecimal.ZERO, BigDecimal.TEN, 7L, nota.chave());
+                null, List.of(), List.of(), BigDecimal.ZERO, BigDecimal.TEN, 7L, nota.chave(), "ref-2");
         assertThat(simulado.emitirNfce(producao, null).status()).isEqualTo("ERRO");
     }
 

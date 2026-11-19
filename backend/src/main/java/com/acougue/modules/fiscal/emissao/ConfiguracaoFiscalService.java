@@ -89,6 +89,21 @@ public class ConfiguracaoFiscalService {
             c.setCscTokenCripto(cripto.cifrar(dto.getCscToken().trim()));
         }
 
+        c.setPisCofinsCst(texto(dto.getPisCofinsCst()));
+        if (dto.isLimparTokens()) {
+            c.setProvedorTokenHomologacaoCripto(null);
+            c.setProvedorTokenProducaoCripto(null);
+        } else {
+            if (dto.getTokenHomologacao() != null && !dto.getTokenHomologacao().isBlank()) {
+                exigirCripto();
+                c.setProvedorTokenHomologacaoCripto(cripto.cifrar(dto.getTokenHomologacao().trim()));
+            }
+            if (dto.getTokenProducao() != null && !dto.getTokenProducao().isBlank()) {
+                exigirCripto();
+                c.setProvedorTokenProducaoCripto(cripto.cifrar(dto.getTokenProducao().trim()));
+            }
+        }
+
         // Ligar a emissão só com tudo em ordem; desligar é sempre permitido (volta ao cupom não fiscal)
         PendenciasFiscais pendencias = pendencias(c);
         if (dto.isEmitirNfce() && !pendencias.nfce().isEmpty()) {
@@ -164,7 +179,8 @@ public class ConfiguracaoFiscalService {
 
     private PendenciasFiscais pendencias(ConfiguracaoFiscal c) {
         boolean provedorDisponivel = provedores.stream().anyMatch(p -> p.codigo().equals(c.getProvedor()));
-        return PendenciasFiscais.calcular(c, cripto.configurada(), provedorDisponivel);
+        ProvedorFiscal provedor = provedores.stream().filter(p -> p.codigo().equals(c.getProvedor())).findFirst().orElse(null);
+        return PendenciasFiscais.calcular(c, cripto.configurada(), provedorDisponivel, provedor);
     }
 
     private ConfiguracaoFiscalDTO paraDto(ConfiguracaoFiscal c) {
@@ -176,6 +192,7 @@ public class ConfiguracaoFiscalService {
                 c.getCodigoMunicipio(), c.getMunicipio(), c.getCep(), c.getTelefone(),
                 c.getNfceSerie(), c.getNfceProximoNumero(), c.getNfeSerie(), c.getNfeProximoNumero(), c.getNfceModo(),
                 c.getCscId(), c.getCscTokenCripto() != null,
+                c.getProvedorTokenHomologacaoCripto() != null, c.getProvedorTokenProducaoCripto() != null, c.getPisCofinsCst(),
                 c.getCertificadoCripto() != null, c.getCertificadoTitular(), c.getCertificadoCnpj(),
                 c.getCertificadoValidade(),
                 cripto.configurada(),

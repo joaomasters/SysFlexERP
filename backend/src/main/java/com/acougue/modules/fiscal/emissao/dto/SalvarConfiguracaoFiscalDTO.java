@@ -47,4 +47,12 @@ public class SalvarConfiguracaoFiscalDTO {
     /** Em branco = mantém o código já cadastrado. */
     @Size(max = 100) private String cscToken;
     private boolean limparCsc;
+
+    /** Token da API do provedor por ambiente. Em branco = mantém o já cadastrado. */
+    @Size(max = 200) private String tokenHomologacao;
+    @Size(max = 200) private String tokenProducao;
+    private boolean limparTokens;
+
+    @Pattern(regexp = "^$|[0-9]{2}", message = "CST de PIS/COFINS deve ter 2 dígitos")
+    private String pisCofinsCst;
 }

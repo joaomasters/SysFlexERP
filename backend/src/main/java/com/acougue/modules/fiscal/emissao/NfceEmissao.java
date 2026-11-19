@@ -21,11 +21,13 @@ public record NfceEmissao(
         BigDecimal troco,
         BigDecimal total,
         Long vendaId,
-        String chave) {                // gerada e gravada pelo ERP antes do envio: o provedor usa esta
+        String chave,                  // gerada e gravada pelo ERP antes do envio
+        String ref) {                  // identificador único da tentativa (idempotência no provedor)
 
     public record Emitente(String cnpj, String inscricaoEstadual, String razaoSocial, String nomeFantasia,
                            short regimeTributario, String logradouro, String numero, String complemento,
-                           String bairro, String codigoMunicipio, String municipio, String cep, String telefone) {}
+                           String bairro, String codigoMunicipio, String municipio, String cep, String telefone,
+                           String pisCofinsCst) {}
 
     public record Item(String codigo, String ean, String descricao, String ncm, String cest, String cfop,
                        String origem, String csosn, String unidade, BigDecimal quantidade,

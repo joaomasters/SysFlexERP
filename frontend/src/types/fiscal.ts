@@ -39,6 +39,11 @@ export interface ConfiguracaoFiscal {
   nfceModo: ModoNfce
   cscId: string | null
   cscConfigurado: boolean
+  /** Token da API do provedor (ex.: Focus NFe) por ambiente: só diz se existe. */
+  tokenHomologacaoConfigurado: boolean
+  tokenProducaoConfigurado: boolean
+  /** CST de PIS/COFINS dos itens, definido pela contabilidade. */
+  pisCofinsCst: string | null
   certificadoConfigurado: boolean
   certificadoTitular: string | null
   certificadoCnpj: string | null

@@ -70,4 +70,13 @@ test.describe('Emissão de notas (NFC-e / NF-e)', () => {
         await expect(page.getByRole('heading', { name: 'Vigências do regime tributário' })).toBeVisible()
         await expect(page.getByRole('cell', { name: 'em vigor' })).toHaveCount(1)
     })
+
+    test('Com a Focus NFe, pede token e CST de PIS/COFINS no lugar do CSC', async ({ page }) => {
+        await page.goto('/fiscal/emissao')
+        await page.getByLabel('Comunicação com a SEFAZ').selectOption({ label: 'Focus NFe' })
+        await expect(page.getByRole('heading', { name: 'Acesso ao provedor fiscal' })).toBeVisible()
+        await expect(page.getByLabel('Token de homologação')).toBeVisible()
+        await expect(page.getByLabel('CST de PIS/COFINS')).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'CSC da NFC-e' })).toHaveCount(0)
+    })
 })
