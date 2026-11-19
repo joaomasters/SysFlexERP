@@ -69,7 +69,7 @@ export default function CpfNaNotaModal({ modo, documentoInicial, onEscolher, onV
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4">
       <div role="dialog" aria-label="CPF na nota" className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-sm p-6 space-y-4 text-white">
         <div className="text-center space-y-1">
-          <FileText size={30} className="mx-auto text-emerald-400" />
+          <FileText size={30} className="mx-auto text-success-400" />
           <h2 className="text-lg font-bold">CPF na nota?</h2>
           <p className="text-xs text-gray-400">
             {sobDemanda
@@ -88,14 +88,14 @@ export default function CpfNaNotaModal({ modo, documentoInicial, onEscolher, onV
             if (e.key === 'Enter') { e.preventDefault(); confirmar() }
             if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onVoltar() }
           }}
-          className="w-full bg-gray-800 border border-gray-600 rounded-xl px-4 py-3 text-xl text-center font-bold tabular-nums tracking-wide focus:outline-none focus:border-emerald-500"
+          className="w-full bg-gray-800 border border-gray-600 rounded-xl px-4 py-3 text-xl text-center font-bold tabular-nums tracking-wide focus:outline-none focus:border-success-500"
         />
-        {erro && <p className="text-sm text-red-400 text-center">{erro}</p>}
+        {erro && <p className="text-sm text-danger-400 text-center">{erro}</p>}
         <div className="grid grid-cols-2 gap-2">
           <button onClick={onVoltar} className="py-3 rounded-xl bg-gray-700 hover:bg-gray-600 text-sm font-medium">
             Voltar <span className="opacity-60 text-xs">[Esc]</span>
           </button>
-          <button onClick={() => confirmar()} className="py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-sm font-bold">
+          <button onClick={() => confirmar()} className="py-3 rounded-xl bg-success-600 hover:bg-success-500 text-sm font-bold">
             {doc ? 'Emitir NFC-e' : sobDemanda ? 'Sem nota' : 'NFC-e sem CPF'} <span className="opacity-70 text-xs font-normal">[Enter]</span>
           </button>
         </div>

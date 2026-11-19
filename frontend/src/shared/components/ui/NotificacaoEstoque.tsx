@@ -82,9 +82,9 @@ export default function NotificacaoEstoque() {
         className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors"
         title="Alertas de estoque mínimo e validade"
       >
-        <Bell size={20} className={qtd > 0 ? 'text-amber-600' : 'text-gray-400'} />
+        <Bell size={20} className={qtd > 0 ? 'text-warning-600' : 'text-gray-400'} />
         {qtd > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 bg-talho-600 text-white text-[10px] font-bold
+          <span className="absolute -top-0.5 -right-0.5 bg-danger-600 text-white text-[10px] font-bold
                            rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
             {qtd > 99 ? '99+' : qtd}
           </span>
@@ -105,7 +105,7 @@ export default function NotificacaoEstoque() {
               <section>
                 <div className="px-4 py-3 border-b bg-gray-50">
                   <p className="font-semibold text-sm text-gray-800 flex items-center gap-1.5">
-                    <CalendarClock size={14} className={temVencido ? 'text-red-600' : 'text-amber-600'} />
+                    <CalendarClock size={14} className={temVencido ? 'text-danger-600' : 'text-warning-600'} />
                     Validade
                   </p>
                 </div>
@@ -114,7 +114,7 @@ export default function NotificacaoEstoque() {
                     key={l.loteId}
                     to="/estoque/validade"
                     onClick={() => setAberto(false)}
-                    className="flex items-center justify-between px-4 py-2.5 hover:bg-amber-50 border-b border-gray-50 last:border-0"
+                    className="flex items-center justify-between px-4 py-2.5 hover:bg-warning-50 border-b border-gray-50 last:border-0"
                   >
                     <div>
                       <p className="text-sm font-medium text-gray-800">{l.produtoNome}</p>
@@ -122,7 +122,7 @@ export default function NotificacaoEstoque() {
                         {formatQuantidade(l.quantidadeAtual, l.unidadeMedida)} {l.unidadeMedida} · {new Date(l.dataValidade + 'T00:00:00').toLocaleDateString('pt-BR')}
                       </p>
                     </div>
-                    <span className={`text-xs font-semibold ${l.situacao === 'VENCIDO' ? 'text-red-600' : 'text-amber-600'}`}>
+                    <span className={`text-xs font-semibold ${l.situacao === 'VENCIDO' ? 'text-danger-600' : 'text-warning-600'}`}>
                       {textoPrazo(l.diasRestantes)}
                     </span>
                   </Link>
@@ -134,7 +134,7 @@ export default function NotificacaoEstoque() {
               <section>
                 <div className="px-4 py-3 border-b bg-gray-50">
                   <p className="font-semibold text-sm text-gray-800 flex items-center gap-1.5">
-                    <AlertTriangle size={14} className="text-amber-600" />
+                    <AlertTriangle size={14} className="text-warning-600" />
                     Estoque abaixo do mínimo
                   </p>
                 </div>
@@ -143,7 +143,7 @@ export default function NotificacaoEstoque() {
                     key={p.id}
                     to="/produtos"
                     onClick={() => setAberto(false)}
-                    className="flex items-center justify-between px-4 py-2.5 hover:bg-amber-50 border-b border-gray-50 last:border-0"
+                    className="flex items-center justify-between px-4 py-2.5 hover:bg-warning-50 border-b border-gray-50 last:border-0"
                   >
                     <div>
                       <p className="text-sm font-medium text-gray-800">{p.nome}</p>
@@ -151,7 +151,7 @@ export default function NotificacaoEstoque() {
                         Mínimo: {p.estoqueMinimo} {p.unidadeMedida}
                       </p>
                     </div>
-                    <span className="text-sm font-semibold text-red-600">
+                    <span className="text-sm font-semibold text-danger-600">
                       {p.estoqueAtual} {p.unidadeMedida}
                     </span>
                   </Link>
@@ -166,7 +166,7 @@ export default function NotificacaoEstoque() {
                 <Link
                   to="/estoque/validade"
                   onClick={() => setAberto(false)}
-                  className="flex-1 text-center py-2.5 text-sm font-medium text-red-600 hover:bg-gray-50"
+                  className="flex-1 text-center py-2.5 text-sm font-medium text-danger-600 hover:bg-gray-50"
                 >
                   Ver validades
                 </Link>
@@ -175,7 +175,7 @@ export default function NotificacaoEstoque() {
                 <Link
                   to="/produtos"
                   onClick={() => setAberto(false)}
-                  className="flex-1 text-center py-2.5 text-sm font-medium text-red-600 hover:bg-gray-50"
+                  className="flex-1 text-center py-2.5 text-sm font-medium text-danger-600 hover:bg-gray-50"
                 >
                   Ver produtos
                 </Link>

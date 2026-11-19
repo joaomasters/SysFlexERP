@@ -70,7 +70,7 @@ export default function QuantidadeItemModal({ item, onConfirmar, onCancelar }: P
               onFocus={e => e.target.select()}
               onChange={e => setQuantidade(Number(e.target.value.replace(/\D/g, '')) || 0)}
               className="w-full rounded-lg bg-gray-800 border border-gray-700 px-3 py-2 text-center text-2xl font-bold text-white
-                         tabular-nums focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                         tabular-nums focus:outline-none focus:ring-2 focus:ring-success-500"
             />
             <button type="button" onClick={() => passo(1)} aria-label="Mais um"
               className="h-12 w-12 shrink-0 rounded-xl bg-gray-800 hover:bg-gray-700 flex items-center justify-center">
@@ -81,9 +81,9 @@ export default function QuantidadeItemModal({ item, onConfirmar, onCancelar }: P
 
         <div className="flex justify-between font-bold text-sm">
           <span>Item fica por</span>
-          <span className="tabular-nums text-emerald-400">{formatBRL(Math.max(0, total))}</span>
+          <span className="tabular-nums text-success-400">{formatBRL(Math.max(0, total))}</span>
         </div>
-        {!valida && <p className="text-xs text-red-400">Informe uma quantidade maior que zero.</p>}
+        {!valida && <p className="text-xs text-danger-400">Informe uma quantidade maior que zero.</p>}
 
         <div className="flex gap-3">
           <button type="button" onClick={onCancelar}
@@ -91,7 +91,7 @@ export default function QuantidadeItemModal({ item, onConfirmar, onCancelar }: P
             Cancelar <span className="opacity-60">[Esc]</span>
           </button>
           <button type="submit" disabled={!valida || salvando}
-            className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-gray-700 disabled:text-gray-500 font-bold text-sm">
+            className="flex-1 py-3 rounded-xl bg-success-600 hover:bg-success-500 disabled:bg-gray-700 disabled:text-gray-500 font-bold text-sm">
             Confirmar <span className="opacity-70 font-normal">[Enter]</span>
           </button>
         </div>

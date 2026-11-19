@@ -9,7 +9,7 @@ import { AMBIENTE, EH_PRODUCAO } from '../../api/ambiente'
 export default function FaixaAmbiente() {
   if (EH_PRODUCAO) return null
   return (
-    <div className="bg-amber-400 text-amber-950 text-xs font-semibold text-center py-1 px-3 flex items-center justify-center gap-1.5 shrink-0">
+    <div className="bg-warning-400 text-warning-950 text-xs font-semibold text-center py-1 px-3 flex items-center justify-center gap-1.5 shrink-0">
       <FlaskConical size={13} />
       AMBIENTE DE {AMBIENTE === 'development' ? 'DESENVOLVIMENTO' : AMBIENTE.toUpperCase()} — dados de teste, não use para vendas reais
     </div>

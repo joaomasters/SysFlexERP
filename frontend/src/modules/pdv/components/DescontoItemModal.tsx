@@ -75,20 +75,20 @@ export default function DescontoItemModal({ item, onConfirmar, onCancelar }: Pro
             placeholder="0"
             aria-label="Percentual de desconto"
             className="w-full rounded-lg bg-gray-800 border border-gray-700 px-3 py-2 text-2xl font-bold text-white
-                       focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                       focus:outline-none focus:ring-2 focus:ring-success-500"
           />
         )}
 
         <div className="text-sm space-y-1">
           <div className="flex justify-between text-gray-400">
             <span>Desconto</span>
-            <span className="tabular-nums text-amber-400">-{formatBRL(desconto)}</span>
+            <span className="tabular-nums text-warning-400">-{formatBRL(desconto)}</span>
           </div>
           <div className="flex justify-between font-bold">
             <span>Item fica por</span>
-            <span className="tabular-nums text-emerald-400">{formatBRL(Math.max(0, arredondar(valorCheio - desconto)))}</span>
+            <span className="tabular-nums text-success-400">{formatBRL(Math.max(0, arredondar(valorCheio - desconto)))}</span>
           </div>
-          {!valido && <p className="text-xs text-red-400">O desconto deve ser menor que o valor do item.</p>}
+          {!valido && <p className="text-xs text-danger-400">O desconto deve ser menor que o valor do item.</p>}
         </div>
 
         <div className="flex gap-3">
@@ -103,7 +103,7 @@ export default function DescontoItemModal({ item, onConfirmar, onCancelar }: Pro
             </button>
           )}
           <button type="submit" disabled={!valido || salvando}
-            className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-gray-700 disabled:text-gray-500 font-bold text-sm">
+            className="flex-1 py-3 rounded-xl bg-success-600 hover:bg-success-500 disabled:bg-gray-700 disabled:text-gray-500 font-bold text-sm">
             Aplicar
           </button>
         </div>

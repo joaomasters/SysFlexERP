@@ -15,7 +15,7 @@ interface Props {
 
 const campo =
   'w-full rounded-lg bg-gray-800 border border-gray-600 px-3 py-2.5 text-sm text-white placeholder-gray-500 ' +
-  'focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500'
+  'focus:outline-none focus:ring-2 focus:ring-warning-500 focus:border-warning-500'
 
 /** Pede a senha de um administrador para liberar fiado acima do limite de crédito. */
 export default function AutorizacaoLimiteModal({ info, loginInicial = '', enviando, onAutorizar, onCancelar }: Props) {
@@ -31,10 +31,10 @@ export default function AutorizacaoLimiteModal({ info, loginInicial = '', envian
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true">
-      <form onSubmit={enviar} className="w-full max-w-md rounded-2xl bg-gray-900 border border-amber-500/40 shadow-2xl">
+      <form onSubmit={enviar} className="w-full max-w-md rounded-2xl bg-gray-900 border border-warning-500/40 shadow-2xl">
         <div className="flex items-start justify-between gap-3 p-5 border-b border-gray-700">
           <div className="flex items-center gap-3">
-            <ShieldAlert className="text-amber-400 shrink-0" size={26} />
+            <ShieldAlert className="text-warning-400 shrink-0" size={26} />
             <div>
               <h2 className="text-lg font-semibold text-white">Limite de crédito excedido</h2>
               <p className="text-sm text-gray-400">{info.clienteNome}</p>
@@ -50,7 +50,7 @@ export default function AutorizacaoLimiteModal({ info, loginInicial = '', envian
             <div className="flex justify-between"><dt className="text-gray-400">Limite do cliente</dt><dd className="text-white tabular-nums">{formatBRL(info.limite)}</dd></div>
             <div className="flex justify-between"><dt className="text-gray-400">Fiado em aberto</dt><dd className="text-white tabular-nums">{formatBRL(info.saldoAtual)}</dd></div>
             <div className="flex justify-between"><dt className="text-gray-400">Fiado desta venda</dt><dd className="text-white tabular-nums">{formatBRL(info.valorFiado)}</dd></div>
-            <div className="flex justify-between border-t border-gray-700 pt-1.5"><dt className="text-amber-300 font-medium">Acima do limite</dt><dd className="text-amber-300 font-semibold tabular-nums">{formatBRL(info.excedente)}</dd></div>
+            <div className="flex justify-between border-t border-gray-700 pt-1.5"><dt className="text-warning-300 font-medium">Acima do limite</dt><dd className="text-warning-300 font-semibold tabular-nums">{formatBRL(info.excedente)}</dd></div>
           </dl>
 
           <p className="text-sm text-gray-300">Para continuar, um administrador precisa informar o login e a senha.</p>
@@ -79,7 +79,7 @@ export default function AutorizacaoLimiteModal({ info, loginInicial = '', envian
             Cancelar
           </button>
           <button type="submit" disabled={!pronto}
-            className="flex-1 rounded-lg bg-amber-500 py-2.5 text-sm font-semibold text-gray-900 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed">
+            className="flex-1 rounded-lg bg-warning-500 py-2.5 text-sm font-semibold text-gray-900 hover:bg-warning-400 disabled:opacity-50 disabled:cursor-not-allowed">
             {enviando ? 'Validando…' : 'Autorizar e finalizar'}
           </button>
         </div>

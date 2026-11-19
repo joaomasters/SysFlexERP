@@ -374,7 +374,7 @@ export default function PDVPage() {
             </span>
           )}
           {scanLoading && (
-            <span className="text-xs bg-yellow-900 text-yellow-300 px-2 py-0.5 rounded-full animate-pulse">
+            <span className="text-xs bg-warning-900 text-warning-300 px-2 py-0.5 rounded-full animate-pulse">
               Processando...
             </span>
           )}
@@ -389,8 +389,8 @@ export default function PDVPage() {
             </button>
           )}
           {scanLoading
-            ? <WifiOff size={16} className="text-yellow-500 animate-pulse" />
-            : <Wifi size={16} className="text-emerald-500" />}
+            ? <WifiOff size={16} className="text-warning-500 animate-pulse" />
+            : <Wifi size={16} className="text-success-500" />}
           <span className="tabular-nums">
             {hora.toLocaleTimeString('pt-BR')}
           </span>
@@ -402,7 +402,7 @@ export default function PDVPage() {
       {semCaixa && (
         <div className="flex-1 flex items-center justify-center">
           <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 w-full max-w-sm text-center space-y-4">
-            <LockOpen size={32} className="mx-auto text-amber-500" />
+            <LockOpen size={32} className="mx-auto text-warning-500" />
             <div>
               <h2 className="font-bold text-lg">Nenhum caixa aberto</h2>
               <p className="text-sm text-gray-400 mt-1">
@@ -419,7 +419,7 @@ export default function PDVPage() {
             <button
               onClick={handleAbrirCaixa}
               disabled={!valorAbertura || abrindo}
-              className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3 bg-success-600 hover:bg-success-500 rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {abrindo ? 'Abrindo...' : 'Abrir Caixa'}
             </button>
@@ -433,7 +433,7 @@ export default function PDVPage() {
         <button
           onClick={() => setShowNovaComanda(true)}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium
-                     bg-talho-600 hover:bg-talho-400 transition-colors shrink-0"
+                     bg-primary-600 hover:bg-primary-500 transition-colors shrink-0"
         >
           Nova Comanda
         </button>
@@ -448,7 +448,7 @@ export default function PDVPage() {
             onClick={() => selecionarComanda(c.id)}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium shrink-0 transition-colors
               ${venda?.id === c.id
-                ? 'bg-emerald-700 text-white'
+                ? 'bg-success-700 text-white'
                 : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}
           >
             <User size={12} />
@@ -509,7 +509,7 @@ export default function PDVPage() {
           <div className="bg-gray-800 rounded-2xl px-4 py-6 text-center shadow-inner">
             <p className="text-gray-400 text-xs uppercase tracking-widest mb-3">Total a Pagar</p>
             {/* "R$" menor e valor que encolhe com a quantidade de dígitos: sempre cabe centralizado */}
-            <p className="flex items-baseline justify-center gap-1.5 whitespace-nowrap font-black tabular-nums text-emerald-400 leading-none">
+            <p className="flex items-baseline justify-center gap-1.5 whitespace-nowrap font-black tabular-nums text-success-400 leading-none">
               <span className="text-2xl">R$</span>
               <span className={tamanhoTotal(formatCurrencyDisplay(totalVenda))}>
                 {formatCurrencyDisplay(totalVenda)}
@@ -522,7 +522,7 @@ export default function PDVPage() {
             onClick={() => setShowPagto(true)}
             disabled={!venda?.itens?.length || loading}
             className="py-5 rounded-2xl text-xl font-bold
-                       bg-emerald-600 hover:bg-emerald-500 active:scale-95
+                       bg-success-600 hover:bg-success-500 active:scale-95
                        disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed
                        transition-all duration-150"
           >
@@ -548,7 +548,7 @@ export default function PDVPage() {
             disabled={!venda || !podeCancelarVenda}
             title={!podeCancelarVenda ? 'Só um administrador pode cancelar uma venda' : undefined}
             className="py-3 rounded-xl text-sm font-medium
-                       bg-red-900/60 hover:bg-red-800 text-red-300
+                       bg-danger-900/60 hover:bg-danger-800 text-danger-300
                        disabled:bg-gray-800 disabled:text-gray-600 disabled:cursor-not-allowed
                        flex items-center justify-center gap-2 transition-colors"
           >
@@ -585,7 +585,7 @@ export default function PDVPage() {
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
              onKeyDown={e => { if (e.key === 'Escape') setPerguntarImpressao(false) }}>
           <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-sm p-6 space-y-4 text-center">
-            <Printer size={32} className="mx-auto text-emerald-400" />
+            <Printer size={32} className="mx-auto text-success-400" />
             <div>
               <h2 className="text-lg font-bold">Venda #{ultimoCupom.venda.id} finalizada</h2>
               <p className="text-sm text-gray-400">
@@ -598,7 +598,7 @@ export default function PDVPage() {
                 Não imprimir <span className="opacity-60">[Esc]</span>
               </button>
               <button autoFocus onClick={imprimirUltimo}
-                className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-sm">
+                className="flex-1 py-3 rounded-xl bg-success-600 hover:bg-success-500 font-bold text-sm">
                 Imprimir <span className="opacity-70 font-normal">[Enter]</span>
               </button>
             </div>
@@ -611,7 +611,7 @@ export default function PDVPage() {
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
              onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape') setExcluindo(null) }}>
           <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-sm p-6 space-y-4 text-center">
-            <Trash2 size={32} className="mx-auto text-red-400" />
+            <Trash2 size={32} className="mx-auto text-danger-400" />
             <div>
               <h2 className="text-lg font-bold">Excluir item?</h2>
               <p className="text-sm text-gray-400">{excluindo.produto.nome} · {brl(excluindo.totalItem)}</p>
@@ -622,7 +622,7 @@ export default function PDVPage() {
                 Manter <span className="opacity-60">[Esc]</span>
               </button>
               <button autoFocus onClick={confirmarExclusao}
-                className="flex-1 py-3 rounded-xl bg-red-700 hover:bg-red-600 font-bold text-sm">
+                className="flex-1 py-3 rounded-xl bg-danger-700 hover:bg-danger-600 font-bold text-sm">
                 Excluir <span className="opacity-70 font-normal">[Enter]</span>
               </button>
             </div>
@@ -635,7 +635,7 @@ export default function PDVPage() {
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
              onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape') setCancelando(false) }}>
           <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-sm p-6 space-y-4 text-center">
-            <Trash2 size={32} className="mx-auto text-red-400" />
+            <Trash2 size={32} className="mx-auto text-danger-400" />
             <div>
               <h2 className="text-lg font-bold">Cancelar esta venda?</h2>
               <p className="text-sm text-gray-400">
@@ -648,7 +648,7 @@ export default function PDVPage() {
                 Voltar <span className="opacity-60">[Esc]</span>
               </button>
               <button autoFocus onClick={confirmarCancelamento}
-                className="flex-1 py-3 rounded-xl bg-red-700 hover:bg-red-600 font-bold text-sm">
+                className="flex-1 py-3 rounded-xl bg-danger-700 hover:bg-danger-600 font-bold text-sm">
                 Cancelar venda <span className="opacity-70 font-normal">[Enter]</span>
               </button>
             </div>
@@ -704,7 +704,7 @@ export default function PDVPage() {
               className="[&_input]:text-2xl [&_input]:font-bold"
             />
             {pesando.precoVenda != null && peso > 0 && (
-              <p className="text-right text-emerald-400 font-bold tabular-nums">
+              <p className="text-right text-success-400 font-bold tabular-nums">
                 Total: {brl(Math.round(peso * pesando.precoVenda * 100) / 100)}
               </p>
             )}
@@ -714,7 +714,7 @@ export default function PDVPage() {
                 Cancelar
               </button>
               <button onClick={confirmarPeso} disabled={peso <= 0 || scanLoading}
-                className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-gray-700 disabled:text-gray-500 font-bold text-sm">
+                className="flex-1 py-3 rounded-xl bg-success-600 hover:bg-success-500 disabled:bg-gray-700 disabled:text-gray-500 font-bold text-sm">
                 Adicionar
               </button>
             </div>
@@ -795,7 +795,7 @@ export default function PDVPage() {
               ))}
               <div className="flex justify-between pt-2 border-t border-gray-800 font-bold">
                 <span>Saldo esperado em dinheiro</span>
-                <span className="text-emerald-400 tabular-nums">{brl(resumoFechar.saldoEsperado)}</span>
+                <span className="text-success-400 tabular-nums">{brl(resumoFechar.saldoEsperado)}</span>
               </div>
               <p className="text-xs text-gray-500">{resumoFechar.quantidadeVendas} venda(s) no período</p>
             </div>
@@ -806,9 +806,9 @@ export default function PDVPage() {
               {valorContado > 0 && (
                 (() => {
                   const diff = valorContado - resumoFechar.saldoEsperado
-                  if (Math.abs(diff) < 0.01) return <p className="text-xs text-emerald-400 mt-1">Confere com o esperado.</p>
+                  if (Math.abs(diff) < 0.01) return <p className="text-xs text-success-400 mt-1">Confere com o esperado.</p>
                   return (
-                    <p className={`text-xs mt-1 ${diff > 0 ? 'text-blue-400' : 'text-red-400'}`}>
+                    <p className={`text-xs mt-1 ${diff > 0 ? 'text-blue-400' : 'text-danger-400'}`}>
                       {diff > 0 ? 'Sobra' : 'Falta'} de {brl(Math.abs(diff))} em relação ao esperado.
                     </p>
                   )
@@ -826,7 +826,7 @@ export default function PDVPage() {
               <button
                 onClick={handleConfirmarFechamento}
                 disabled={!valorContado || fechando}
-                className="flex-1 py-2.5 bg-talho-600 hover:bg-talho-400 rounded-lg text-sm font-medium disabled:opacity-50"
+                className="flex-1 py-2.5 bg-primary-600 hover:bg-primary-500 rounded-lg text-sm font-medium disabled:opacity-50"
               >
                 {fechando ? 'Fechando...' : 'Confirmar Fechamento'}
               </button>

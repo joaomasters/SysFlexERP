@@ -4,8 +4,22 @@ import { api } from '../../shared/api/axios'
 import { Printer } from 'lucide-react'
 import { formatBRL, formatQuantidade, casasDaUnidade } from '@/shared/utils/mask'
 import {
-  PageHeader, Card, Modal, Button, StatusBadge, WeightInput, Field, baseInputClass,
-  Table, THead, TH, TBody, TR, TD, EmptyState, Paginacao,
+  PageHeader,
+  Card,
+  Button,
+  StatusBadge,
+  WeightInput,
+  Field,
+  baseInputClass,
+  Table,
+  THead,
+  TH,
+  TBody,
+  TR,
+  TD,
+  EmptyState,
+  Paginacao,
+  FormularioPagina,
 } from '@/shared/components/ui'
 import { usePaginacao } from '@/shared/hooks/usePaginacao'
 import type { BadgeTone } from '@/shared/components/ui'
@@ -85,6 +99,46 @@ export default function PerdasPage() {
   const totalPerdas = perdas.data?.reduce((s, p) => s + (p.custoTotal ?? 0), 0) ?? 0
   const produtoSel = produtos.data?.find(p => p.id === parseInt(produtoId))
 
+  // Formulário em tela cheia (padrão da tela de Produto): enquanto aberto, substitui a listagem.
+  if (showForm) {
+    return (
+      <FormularioPagina
+        subtitle="Registre vencimentos, avarias, furtos e quebras"
+        title="Lançar Perda"
+        onClose={() => setShowForm(false)}
+        actions={
+          <>
+            <Button variant="primary" disabled={!podeLancar} loading={lancar.isPending} onClick={() => lancar.mutate()}>
+              Lançar
+            </Button>
+          </>
+        }
+      >
+        <Field label="Produto">
+          <select value={produtoId} onChange={e => setProdutoId(e.target.value)} className={baseInputClass}>
+            <option value="">Selecione...</option>
+            {produtos.data?.map(p => (
+              <option key={p.id} value={p.id}>{p.nome}</option>
+            ))}
+          </select>
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Quantidade">
+            <WeightInput value={quantidade} onChange={setQuantidade} unit={(produtoSel?.unidadeMedida ?? 'kg').toLowerCase()} decimals={casasDaUnidade(produtoSel?.unidadeMedida)} />
+          </Field>
+          <Field label="Motivo">
+            <select value={motivo} onChange={e => setMotivo(e.target.value)} className={baseInputClass}>
+              {MOTIVOS.map(m => <option key={m}>{m}</option>)}
+            </select>
+          </Field>
+        </div>
+        <Field label="Observação">
+          <input type="text" value={observacao} onChange={e => setObservacao(e.target.value)} className={baseInputClass} />
+        </Field>
+      </FormularioPagina>
+    )
+  }
+
   return (
     <div className="p-4 sm:p-6 space-y-5">
       <PageHeader
@@ -160,43 +214,6 @@ export default function PerdasPage() {
         <RelatorioPerdasModal inicio={inicio} fim={fim} onClose={() => setShowRelatorio(false)} />
       )}
 
-      {/* Modal lançar perda */}
-      {showForm && (
-        <Modal
-          title="Lançar Perda"
-          onClose={() => setShowForm(false)}
-          footer={
-            <>
-              <Button variant="secondary" fullWidth onClick={() => setShowForm(false)}>Cancelar</Button>
-              <Button variant="primary" fullWidth disabled={!podeLancar} loading={lancar.isPending} onClick={() => lancar.mutate()}>
-                Lançar
-              </Button>
-            </>
-          }
-        >
-          <Field label="Produto">
-            <select value={produtoId} onChange={e => setProdutoId(e.target.value)} className={baseInputClass}>
-              <option value="">Selecione...</option>
-              {produtos.data?.map(p => (
-                <option key={p.id} value={p.id}>{p.nome}</option>
-              ))}
-            </select>
-          </Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Quantidade">
-              <WeightInput value={quantidade} onChange={setQuantidade} unit={(produtoSel?.unidadeMedida ?? 'kg').toLowerCase()} decimals={casasDaUnidade(produtoSel?.unidadeMedida)} />
-            </Field>
-            <Field label="Motivo">
-              <select value={motivo} onChange={e => setMotivo(e.target.value)} className={baseInputClass}>
-                {MOTIVOS.map(m => <option key={m}>{m}</option>)}
-              </select>
-            </Field>
-          </div>
-          <Field label="Observação">
-            <input type="text" value={observacao} onChange={e => setObservacao(e.target.value)} className={baseInputClass} />
-          </Field>
-        </Modal>
-      )}
     </div>
   )
 }

@@ -143,7 +143,7 @@ export default function Sidebar({ aberto, onFechar }: SidebarProps) {
     />
     <aside
       className={clsx(
-        'w-64 lg:w-60 shrink-0 bg-aco-900 text-white flex flex-col h-full',
+        'w-64 lg:w-60 shrink-0 bg-topbar text-white flex flex-col h-full',
         // Celular/tablet: gaveta fixa que desliza da esquerda. Desktop: coluna normal.
         'fixed inset-y-0 left-0 z-50 transition-transform duration-200 lg:static lg:translate-x-0',
         aberto ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
@@ -192,7 +192,7 @@ export default function Sidebar({ aberto, onFechar }: SidebarProps) {
                 clsx(
                   'flex items-center gap-3 pl-[13px] pr-3 py-3 lg:py-2.5 border-l-[3px] text-sm transition-colors',
                   isActive
-                    ? 'border-talho-600 bg-aco-800 text-white font-medium'
+                    ? 'border-primary-400 bg-white/10 text-white font-medium'
                     : 'border-transparent text-white/70 hover:bg-white/5 hover:text-white'
                 )
               }
@@ -200,7 +200,7 @@ export default function Sidebar({ aberto, onFechar }: SidebarProps) {
               <Icon size={16} />
               <span className="flex-1">{item.label}</span>
               {item.href === '/balanca' && qtdPendentesBalanca > 0 && (
-                <span className="bg-mostarda-600 text-white text-[10px] font-semibold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                <span className="bg-warning-600 text-white text-[10px] font-semibold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
                   {qtdPendentesBalanca > 99 ? '99+' : qtdPendentesBalanca}
                 </span>
               )}

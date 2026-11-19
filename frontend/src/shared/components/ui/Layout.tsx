@@ -24,21 +24,21 @@ export default function Layout() {
   return (
     // Altura travada na tela: só o <main> rola, e o menu lateral fica fixo.
     // h-dvh: no Safari do iPhone o 100vh passa por baixo da barra do navegador.
-    <div className="flex h-screen h-dvh overflow-hidden bg-papel-50">
+    <div className="flex h-screen h-dvh overflow-hidden bg-background">
       <Sidebar aberto={menuAberto} onFechar={() => setMenuAberto(false)} />
       <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
         <FaixaAmbiente />
         <FaixaJarvis />
-        <header className="h-14 bg-white border-b border-osso-300 flex items-center gap-2 px-3 sm:px-5 shrink-0">
+        <header className="h-14 bg-card border-b border-border flex items-center gap-2 px-3 sm:px-5 shrink-0">
           {/* Botão do menu + logo: só no celular/tablet, onde o menu lateral vira gaveta */}
           <button
             onClick={() => setMenuAberto(true)}
             aria-label="Abrir menu"
-            className="lg:hidden -ml-1 p-2 rounded-lg text-aco-900 hover:bg-gray-100"
+            className="lg:hidden -ml-1 p-2 rounded-lg text-foreground hover:bg-gray-100"
           >
             <Menu size={22} />
           </button>
-          <div className="lg:hidden h-8 px-2.5 rounded-md bg-aco-900 flex items-center">
+          <div className="lg:hidden h-8 px-2.5 rounded-md bg-topbar flex items-center">
             <img src={logo} alt="SysFlex ERP" className="h-5 w-auto" />
           </div>
           <div className="ml-auto flex items-center">

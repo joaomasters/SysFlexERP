@@ -7,7 +7,7 @@ import {
 import { api } from '@/shared/api/axios'
 import toast from 'react-hot-toast'
 import type { Produto, FichaDesossa } from '@/types/produto'
-import { PageHeader, Card, Button, Modal, Field, baseInputClass, ConfirmDialog, Paginacao } from '@/shared/components/ui'
+import { PageHeader, Card, Button, Field, baseInputClass, ConfirmDialog, Paginacao, FormularioPagina } from '@/shared/components/ui'
 import { usePaginacao } from '@/shared/hooks/usePaginacao'
 
 // ─── tipos locais ────────────────────────────────────────────────────────────
@@ -20,9 +20,9 @@ interface ItemForm {
 const PERC_TOTAL_MAX = 100
 
 // Paleta categórica p/ distinguir cortes na mesma ficha visualmente — não é
-// cor de status, então não usa os tokens semânticos.
+// cor de status, então usa matizes distintos (inclusive âmbar/amarelo crus) em vez dos tokens semânticos.
 const CORES_CORTE = [
-  'bg-primary-500', 'bg-orange-500', 'bg-mostarda-500', 'bg-yellow-500',
+  'bg-primary-500', 'bg-orange-500', 'bg-amber-500', 'bg-yellow-400',
   'bg-lime-500', 'bg-success-500', 'bg-teal-500', 'bg-cyan-500',
   'bg-info-500', 'bg-violet-500', 'bg-purple-500', 'bg-pink-500',
 ]
@@ -77,14 +77,14 @@ function BarraPercentual({ itens }: { itens: ItemForm[] }) {
 // ════════════════════════════════════════════════════════════════════════════
 //  MODAL DE FORMULÁRIO
 // ════════════════════════════════════════════════════════════════════════════
-interface FormModalProps {
+interface FormFichaProps {
   ficha?: FichaDesossa | null
   produtos: Produto[]
   onClose: () => void
   onSaved: () => void
 }
 
-function FormModal({ ficha, produtos, onClose, onSaved }: FormModalProps) {
+function FormFicha({ ficha, produtos, onClose, onSaved }: FormFichaProps) {
   const editando = !!ficha
 
   const [nome,       setNome]       = useState(ficha?.nome ?? '')
@@ -157,14 +157,13 @@ function FormModal({ ficha, produtos, onClose, onSaved }: FormModalProps) {
   }
 
   return (
-    <Modal
+    <FormularioPagina
       title={editando ? 'Editar Ficha de Desossa' : 'Nova Ficha de Desossa'}
+      subtitle="Cortes e percentuais de rendimento da peça"
       onClose={onClose}
-      maxWidth="lg"
-      footer={
+      actions={
         <>
-          <Button variant="secondary" fullWidth onClick={onClose}>Cancelar</Button>
-          <Button variant="primary" fullWidth disabled={invalido} loading={salvar.isPending} onClick={() => salvar.mutate()}>
+          <Button variant="primary" disabled={invalido} loading={salvar.isPending} onClick={() => salvar.mutate()}>
             {editando ? 'Salvar alterações' : 'Criar ficha'}
           </Button>
         </>
@@ -259,7 +258,7 @@ function FormModal({ ficha, produtos, onClose, onSaved }: FormModalProps) {
           <BarraPercentual itens={itens} />
         </div>
       </div>
-    </Modal>
+    </FormularioPagina>
   )
 }
 
@@ -314,6 +313,18 @@ export default function FichasDesossaPage() {
   function fecharForm() {
     setShowForm(false)
     setEditFicha(null)
+  }
+
+  // Formulário em tela cheia (padrão da tela de Produto): enquanto aberto, substitui a listagem.
+  if (showForm) {
+    return (
+      <FormFicha
+        ficha={editFicha}
+        produtos={produtos}
+        onClose={fecharForm}
+        onSaved={fecharForm}
+      />
+    )
   }
 
   return (
@@ -514,14 +525,6 @@ export default function FichasDesossaPage() {
         {!isLoading && <Paginacao solta paginacao={pag} rotulo="fichas" />}
       </div>
 
-      {showForm && (
-        <FormModal
-          ficha={editFicha}
-          produtos={produtos}
-          onClose={fecharForm}
-          onSaved={fecharForm}
-        />
-      )}
 
       {/* Confirmação de inativação */}
       {confirmando && (

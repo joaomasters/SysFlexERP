@@ -4,6 +4,7 @@ import { TrendingUp, TrendingDown, Printer } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { api } from '@/shared/api/axios'
 import { formatBRL, formatPercent } from '@/shared/utils/mask'
+import { COR_GRAFICO } from '@/config/tema'
 import { PageHeader, Card, Button, CurrencyInput, Field, baseInputClass } from '@/shared/components/ui'
 
 interface DreDTO {
@@ -35,9 +36,9 @@ const ALTURA_BARRA = 26
 const PISO_EIXO = -100
 
 const corMargem = (m: number) =>
-  m >= 30 ? '#2F6B4F'   // success-600
-  : m >= 15 ? '#B9780F' // warning-600
-  : '#C23A2C'           // danger-600
+  m >= 30 ? COR_GRAFICO.sucesso
+  : m >= 15 ? COR_GRAFICO.alerta
+  : COR_GRAFICO.perigo
 
 function useTelaEstreita() {
   const consulta = '(max-width: 639px)'

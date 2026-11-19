@@ -5,8 +5,23 @@ import toast from 'react-hot-toast'
 import { Plus, History, FileText } from 'lucide-react'
 import { formatBRL } from '@/shared/utils/mask'
 import {
-  PageHeader, Card, FilterTabs, Modal, Button, StatusBadge, CurrencyInput, Field, baseInputClass,
-  Table, THead, TH, TBody, TR, TD, EmptyState, Paginacao,
+  PageHeader,
+  Card,
+  FilterTabs,
+  Button,
+  StatusBadge,
+  CurrencyInput,
+  Field,
+  baseInputClass,
+  Table,
+  THead,
+  TH,
+  TBody,
+  TR,
+  TD,
+  EmptyState,
+  Paginacao,
+  FormularioPagina,
 } from '@/shared/components/ui'
 import { usePaginacao } from '@/shared/hooks/usePaginacao'
 import type { BadgeTone } from '@/shared/components/ui'
@@ -144,6 +159,115 @@ export default function ContasPagarPage() {
     criar.mutate()
   }
 
+  // Formulário em tela cheia (padrão da tela de Produto): enquanto aberto, substitui a listagem.
+  if (showForm) {
+    return (
+      <FormularioPagina
+        subtitle="Cadastre uma conta com fornecedor, vencimento e categoria"
+        title="Nova Conta a Pagar"
+        onClose={fecharForm}
+        actions={
+          <>
+            <Button variant="primary" loading={criar.isPending} onClick={tentarCriar}>
+              Criar
+            </Button>
+          </>
+        }
+      >
+        <Field label="Descrição *" error={mostrar(erros.descricao)}>
+          <input
+            value={form.descricao}
+            onChange={e => setForm(p => ({ ...p, descricao: e.target.value }))}
+            placeholder="Ex: Compra de bovino"
+            className={`${baseInputClass} ${campoErro(erros.descricao)}`}
+          />
+        </Field>
+        <Field label="Fornecedor *" error={mostrar(erros.fornecedor)}>
+          <select
+            value={novoFornecedor ? NOVO_FORNECEDOR : form.fornecedor}
+            onChange={e => {
+              if (e.target.value === NOVO_FORNECEDOR) {
+                setNovoFornecedor(true)
+                setForm(p => ({ ...p, fornecedor: '' }))
+              } else {
+                setNovoFornecedor(false)
+                setForm(p => ({ ...p, fornecedor: e.target.value }))
+              }
+            }}
+            className={`${baseInputClass} ${novoFornecedor ? '' : campoErro(erros.fornecedor)}`}
+          >
+            <option value="">Selecione o fornecedor...</option>
+            {fornecedores.map(f => <option key={f} value={f}>{f}</option>)}
+            <option value={NOVO_FORNECEDOR}>+ Outro (digitar novo fornecedor)</option>
+          </select>
+          {novoFornecedor && (
+            <input
+              autoFocus
+              value={form.fornecedor}
+              onChange={e => setForm(p => ({ ...p, fornecedor: e.target.value }))}
+              placeholder="Nome do novo fornecedor"
+              className={`${baseInputClass} mt-2 ${campoErro(erros.fornecedor)}`}
+            />
+          )}
+        </Field>
+        <Field label="Valor *" error={mostrar(erros.valor)}>
+          <CurrencyInput
+            value={form.valor}
+            onChange={v => setForm(p => ({ ...p, valor: v }))}
+            className={tentouSalvar && erros.valor ? '[&_input]:!border-danger-500' : ''}
+          />
+        </Field>
+        <Field label="Vencimento *" error={mostrar(erros.dataVencimento)}>
+          <input
+            type="date"
+            value={form.dataVencimento}
+            onChange={e => setForm(p => ({ ...p, dataVencimento: e.target.value }))}
+            className={`${baseInputClass} ${campoErro(erros.dataVencimento)}`}
+          />
+        </Field>
+        <Field label="Categoria *" error={mostrar(erros.categoria)}>
+          <select
+            value={form.categoria}
+            onChange={e => setForm(p => ({ ...p, categoria: e.target.value }))}
+            className={`${baseInputClass} ${campoErro(erros.categoria)}`}
+          >
+            <option value="">Selecione a categoria...</option>
+            {CATEGORIAS_CONTA.map(c => <option key={c.valor} value={c.valor}>{c.rotulo}</option>)}
+          </select>
+        </Field>
+      </FormularioPagina>
+    )
+  }
+
+  // Formulário em tela cheia (padrão da tela de Produto): enquanto aberto, substitui a listagem.
+  if (pagandoId !== null) {
+    return (
+      <FormularioPagina
+        subtitle="Informe o valor pago"
+        title="Registrar Pagamento"
+        onClose={() => setPagandoId(null)}
+        actions={
+          <>
+            <Button variant="success" disabled={!valorPag} loading={pagar.isPending} onClick={() => pagar.mutate()}>
+              Confirmar
+            </Button>
+          </>
+        }
+      >
+        {contaDoPagamento && (
+          <p className="text-xs text-gray-500">
+            Saldo da conta: <span className="font-semibold text-danger-600 tabular-nums">
+              {fmt(contaDoPagamento.valor - contaDoPagamento.valorPago)}
+            </span>
+          </p>
+        )}
+        <Field label="Valor Pago">
+          <CurrencyInput value={valorPag} onChange={setValorPag} autoFocus />
+        </Field>
+      </FormularioPagina>
+    )
+  }
+
   return (
     <div className="p-4 sm:p-6 space-y-5">
       <PageHeader
@@ -249,111 +373,7 @@ export default function ContasPagarPage() {
         <HistoricoPagamentosModal tipo="pagar" onClose={() => setMostrarRelatorio(false)} />
       )}
 
-      {/* Modal nova conta */}
-      {showForm && (
-        <Modal
-          title="Nova Conta a Pagar"
-          onClose={fecharForm}
-          footer={
-            <>
-              <Button variant="secondary" fullWidth onClick={fecharForm}>Cancelar</Button>
-              <Button variant="primary" fullWidth loading={criar.isPending} onClick={tentarCriar}>
-                Criar
-              </Button>
-            </>
-          }
-        >
-          <Field label="Descrição *" error={mostrar(erros.descricao)}>
-            <input
-              value={form.descricao}
-              onChange={e => setForm(p => ({ ...p, descricao: e.target.value }))}
-              placeholder="Ex: Compra de bovino"
-              className={`${baseInputClass} ${campoErro(erros.descricao)}`}
-            />
-          </Field>
-          <Field label="Fornecedor *" error={mostrar(erros.fornecedor)}>
-            <select
-              value={novoFornecedor ? NOVO_FORNECEDOR : form.fornecedor}
-              onChange={e => {
-                if (e.target.value === NOVO_FORNECEDOR) {
-                  setNovoFornecedor(true)
-                  setForm(p => ({ ...p, fornecedor: '' }))
-                } else {
-                  setNovoFornecedor(false)
-                  setForm(p => ({ ...p, fornecedor: e.target.value }))
-                }
-              }}
-              className={`${baseInputClass} ${novoFornecedor ? '' : campoErro(erros.fornecedor)}`}
-            >
-              <option value="">Selecione o fornecedor...</option>
-              {fornecedores.map(f => <option key={f} value={f}>{f}</option>)}
-              <option value={NOVO_FORNECEDOR}>+ Outro (digitar novo fornecedor)</option>
-            </select>
-            {novoFornecedor && (
-              <input
-                autoFocus
-                value={form.fornecedor}
-                onChange={e => setForm(p => ({ ...p, fornecedor: e.target.value }))}
-                placeholder="Nome do novo fornecedor"
-                className={`${baseInputClass} mt-2 ${campoErro(erros.fornecedor)}`}
-              />
-            )}
-          </Field>
-          <Field label="Valor *" error={mostrar(erros.valor)}>
-            <CurrencyInput
-              value={form.valor}
-              onChange={v => setForm(p => ({ ...p, valor: v }))}
-              className={tentouSalvar && erros.valor ? '[&_input]:!border-danger-500' : ''}
-            />
-          </Field>
-          <Field label="Vencimento *" error={mostrar(erros.dataVencimento)}>
-            <input
-              type="date"
-              value={form.dataVencimento}
-              onChange={e => setForm(p => ({ ...p, dataVencimento: e.target.value }))}
-              className={`${baseInputClass} ${campoErro(erros.dataVencimento)}`}
-            />
-          </Field>
-          <Field label="Categoria *" error={mostrar(erros.categoria)}>
-            <select
-              value={form.categoria}
-              onChange={e => setForm(p => ({ ...p, categoria: e.target.value }))}
-              className={`${baseInputClass} ${campoErro(erros.categoria)}`}
-            >
-              <option value="">Selecione a categoria...</option>
-              {CATEGORIAS_CONTA.map(c => <option key={c.valor} value={c.valor}>{c.rotulo}</option>)}
-            </select>
-          </Field>
-        </Modal>
-      )}
 
-      {/* Modal pagar */}
-      {pagandoId !== null && (
-        <Modal
-          title="Registrar Pagamento"
-          onClose={() => setPagandoId(null)}
-          maxWidth="sm"
-          footer={
-            <>
-              <Button variant="secondary" fullWidth onClick={() => setPagandoId(null)}>Cancelar</Button>
-              <Button variant="success" fullWidth disabled={!valorPag} loading={pagar.isPending} onClick={() => pagar.mutate()}>
-                Confirmar
-              </Button>
-            </>
-          }
-        >
-          {contaDoPagamento && (
-            <p className="text-xs text-gray-500">
-              Saldo da conta: <span className="font-semibold text-danger-600 tabular-nums">
-                {fmt(contaDoPagamento.valor - contaDoPagamento.valorPago)}
-              </span>
-            </p>
-          )}
-          <Field label="Valor Pago">
-            <CurrencyInput value={valorPag} onChange={setValorPag} autoFocus />
-          </Field>
-        </Modal>
-      )}
     </div>
   )
 }

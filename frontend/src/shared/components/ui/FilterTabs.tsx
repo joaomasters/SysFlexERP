@@ -18,7 +18,7 @@ export default function FilterTabs<T extends string>({ options, value, onChange 
           onClick={() => onChange(opt.value)}
           className={`px-4 py-1.5 rounded-full text-xs font-medium transition-colors
             ${value === opt.value
-              ? 'bg-gray-800 text-white'
+              ? 'bg-primary-600 text-white'
               : 'border border-gray-300 text-gray-500 hover:bg-gray-50'}`}
         >
           {opt.label}

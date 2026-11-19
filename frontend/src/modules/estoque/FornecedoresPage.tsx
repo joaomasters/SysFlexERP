@@ -6,8 +6,21 @@ import { api } from '@/shared/api/axios'
 import { documentoValido, formatarCpfCnpj, normalizarDocumento, soDigitos } from '@/shared/utils/documento'
 import type { Fornecedor } from '@/types/fornecedor'
 import {
-  PageHeader, Modal, Button, StatusBadge, Field, baseInputClass, ConfirmDialog,
-  Table, THead, TH, TBody, TR, TD, EmptyState, Paginacao,
+  PageHeader,
+  Button,
+  StatusBadge,
+  Field,
+  baseInputClass,
+  ConfirmDialog,
+  Table,
+  THead,
+  TH,
+  TBody,
+  TR,
+  TD,
+  EmptyState,
+  Paginacao,
+  FormularioPagina,
 } from '@/shared/components/ui'
 import { usePermissao } from '@/shared/hooks/usePermissao'
 import { usePaginacao } from '@/shared/hooks/usePaginacao'
@@ -156,6 +169,89 @@ export default function FornecedoresPage() {
     salvar.mutate(f)
   }
 
+  // Formulário em tela cheia (padrão da tela de Produto): enquanto aberto, substitui a listagem.
+  if (form) {
+    return (
+      <FormularioPagina
+        title={form.id ? 'Editar Fornecedor' : 'Novo Fornecedor'}
+        subtitle="Cadastre um fornecedor para compras e recebimento de mercadorias"
+        onClose={fechar}
+        actions={
+          <>
+            <Button variant="primary" loading={salvar.isPending} onClick={() => tentarSalvar(form)}>Salvar Fornecedor</Button>
+          </>
+        }
+      >
+        <Field label="Nome / Razão social *" error={mostrar(erros?.nome)}>
+          <input
+            type="text" value={form.nome} autoFocus maxLength={LIMITE.nome}
+            onChange={e => setForm({ ...form, nome: e.target.value })}
+            className={`${baseInputClass} ${campoErro(erros?.nome)}`}
+          />
+        </Field>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label={novo ? 'Tipo de Pessoa *' : 'Tipo de Pessoa'}>
+            <select
+              value={form.tipoPessoa}
+              onChange={e => {
+                const tipo = e.target.value as 'PF' | 'PJ'
+                setForm({ ...form, tipoPessoa: tipo, cpfCnpj: formatarCpfCnpj(form.cpfCnpj, tipo) })
+              }}
+              className={baseInputClass}
+            >
+              <option value="PJ">Pessoa Jurídica</option>
+              <option value="PF">Pessoa Física</option>
+            </select>
+          </Field>
+          <Field label={`${form.tipoPessoa === 'PF' ? 'CPF' : 'CNPJ'}${novo ? ' *' : ''}`} error={mostrar(erros?.cpfCnpj)}>
+            <input
+              type="text" inputMode={form.tipoPessoa === 'PF' ? 'numeric' : 'text'} value={form.cpfCnpj}
+              onChange={e => setForm({ ...form, cpfCnpj: formatarCpfCnpj(e.target.value, form.tipoPessoa) })}
+              placeholder={form.tipoPessoa === 'PF' ? '000.000.000-00' : '00.000.000/0000-00 (aceita letras)'}
+              className={`${baseInputClass} ${campoErro(erros?.cpfCnpj)}`}
+            />
+          </Field>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label={novo ? 'Telefone *' : 'Telefone'} error={mostrar(erros?.telefone)}>
+            <input
+              type="text" inputMode="tel" value={form.telefone}
+              onChange={e => setForm({ ...form, telefone: formatarTelefone(e.target.value) })}
+              placeholder="(00) 00000-0000"
+              className={`${baseInputClass} ${campoErro(erros?.telefone)}`}
+            />
+          </Field>
+          <Field label="E-mail (opcional)" error={mostrar(erros?.email)}>
+            <input
+              type="email" value={form.email} maxLength={LIMITE.email}
+              onChange={e => setForm({ ...form, email: e.target.value })}
+              className={`${baseInputClass} ${campoErro(erros?.email)}`}
+            />
+          </Field>
+        </div>
+
+        <Field label="Contato / Representante (opcional)">
+          <input
+            type="text" value={form.contato} maxLength={LIMITE.contato}
+            onChange={e => setForm({ ...form, contato: e.target.value })}
+            placeholder="Ex: João — vendedor"
+            className={baseInputClass}
+          />
+        </Field>
+
+        <Field label={novo ? 'Endereço *' : 'Endereço'} error={mostrar(erros?.endereco)}>
+          <textarea
+            value={form.endereco} rows={2} maxLength={LIMITE.endereco}
+            onChange={e => setForm({ ...form, endereco: e.target.value })}
+            className={`${baseInputClass} ${campoErro(erros?.endereco)}`}
+          />
+        </Field>
+      </FormularioPagina>
+    )
+  }
+
   return (
     <div className="p-4 sm:p-6">
       <PageHeader
@@ -230,86 +326,6 @@ export default function FornecedoresPage() {
         {!isLoading && <Paginacao paginacao={pag} rotulo="fornecedores" />}
       </div>
 
-      {form && (
-        <Modal
-          title={form.id ? 'Editar Fornecedor' : 'Novo Fornecedor'}
-          onClose={fechar}
-          maxWidth="lg"
-          footer={
-            <>
-              <Button variant="secondary" fullWidth onClick={fechar}>Cancelar</Button>
-              <Button variant="primary" fullWidth loading={salvar.isPending} onClick={() => tentarSalvar(form)}>Salvar</Button>
-            </>
-          }
-        >
-          <Field label="Nome / Razão social *" error={mostrar(erros?.nome)}>
-            <input
-              type="text" value={form.nome} autoFocus maxLength={LIMITE.nome}
-              onChange={e => setForm({ ...form, nome: e.target.value })}
-              className={`${baseInputClass} ${campoErro(erros?.nome)}`}
-            />
-          </Field>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Field label={novo ? 'Tipo de Pessoa *' : 'Tipo de Pessoa'}>
-              <select
-                value={form.tipoPessoa}
-                onChange={e => {
-                  const tipo = e.target.value as 'PF' | 'PJ'
-                  setForm({ ...form, tipoPessoa: tipo, cpfCnpj: formatarCpfCnpj(form.cpfCnpj, tipo) })
-                }}
-                className={baseInputClass}
-              >
-                <option value="PJ">Pessoa Jurídica</option>
-                <option value="PF">Pessoa Física</option>
-              </select>
-            </Field>
-            <Field label={`${form.tipoPessoa === 'PF' ? 'CPF' : 'CNPJ'}${novo ? ' *' : ''}`} error={mostrar(erros?.cpfCnpj)}>
-              <input
-                type="text" inputMode={form.tipoPessoa === 'PF' ? 'numeric' : 'text'} value={form.cpfCnpj}
-                onChange={e => setForm({ ...form, cpfCnpj: formatarCpfCnpj(e.target.value, form.tipoPessoa) })}
-                placeholder={form.tipoPessoa === 'PF' ? '000.000.000-00' : '00.000.000/0000-00 (aceita letras)'}
-                className={`${baseInputClass} ${campoErro(erros?.cpfCnpj)}`}
-              />
-            </Field>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Field label={novo ? 'Telefone *' : 'Telefone'} error={mostrar(erros?.telefone)}>
-              <input
-                type="text" inputMode="tel" value={form.telefone}
-                onChange={e => setForm({ ...form, telefone: formatarTelefone(e.target.value) })}
-                placeholder="(00) 00000-0000"
-                className={`${baseInputClass} ${campoErro(erros?.telefone)}`}
-              />
-            </Field>
-            <Field label="E-mail (opcional)" error={mostrar(erros?.email)}>
-              <input
-                type="email" value={form.email} maxLength={LIMITE.email}
-                onChange={e => setForm({ ...form, email: e.target.value })}
-                className={`${baseInputClass} ${campoErro(erros?.email)}`}
-              />
-            </Field>
-          </div>
-
-          <Field label="Contato / Representante (opcional)">
-            <input
-              type="text" value={form.contato} maxLength={LIMITE.contato}
-              onChange={e => setForm({ ...form, contato: e.target.value })}
-              placeholder="Ex: João — vendedor"
-              className={baseInputClass}
-            />
-          </Field>
-
-          <Field label={novo ? 'Endereço *' : 'Endereço'} error={mostrar(erros?.endereco)}>
-            <textarea
-              value={form.endereco} rows={2} maxLength={LIMITE.endereco}
-              onChange={e => setForm({ ...form, endereco: e.target.value })}
-              className={`${baseInputClass} ${campoErro(erros?.endereco)}`}
-            />
-          </Field>
-        </Modal>
-      )}
 
       {confirmando && (
         <ConfirmDialog
