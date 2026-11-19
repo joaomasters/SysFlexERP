@@ -7,6 +7,7 @@ import { formatBRL, formatWeightDisplay } from '@/shared/utils/mask'
 import { Card, Table, THead, TH, TBody, TR, TD } from '@/shared/components/ui'
 import PainelRelatorio, { periodoPadrao, dataBR, Indicador, BarraPercentual, FiltroData, pct } from './PainelRelatorio'
 import { dataISO } from '@/shared/utils/data'
+import { COR_GRAFICO } from '@/config/tema'
 
 interface RelatorioVendas {
   totalVendas: number; quantidadeVendas: number; ticketMedio: number; totalPerdas: number
@@ -180,7 +181,7 @@ export default function DesempenhoRelatorio() {
                 <XAxis dataKey="rotulo" tick={{ fontSize: 11 }} />
                 <YAxis tickFormatter={valorCompacto} tick={{ fontSize: 11 }} width={48} />
                 <Tooltip formatter={(n: number) => fmt(n)} labelFormatter={l => `Dia ${l}`} />
-                <Bar dataKey="totalVendas" name="Vendas" fill="#A32B1E" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="totalVendas" name="Vendas" fill={COR_GRAFICO.primaria} radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -219,7 +220,7 @@ export default function DesempenhoRelatorio() {
                 <YAxis type="category" dataKey="nomeProduto" width={110} tick={{ fontSize: 11 }} interval={0}
                   tickFormatter={(n: string) => (n.length > 18 ? `${n.slice(0, 17)}…` : n)} />
                 <Tooltip formatter={(n: number) => fmt(n)} />
-                <Bar dataKey="valorTotal" name="Faturamento" fill="#A32B1E" radius={[0, 4, 4, 0]} />
+                <Bar dataKey="valorTotal" name="Faturamento" fill={COR_GRAFICO.primaria} radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>

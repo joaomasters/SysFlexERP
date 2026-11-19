@@ -4,7 +4,7 @@ import { Plus, FileText, X, ChevronDown, ChevronUp, Upload, Filter, Ban, AlertTr
 import { api } from '@/shared/api/axios'
 import toast from 'react-hot-toast'
 import { formatBRL, formatQuantidade, casasDaUnidade, somenteNumeros } from '@/shared/utils/mask'
-import { PageHeader, Card, Modal, Button, CurrencyInput, WeightInput, Field, baseInputClass, BuscaProduto, produtoPorCodigo, Paginacao } from '@/shared/components/ui'
+import { PageHeader, Card, Modal, Button, CurrencyInput, WeightInput, Field, baseInputClass, BuscaProduto, produtoPorCodigo, Paginacao, FormularioPagina } from '@/shared/components/ui'
 import { usePaginacao } from '@/shared/hooks/usePaginacao'
 import type { ProdutoBuscavel } from '@/shared/components/ui'
 import { useBarcodeScan } from '@/shared/hooks/useBarcodeScan'
@@ -262,6 +262,171 @@ export default function RecebimentoPage() {
 
   const rec = recebimentos.find(r => r.id === xmlViewId)
 
+  // Formulário em tela cheia (padrão da tela de Produto): enquanto aberto, substitui a listagem.
+  if (showForm) {
+    return (
+      <FormularioPagina
+        subtitle="Entrada de mercadoria com ou sem nota fiscal"
+        title="Nova Entrada de Mercadoria"
+        onClose={resetForm}
+        actions={
+          <>
+            <Button variant="primary" loading={registrar.isPending} onClick={tentarRegistrar}>
+              Registrar Entrada
+            </Button>
+          </>
+        }
+      >
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Fornecedor *" className="col-span-2" error={mostrar(erros.fornecedor)}>
+            <input value={fornecedor} onChange={e => setFornecedor(e.target.value)}
+              className={`${baseInputClass} ${campoErro(erros.fornecedor)}`} placeholder="Nome do fornecedor" />
+          </Field>
+          <Field label="Número NF *" error={mostrar(erros.numeroNf)}>
+            <input value={numeroNf} onChange={e => setNumeroNf(somenteNumeros(e.target.value))}
+              inputMode="numeric" maxLength={9} autoComplete="off"
+              className={`${baseInputClass} ${campoErro(erros.numeroNf)}`} placeholder="000001" />
+          </Field>
+          <Field label="Série *" error={mostrar(erros.serieNf)}>
+            <input value={serieNf} onChange={e => setSerieNf(e.target.value)}
+              className={`${baseInputClass} ${campoErro(erros.serieNf)}`} placeholder="1" />
+          </Field>
+          <Field label="Chave de Acesso (44 dígitos) *" className="col-span-2" error={mostrar(erros.chaveNf)}>
+            <input value={chaveNf} onChange={e => setChaveNf(e.target.value.replace(/\D/g, ''))}
+              inputMode="numeric"
+              className={`${baseInputClass} font-mono ${campoErro(erros.chaveNf)}`}
+              placeholder="00000000000000000000000000000000000000000000" maxLength={44} />
+          </Field>
+          <Field label="Data de Emissão *" error={mostrar(erros.dataEmissao)}>
+            <input type="date" value={dataEmissao} onChange={e => setDataEmissao(e.target.value)}
+              className={`${baseInputClass} ${campoErro(erros.dataEmissao)}`} />
+          </Field>
+          <Field label="Valor Total NF *" error={mostrar(erros.valorTotal)}>
+            <CurrencyInput value={valorTotal} onChange={setValorTotal}
+              className={tentouSalvar && erros.valorTotal ? '[&_input]:!border-danger-500' : ''} />
+          </Field>
+          <Field label="XML da NF (opcional)" className="col-span-2">
+            <div className="flex items-center gap-2">
+              <label className={`flex items-center gap-2 px-3 py-2 border border-dashed rounded-lg text-sm text-gray-500 cursor-pointer hover:bg-gray-50 flex-1 border-gray-300`}>
+                <Upload size={14} />
+                {xmlNf ? '✓ XML carregado' : 'Selecionar arquivo .xml'}
+                <input ref={fileRef} type="file" accept=".xml" className="hidden" onChange={e => handleXmlFile(e)} />
+              </label>
+              {xmlNf && (
+                <button onClick={() => setXmlNf('')} className="text-danger-500 hover:text-danger-600 text-xs font-medium">Remover</button>
+              )}
+            </div>
+          </Field>
+          <Field label="Observação (opcional)" className="col-span-2">
+            <input value={observacao} onChange={e => setObservacao(e.target.value)}
+              className={baseInputClass} />
+          </Field>
+        </div>
+
+        {/* Itens */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Produtos Recebidos *</label>
+            <button onClick={addItem} className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 font-medium">
+              <Plus size={12} /> Adicionar item
+            </button>
+          </div>
+          <div className="mb-3">
+            <div className="flex items-center gap-2 bg-primary-50 border border-primary-100 rounded-lg px-3 py-2">
+              <ScanBarcode size={18} className="text-primary-600 shrink-0" />
+              <BuscaProduto
+                produtos={produtos}
+                modo="acao"
+                inputRef={bipagemRef}
+                placeholder="Bipe o código de barras ou digite o nome do produto..."
+                onSelect={adicionarProduto}
+                onCodigoNaoEncontrado={setCodigoNaoEncontrado}
+                className="flex-1"
+              />
+            </div>
+            {codigoNaoEncontrado && (
+              <p className="text-danger-600 text-xs mt-1">
+                Código <span className="font-mono">{codigoNaoEncontrado}</span> não pertence a nenhum produto cadastrado.
+                Confira o código ou cadastre o produto (com esse código de barras) em Produtos.
+              </p>
+            )}
+          </div>
+          <div className="space-y-2">
+            {itens.map((item, idx) => {
+              const produtoSel = produtos.find(p => p.id === item.produtoId)
+              const ei = errosItens[idx]
+              const bad = (v: boolean) => (tentouSalvar && v ? '!border-danger-500' : '')
+              return (
+                <div key={idx} className={`grid grid-cols-6 sm:grid-cols-12 gap-2 items-end border rounded-lg p-3 transition-colors duration-500
+                  ${destaqueIdx === idx ? 'bg-primary-50 border-primary-400' : 'bg-gray-50 border-gray-100'}`}>
+                  <div className="col-span-6 sm:col-span-3">
+                    <label className={`text-xs text-gray-500 block mb-1 ${idx === 0 ? '' : 'sm:hidden'}`}>Produto *</label>
+                    <BuscaProduto
+                      produtos={produtos}
+                      value={item.produtoId}
+                      onSelect={prod => updateItem(idx, 'produtoId', prod.id)}
+                      invalido={tentouSalvar && ei.produto}
+                      placeholder="Buscar produto..."
+                    />
+                  </div>
+                  <div className="col-span-3 sm:col-span-3">
+                    <label className={`text-xs text-gray-500 block mb-1 ${idx === 0 ? '' : 'sm:hidden'}`}>Quantidade *</label>
+                    <WeightInput
+                      value={item.quantidade}
+                      onChange={v => updateItem(idx, 'quantidade', v)}
+                      unit={(produtoSel?.unidadeMedida ?? 'kg').toLowerCase()}
+                      decimals={casasDaUnidade(produtoSel?.unidadeMedida)}
+                      size="sm"
+                      className={tentouSalvar && ei.quantidade ? '[&_input]:!border-danger-500' : ''}
+                    />
+                  </div>
+                  <div className="col-span-3 sm:col-span-2">
+                    <label className={`text-xs text-gray-500 block mb-1 ${idx === 0 ? '' : 'sm:hidden'}`}>Custo/un *</label>
+                    <CurrencyInput
+                      value={item.custoUnitario}
+                      onChange={v => updateItem(idx, 'custoUnitario', v)}
+                      size="sm"
+                      className={tentouSalvar && ei.custo ? '[&_input]:!border-danger-500' : ''}
+                    />
+                  </div>
+                  <div className="col-span-5 sm:col-span-3">
+                    <label className={`text-xs text-gray-500 block mb-1 ${idx === 0 ? '' : 'sm:hidden'}`}>Validade *</label>
+                    <input
+                      type="date"
+                      value={item.dataValidade}
+                      onChange={e => updateItem(idx, 'dataValidade', e.target.value)}
+                      title="Validade do lote recebido"
+                      max={limiteValidade}
+                      className={`w-full min-w-[9rem] border border-gray-300 rounded px-2 py-1.5 text-sm bg-white ${ei.validadeAlta ? '!border-danger-500' : bad(ei.validade)}`}
+                    />
+                  </div>
+                  <div className="col-span-1 flex justify-center">
+                    {itens.length > 1 && (
+                      <button onClick={() => removeItem(idx)} className="text-danger-400 hover:text-danger-600 mb-2">
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          {tentouSalvar && itensInvalidos && (
+            <p className="text-danger-600 text-xs mt-2">
+              Preencha produto, quantidade, custo e validade em todos os itens (ou remova os itens em branco).
+            </p>
+          )}
+          {validadeAlta && (
+            <p className="text-danger-600 text-xs mt-1">
+              A validade não pode passar de {MAX_ANOS_VALIDADE} anos da data de entrada
+              (limite: {formatarDataValidade(limiteValidade)}). Confira o ano digitado.
+            </p>
+          )}
+        </div>
+      </FormularioPagina>
+    )
+  }
+
   return (
     <div className="p-4 sm:p-6">
       <PageHeader
@@ -315,7 +480,7 @@ export default function RecebimentoPage() {
                   <p className="font-semibold text-gray-800 text-sm flex items-center gap-2">
                     {r.fornecedor}
                     {r.status === 'CANCELADO' && (
-                      <span className="text-[10px] font-semibold uppercase bg-red-100 text-red-700 px-1.5 py-0.5 rounded">Cancelada</span>
+                      <span className="text-[10px] font-semibold uppercase bg-danger-100 text-danger-700 px-1.5 py-0.5 rounded">Cancelada</span>
                     )}
                   </p>
                 </div>
@@ -384,7 +549,7 @@ export default function RecebimentoPage() {
                         <td className="py-2 text-right tabular-nums text-gray-600">
                           {it.dataValidade
                             ? new Date(it.dataValidade + 'T00:00:00').toLocaleDateString('pt-BR')
-                            : <span className="text-amber-600 font-medium">sem validade</span>}
+                            : <span className="text-warning-600 font-medium">sem validade</span>}
                         </td>
                       </tr>
                     ))}
@@ -394,7 +559,7 @@ export default function RecebimentoPage() {
                   <p className="text-xs text-gray-500 mt-3">Obs: {r.observacao}</p>
                 )}
                 {r.status === 'CANCELADO' ? (
-                  <div className="mt-3 text-xs bg-red-50 border border-red-100 text-red-700 rounded-lg px-3 py-2">
+                  <div className="mt-3 text-xs bg-danger-50 border border-danger-100 text-danger-700 rounded-lg px-3 py-2">
                     Entrada cancelada em {r.canceladoEm ? new Date(r.canceladoEm).toLocaleString('pt-BR') : '—'} — estoque estornado.
                     {r.motivoCancelamento && <> Motivo: <span className="font-medium">{r.motivoCancelamento}</span></>}
                   </div>
@@ -463,169 +628,6 @@ export default function RecebimentoPage() {
         </div>
       )}
 
-      {/* Modal Nova Entrada */}
-      {showForm && (
-        <Modal
-          title="Nova Entrada de Mercadoria"
-          onClose={resetForm}
-          maxWidth="2xl"
-          footer={
-            <>
-              <Button variant="secondary" fullWidth onClick={resetForm}>Cancelar</Button>
-              <Button variant="primary" fullWidth loading={registrar.isPending} onClick={tentarRegistrar}>
-                Registrar Entrada
-              </Button>
-            </>
-          }
-        >
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Fornecedor *" className="col-span-2" error={mostrar(erros.fornecedor)}>
-              <input value={fornecedor} onChange={e => setFornecedor(e.target.value)}
-                className={`${baseInputClass} ${campoErro(erros.fornecedor)}`} placeholder="Nome do fornecedor" />
-            </Field>
-            <Field label="Número NF *" error={mostrar(erros.numeroNf)}>
-              <input value={numeroNf} onChange={e => setNumeroNf(somenteNumeros(e.target.value))}
-                inputMode="numeric" maxLength={9} autoComplete="off"
-                className={`${baseInputClass} ${campoErro(erros.numeroNf)}`} placeholder="000001" />
-            </Field>
-            <Field label="Série *" error={mostrar(erros.serieNf)}>
-              <input value={serieNf} onChange={e => setSerieNf(e.target.value)}
-                className={`${baseInputClass} ${campoErro(erros.serieNf)}`} placeholder="1" />
-            </Field>
-            <Field label="Chave de Acesso (44 dígitos) *" className="col-span-2" error={mostrar(erros.chaveNf)}>
-              <input value={chaveNf} onChange={e => setChaveNf(e.target.value.replace(/\D/g, ''))}
-                inputMode="numeric"
-                className={`${baseInputClass} font-mono ${campoErro(erros.chaveNf)}`}
-                placeholder="00000000000000000000000000000000000000000000" maxLength={44} />
-            </Field>
-            <Field label="Data de Emissão *" error={mostrar(erros.dataEmissao)}>
-              <input type="date" value={dataEmissao} onChange={e => setDataEmissao(e.target.value)}
-                className={`${baseInputClass} ${campoErro(erros.dataEmissao)}`} />
-            </Field>
-            <Field label="Valor Total NF *" error={mostrar(erros.valorTotal)}>
-              <CurrencyInput value={valorTotal} onChange={setValorTotal}
-                className={tentouSalvar && erros.valorTotal ? '[&_input]:!border-danger-500' : ''} />
-            </Field>
-            <Field label="XML da NF (opcional)" className="col-span-2">
-              <div className="flex items-center gap-2">
-                <label className={`flex items-center gap-2 px-3 py-2 border border-dashed rounded-lg text-sm text-gray-500 cursor-pointer hover:bg-gray-50 flex-1 border-gray-300`}>
-                  <Upload size={14} />
-                  {xmlNf ? '✓ XML carregado' : 'Selecionar arquivo .xml'}
-                  <input ref={fileRef} type="file" accept=".xml" className="hidden" onChange={e => handleXmlFile(e)} />
-                </label>
-                {xmlNf && (
-                  <button onClick={() => setXmlNf('')} className="text-danger-500 hover:text-danger-600 text-xs font-medium">Remover</button>
-                )}
-              </div>
-            </Field>
-            <Field label="Observação (opcional)" className="col-span-2">
-              <input value={observacao} onChange={e => setObservacao(e.target.value)}
-                className={baseInputClass} />
-            </Field>
-          </div>
-
-          {/* Itens */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Produtos Recebidos *</label>
-              <button onClick={addItem} className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 font-medium">
-                <Plus size={12} /> Adicionar item
-              </button>
-            </div>
-            <div className="mb-3">
-              <div className="flex items-center gap-2 bg-primary-50 border border-primary-100 rounded-lg px-3 py-2">
-                <ScanBarcode size={18} className="text-primary-600 shrink-0" />
-                <BuscaProduto
-                  produtos={produtos}
-                  modo="acao"
-                  inputRef={bipagemRef}
-                  placeholder="Bipe o código de barras ou digite o nome do produto..."
-                  onSelect={adicionarProduto}
-                  onCodigoNaoEncontrado={setCodigoNaoEncontrado}
-                  className="flex-1"
-                />
-              </div>
-              {codigoNaoEncontrado && (
-                <p className="text-danger-600 text-xs mt-1">
-                  Código <span className="font-mono">{codigoNaoEncontrado}</span> não pertence a nenhum produto cadastrado.
-                  Confira o código ou cadastre o produto (com esse código de barras) em Produtos.
-                </p>
-              )}
-            </div>
-            <div className="space-y-2">
-              {itens.map((item, idx) => {
-                const produtoSel = produtos.find(p => p.id === item.produtoId)
-                const ei = errosItens[idx]
-                const bad = (v: boolean) => (tentouSalvar && v ? '!border-danger-500' : '')
-                return (
-                  <div key={idx} className={`grid grid-cols-6 sm:grid-cols-12 gap-2 items-end border rounded-lg p-3 transition-colors duration-500
-                    ${destaqueIdx === idx ? 'bg-primary-50 border-primary-400' : 'bg-gray-50 border-gray-100'}`}>
-                    <div className="col-span-6 sm:col-span-3">
-                      <label className={`text-xs text-gray-500 block mb-1 ${idx === 0 ? '' : 'sm:hidden'}`}>Produto *</label>
-                      <BuscaProduto
-                        produtos={produtos}
-                        value={item.produtoId}
-                        onSelect={prod => updateItem(idx, 'produtoId', prod.id)}
-                        invalido={tentouSalvar && ei.produto}
-                        placeholder="Buscar produto..."
-                      />
-                    </div>
-                    <div className="col-span-3 sm:col-span-3">
-                      <label className={`text-xs text-gray-500 block mb-1 ${idx === 0 ? '' : 'sm:hidden'}`}>Quantidade *</label>
-                      <WeightInput
-                        value={item.quantidade}
-                        onChange={v => updateItem(idx, 'quantidade', v)}
-                        unit={(produtoSel?.unidadeMedida ?? 'kg').toLowerCase()}
-                        decimals={casasDaUnidade(produtoSel?.unidadeMedida)}
-                        size="sm"
-                        className={tentouSalvar && ei.quantidade ? '[&_input]:!border-danger-500' : ''}
-                      />
-                    </div>
-                    <div className="col-span-3 sm:col-span-2">
-                      <label className={`text-xs text-gray-500 block mb-1 ${idx === 0 ? '' : 'sm:hidden'}`}>Custo/un *</label>
-                      <CurrencyInput
-                        value={item.custoUnitario}
-                        onChange={v => updateItem(idx, 'custoUnitario', v)}
-                        size="sm"
-                        className={tentouSalvar && ei.custo ? '[&_input]:!border-danger-500' : ''}
-                      />
-                    </div>
-                    <div className="col-span-5 sm:col-span-3">
-                      <label className={`text-xs text-gray-500 block mb-1 ${idx === 0 ? '' : 'sm:hidden'}`}>Validade *</label>
-                      <input
-                        type="date"
-                        value={item.dataValidade}
-                        onChange={e => updateItem(idx, 'dataValidade', e.target.value)}
-                        title="Validade do lote recebido"
-                        max={limiteValidade}
-                        className={`w-full min-w-[9rem] border border-gray-300 rounded px-2 py-1.5 text-sm bg-white ${ei.validadeAlta ? '!border-danger-500' : bad(ei.validade)}`}
-                      />
-                    </div>
-                    <div className="col-span-1 flex justify-center">
-                      {itens.length > 1 && (
-                        <button onClick={() => removeItem(idx)} className="text-danger-400 hover:text-danger-600 mb-2">
-                          <X size={14} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-            {tentouSalvar && itensInvalidos && (
-              <p className="text-danger-600 text-xs mt-2">
-                Preencha produto, quantidade, custo e validade em todos os itens (ou remova os itens em branco).
-              </p>
-            )}
-            {validadeAlta && (
-              <p className="text-danger-600 text-xs mt-1">
-                A validade não pode passar de {MAX_ANOS_VALIDADE} anos da data de entrada
-                (limite: {formatarDataValidade(limiteValidade)}). Confira o ano digitado.
-              </p>
-            )}
-          </div>
-        </Modal>
-      )}
     </div>
   )
 }
@@ -663,7 +665,7 @@ function CancelarEntradaModal({ recebimento: r, onClose, onCancelada }: {
         </>
       }
     >
-      <div className="bg-red-50 border border-red-100 rounded-lg p-3 flex gap-2 text-sm text-red-700">
+      <div className="bg-danger-50 border border-danger-100 rounded-lg p-3 flex gap-2 text-sm text-danger-700">
         <AlertTriangle size={16} className="shrink-0 mt-0.5" />
         <p>
           A quantidade de <strong>{r.itens.length} item(ns)</strong> de <strong>{r.fornecedor}</strong>

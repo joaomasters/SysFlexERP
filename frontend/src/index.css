@@ -3,21 +3,57 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    /* Paleta "Dynamics": azul de marca sóbrio, neutros frios e barra lateral azul-marinho */
+    --background: 210 17% 96%;
+    --foreground: 210 24% 14%;
+    --card: 0 0% 100%;
+    --card-foreground: 210 24% 14%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 24% 14%;
+    --secondary: 210 20% 94%;
+    --secondary-foreground: 210 24% 14%;
+    --muted: 210 17% 95%;
+    --muted-foreground: 210 10% 38%;
+    --accent: 208 60% 94%;
+    --accent-foreground: 208 85% 28%;
+    --border: 210 14% 86%;
+    --input: 210 10% 62%;
+    --ring: 208 85% 38%;
+    --radius: 0.25rem;
+
+    /* Casca da aplicação (barra lateral, login, Jarvis) */
+    --topbar: 213 62% 17%;
+    --topbar-soft: 213 50% 22%;
+    --topbar-foreground: 0 0% 100%;
+
+    /* Séries dos gráficos (espelhadas em src/config/tema.ts, para o Recharts) */
+    --chart-faturamento: #0f6cbd;
+    --chart-custos: #ca5010;
+    --chart-saldo: #107c10;
+    --chart-grid: #e1e5ea;
+    --chart-axis: #5f6b7a;
+  }
+
   * {
     box-sizing: border-box;
+    @apply border-border;
   }
+
   body {
-    @apply font-sans text-aco-900 bg-papel-50 antialiased;
+    @apply bg-background text-foreground font-sans antialiased;
+    /* Algarismos de largura fixa em todo o sistema (valores e tabelas alinhados) */
+    font-feature-settings: 'tnum' 1;
+  }
+
+  h1, h2, h3 {
+    letter-spacing: -0.005em;
   }
 }
 
 @layer utilities {
-  .tabular-nums {
-    font-variant-numeric: tabular-nums;
-    font-family: "IBM Plex Mono", monospace;
-  }
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: #374151 transparent;
+    scrollbar-color: #4c5766 transparent;
   }
 }

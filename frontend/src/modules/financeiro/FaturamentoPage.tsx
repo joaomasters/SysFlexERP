@@ -7,8 +7,20 @@ import toast from 'react-hot-toast'
 import type { FaturamentoCliente, Cliente } from '@/types/venda'
 import { formatBRL } from '@/shared/utils/mask'
 import {
-  PageHeader, Card, Modal, Button, StatusBadge, Field, baseInputClass,
-  Table, THead, TH, TBody, TR, TD, LoadingState,
+  PageHeader,
+  Card,
+  Button,
+  StatusBadge,
+  Field,
+  baseInputClass,
+  Table,
+  THead,
+  TH,
+  TBody,
+  TR,
+  TD,
+  LoadingState,
+  FormularioPagina,
 } from '@/shared/components/ui'
 import type { BadgeTone } from '@/shared/components/ui'
 
@@ -52,6 +64,52 @@ export default function FaturamentoPage() {
       setShowForm(false)
     },
   })
+
+  // Formulário em tela cheia (padrão da tela de Produto): enquanto aberto, substitui a listagem.
+  if (showForm) {
+    return (
+      <FormularioPagina
+        subtitle="Fechamento de contas de um cliente em um período"
+        title="Gerar Fechamento de Faturamento"
+        onClose={() => setShowForm(false)}
+        actions={
+          <>
+            <Button
+              variant="primary"
+              loading={gerar.isPending}
+              disabled={!clienteId || !inicio || !fim}
+              onClick={() => gerar.mutate()}
+            >
+              Gerar
+            </Button>
+          </>
+        }
+      >
+        <Field label="Cliente">
+          <select value={clienteId} onChange={e => setClienteId(e.target.value)} className={baseInputClass}>
+            <option value="">Selecione um cliente...</option>
+            {clientes.map(c => (
+              <option key={c.id} value={c.id}>{c.nome}</option>
+            ))}
+          </select>
+        </Field>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Data Início">
+            <input type="date" value={inicio} onChange={e => setInicio(e.target.value)} className={baseInputClass} />
+          </Field>
+          <Field label="Data Fim">
+            <input type="date" value={fim} onChange={e => setFim(e.target.value)} className={baseInputClass} />
+          </Field>
+        </div>
+
+        <p className="text-[11px] text-gray-400">
+          Só entram no fechamento vendas fiado ainda em aberto nesse período — vendas já pagas
+          na hora (dinheiro/cartão/PIX) não são cobradas de novo aqui.
+        </p>
+      </FormularioPagina>
+    )
+  }
 
   return (
     <div className="p-4 sm:p-6">
@@ -115,49 +173,6 @@ export default function FaturamentoPage() {
         )}
       </Card>
 
-      {/* Modal gerar fechamento */}
-      {showForm && (
-        <Modal
-          title="Gerar Fechamento de Faturamento"
-          onClose={() => setShowForm(false)}
-          footer={
-            <>
-              <Button variant="secondary" fullWidth onClick={() => setShowForm(false)}>Cancelar</Button>
-              <Button
-                variant="primary" fullWidth
-                loading={gerar.isPending}
-                disabled={!clienteId || !inicio || !fim}
-                onClick={() => gerar.mutate()}
-              >
-                Gerar
-              </Button>
-            </>
-          }
-        >
-          <Field label="Cliente">
-            <select value={clienteId} onChange={e => setClienteId(e.target.value)} className={baseInputClass}>
-              <option value="">Selecione um cliente...</option>
-              {clientes.map(c => (
-                <option key={c.id} value={c.id}>{c.nome}</option>
-              ))}
-            </select>
-          </Field>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Data Início">
-              <input type="date" value={inicio} onChange={e => setInicio(e.target.value)} className={baseInputClass} />
-            </Field>
-            <Field label="Data Fim">
-              <input type="date" value={fim} onChange={e => setFim(e.target.value)} className={baseInputClass} />
-            </Field>
-          </div>
-
-          <p className="text-[11px] text-gray-400">
-            Só entram no fechamento vendas fiado ainda em aberto nesse período — vendas já pagas
-            na hora (dinheiro/cartão/PIX) não são cobradas de novo aqui.
-          </p>
-        </Modal>
-      )}
     </div>
   )
 }
