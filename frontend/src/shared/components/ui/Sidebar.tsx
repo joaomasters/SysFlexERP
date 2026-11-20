@@ -13,7 +13,7 @@ import clsx from 'clsx'
 import { api } from '../../api/axios'
 import { removeSessao } from '../../auth'
 import { usePermissao } from '../../hooks/usePermissao'
-import logo from '../../../assets/sysflex-logo.png'
+import logo from '../../../assets/sysflex-logo-escuro.png'
 
 const nav = [
   { label: 'Início', href: '/inicio', icon: Home, sempreVisivel: true },
@@ -149,9 +149,12 @@ export default function Sidebar({ aberto, onFechar }: SidebarProps) {
         aberto ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
       )}
     >
-      <div className="px-5 py-5 border-b border-white/10 flex items-center justify-between">
-        <img src={logo} alt="SysFlex ERP" className="h-9 w-auto" />
-        <button onClick={onFechar} aria-label="Fechar menu" className="lg:hidden p-1.5 -mr-2 text-white/70 hover:text-white">
+      {/* Logo colorido num bloco claro, da mesma altura do cabeçalho (h-14): o topo do sistema
+          forma uma faixa branca contínua. O arquivo "escuro" tem "Sys" em azul-marinho, então
+          só funciona sobre fundo claro. */}
+      <div className="h-14 shrink-0 px-5 bg-card border-b border-border flex items-center justify-between">
+        <img src={logo} alt="SysFlex ERP" className="h-8 w-auto" />
+        <button onClick={onFechar} aria-label="Fechar menu" className="lg:hidden p-1.5 -mr-2 text-gray-500 hover:text-gray-800">
           <X size={20} />
         </button>
       </div>
