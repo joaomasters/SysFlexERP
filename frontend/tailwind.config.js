@@ -71,6 +71,11 @@ export default {
           600: '#0a7285', 700: '#085b6b', 800: '#064755', 900: '#043541', 950: '#032a33',
         },
       },
+      // Movimento sutil dos cartões do fundo do login (respeita prefers-reduced-motion via motion-reduce)
+      keyframes: {
+        flutuar: { '0%, 100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-7px)' } },
+      },
+      animation: { flutuar: 'flutuar 9s ease-in-out infinite' },
       boxShadow: {
         card: '0 1.6px 3.6px rgba(0,0,0,0.08), 0 0.3px 0.9px rgba(0,0,0,0.06)',
         flutuante: '0 6.4px 14.4px rgba(0,0,0,0.16), 0 1.2px 3.6px rgba(0,0,0,0.12)',

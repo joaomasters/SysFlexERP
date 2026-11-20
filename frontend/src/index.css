@@ -49,6 +49,20 @@
   h1, h2, h3 {
     letter-spacing: -0.005em;
   }
+
+  /* Login: neutraliza a cor de preenchimento automático do navegador nos campos */
+  .login-claro input:-webkit-autofill,
+  .login-claro input:-webkit-autofill:hover,
+  .login-claro input:-webkit-autofill:focus {
+    -webkit-text-fill-color: hsl(var(--foreground));
+    caret-color: hsl(var(--foreground));
+    -webkit-box-shadow: 0 0 0 1000px #fff inset;
+    transition: background-color 9999s ease-in-out 0s;
+  }
+  .login-claro input:autofill {
+    box-shadow: 0 0 0 1000px #fff inset;
+    -webkit-text-fill-color: hsl(var(--foreground));
+  }
 }
 
 @layer utilities {
