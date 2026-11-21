@@ -3,10 +3,24 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Search, RotateCcw } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { api } from '@/shared/api/axios'
+import { documentoValido, formatarCpfCnpj, normalizarDocumento, soDigitos } from '@/shared/utils/documento'
 import type { Fornecedor } from '@/types/fornecedor'
 import {
-  PageHeader, Modal, Button, StatusBadge, Field, baseInputClass, ConfirmDialog,
-  Table, THead, TH, TBody, TR, TD, EmptyState, Paginacao,
+  PageHeader,
+  Button,
+  StatusBadge,
+  Field,
+  baseInputClass,
+  ConfirmDialog,
+  Table,
+  THead,
+  TH,
+  TBody,
+  TR,
+  TD,
+  EmptyState,
+  Paginacao,
+  FormularioPagina,
 } from '@/shared/components/ui'
 import { usePermissao } from '@/shared/hooks/usePermissao'
 import { usePaginacao } from '@/shared/hooks/usePaginacao'
@@ -23,22 +37,6 @@ type FormState = {
 }
 
 // ── Máscaras e validação (mesmo padrão do cadastro de Clientes) ───────
-const soDigitos = (v: string) => v.replace(/\D/g, '')
-
-function formatarCpfCnpj(v: string, tipo: 'PF' | 'PJ'): string {
-  const d = soDigitos(v).slice(0, tipo === 'PF' ? 11 : 14)
-  if (tipo === 'PF') {
-    return d
-      .replace(/^(\d{3})(\d)/, '$1.$2')
-      .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
-      .replace(/\.(\d{3})(\d)/, '.$1-$2')
-  }
-  return d
-    .replace(/^(\d{2})(\d)/, '$1.$2')
-    .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
-    .replace(/\.(\d{3})(\d)/, '.$1/$2')
-    .replace(/(\d{4})(\d)/, '$1-$2')
-}
 
 function formatarTelefone(v: string): string {
   const d = soDigitos(v).slice(0, 11)
@@ -48,27 +46,6 @@ function formatarTelefone(v: string): string {
   return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`
 }
 
-/** Confere os dígitos verificadores (mesma regra do backend). */
-function documentoValido(v: string, tipo: 'PF' | 'PJ'): boolean {
-  const d = soDigitos(v)
-  if (d.length !== (tipo === 'PF' ? 11 : 14) || /^(\d)\1+$/.test(d)) return false
-  const n = (i: number) => Number(d[i])
-  if (tipo === 'PF') {
-    const dv = (qtd: number) => {
-      let s = 0
-      for (let i = 0; i < qtd; i++) s += n(i) * (qtd + 1 - i)
-      const r = (s * 10) % 11
-      return r === 10 ? 0 : r
-    }
-    return dv(9) === n(9) && dv(10) === n(10)
-  }
-  const dv = (pesos: number[]) => {
-    const r = pesos.reduce((s, p, i) => s + n(i) * p, 0) % 11
-    return r < 2 ? 0 : 11 - r
-  }
-  return dv([5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]) === n(12)
-      && dv([6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]) === n(13)
-}
 
 /** Limites iguais aos do backend/banco. */
 const LIMITE = { nome: 150, email: 100, contato: 100, endereco: 255 } as const
@@ -80,12 +57,12 @@ function validarFornecedor(f: FormState) {
   const novo = !f.id
   const nDoc = f.tipoPessoa === 'PF' ? 11 : 14
   const tel = soDigitos(f.telefone).length
-  const docPreenchido = soDigitos(f.cpfCnpj).length > 0
+  const docPreenchido = normalizarDocumento(f.cpfCnpj, f.tipoPessoa).length > 0
   return {
     nome:     f.nome.trim() ? '' : 'Informe o nome.',
     cpfCnpj:  !(novo || docPreenchido) ? ''
-              : soDigitos(f.cpfCnpj).length !== nDoc
-                ? `${f.tipoPessoa === 'PF' ? 'CPF' : 'CNPJ'} deve ter ${nDoc} dígitos.`
+              : normalizarDocumento(f.cpfCnpj, f.tipoPessoa).length !== nDoc
+                ? `${f.tipoPessoa === 'PF' ? 'CPF' : 'CNPJ'} deve ter ${nDoc} ${f.tipoPessoa === 'PF' ? 'dígitos' : 'caracteres'}.`
               : !documentoValido(f.cpfCnpj, f.tipoPessoa)
                 ? `${f.tipoPessoa === 'PF' ? 'CPF' : 'CNPJ'} inválido.` : '',
     telefone: (novo || tel > 0) && tel !== 10 && tel !== 11 ? 'Informe o telefone com DDD.' : '',
@@ -116,7 +93,7 @@ export default function FornecedoresPage() {
   const visiveis = fornecedores.filter(f =>
     !termo ||
     f.nome.toLowerCase().includes(termo) ||
-    (f.cpfCnpj ?? '').replace(/\D/g, '').includes(termo.replace(/\D/g, '') || '\u0000') ||
+    (f.cpfCnpj ?? '').toUpperCase().replace(/[^0-9A-Z]/g, '').includes(termo.toUpperCase().replace(/[^0-9A-Z]/g, '') || '\u0000') ||
     (f.contato ?? '').toLowerCase().includes(termo)
   )
 
@@ -190,6 +167,89 @@ export default function FornecedoresPage() {
       return
     }
     salvar.mutate(f)
+  }
+
+  // Formulário em tela cheia (padrão da tela de Produto): enquanto aberto, substitui a listagem.
+  if (form) {
+    return (
+      <FormularioPagina
+        title={form.id ? 'Editar Fornecedor' : 'Novo Fornecedor'}
+        subtitle="Cadastre um fornecedor para compras e recebimento de mercadorias"
+        onClose={fechar}
+        actions={
+          <>
+            <Button variant="primary" loading={salvar.isPending} onClick={() => tentarSalvar(form)}>Salvar Fornecedor</Button>
+          </>
+        }
+      >
+        <Field label="Nome / Razão social *" error={mostrar(erros?.nome)}>
+          <input
+            type="text" value={form.nome} autoFocus maxLength={LIMITE.nome}
+            onChange={e => setForm({ ...form, nome: e.target.value })}
+            className={`${baseInputClass} ${campoErro(erros?.nome)}`}
+          />
+        </Field>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label={novo ? 'Tipo de Pessoa *' : 'Tipo de Pessoa'}>
+            <select
+              value={form.tipoPessoa}
+              onChange={e => {
+                const tipo = e.target.value as 'PF' | 'PJ'
+                setForm({ ...form, tipoPessoa: tipo, cpfCnpj: formatarCpfCnpj(form.cpfCnpj, tipo) })
+              }}
+              className={baseInputClass}
+            >
+              <option value="PJ">Pessoa Jurídica</option>
+              <option value="PF">Pessoa Física</option>
+            </select>
+          </Field>
+          <Field label={`${form.tipoPessoa === 'PF' ? 'CPF' : 'CNPJ'}${novo ? ' *' : ''}`} error={mostrar(erros?.cpfCnpj)}>
+            <input
+              type="text" inputMode={form.tipoPessoa === 'PF' ? 'numeric' : 'text'} value={form.cpfCnpj}
+              onChange={e => setForm({ ...form, cpfCnpj: formatarCpfCnpj(e.target.value, form.tipoPessoa) })}
+              placeholder={form.tipoPessoa === 'PF' ? '000.000.000-00' : '00.000.000/0000-00 (aceita letras)'}
+              className={`${baseInputClass} ${campoErro(erros?.cpfCnpj)}`}
+            />
+          </Field>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label={novo ? 'Telefone *' : 'Telefone'} error={mostrar(erros?.telefone)}>
+            <input
+              type="text" inputMode="tel" value={form.telefone}
+              onChange={e => setForm({ ...form, telefone: formatarTelefone(e.target.value) })}
+              placeholder="(00) 00000-0000"
+              className={`${baseInputClass} ${campoErro(erros?.telefone)}`}
+            />
+          </Field>
+          <Field label="E-mail (opcional)" error={mostrar(erros?.email)}>
+            <input
+              type="email" value={form.email} maxLength={LIMITE.email}
+              onChange={e => setForm({ ...form, email: e.target.value })}
+              className={`${baseInputClass} ${campoErro(erros?.email)}`}
+            />
+          </Field>
+        </div>
+
+        <Field label="Contato / Representante (opcional)">
+          <input
+            type="text" value={form.contato} maxLength={LIMITE.contato}
+            onChange={e => setForm({ ...form, contato: e.target.value })}
+            placeholder="Ex: João — vendedor"
+            className={baseInputClass}
+          />
+        </Field>
+
+        <Field label={novo ? 'Endereço *' : 'Endereço'} error={mostrar(erros?.endereco)}>
+          <textarea
+            value={form.endereco} rows={2} maxLength={LIMITE.endereco}
+            onChange={e => setForm({ ...form, endereco: e.target.value })}
+            className={`${baseInputClass} ${campoErro(erros?.endereco)}`}
+          />
+        </Field>
+      </FormularioPagina>
+    )
   }
 
   return (
@@ -266,86 +326,6 @@ export default function FornecedoresPage() {
         {!isLoading && <Paginacao paginacao={pag} rotulo="fornecedores" />}
       </div>
 
-      {form && (
-        <Modal
-          title={form.id ? 'Editar Fornecedor' : 'Novo Fornecedor'}
-          onClose={fechar}
-          maxWidth="lg"
-          footer={
-            <>
-              <Button variant="secondary" fullWidth onClick={fechar}>Cancelar</Button>
-              <Button variant="primary" fullWidth loading={salvar.isPending} onClick={() => tentarSalvar(form)}>Salvar</Button>
-            </>
-          }
-        >
-          <Field label="Nome / Razão social *" error={mostrar(erros?.nome)}>
-            <input
-              type="text" value={form.nome} autoFocus maxLength={LIMITE.nome}
-              onChange={e => setForm({ ...form, nome: e.target.value })}
-              className={`${baseInputClass} ${campoErro(erros?.nome)}`}
-            />
-          </Field>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Field label={novo ? 'Tipo de Pessoa *' : 'Tipo de Pessoa'}>
-              <select
-                value={form.tipoPessoa}
-                onChange={e => {
-                  const tipo = e.target.value as 'PF' | 'PJ'
-                  setForm({ ...form, tipoPessoa: tipo, cpfCnpj: formatarCpfCnpj(form.cpfCnpj, tipo) })
-                }}
-                className={baseInputClass}
-              >
-                <option value="PJ">Pessoa Jurídica</option>
-                <option value="PF">Pessoa Física</option>
-              </select>
-            </Field>
-            <Field label={`${form.tipoPessoa === 'PF' ? 'CPF' : 'CNPJ'}${novo ? ' *' : ''}`} error={mostrar(erros?.cpfCnpj)}>
-              <input
-                type="text" inputMode="numeric" value={form.cpfCnpj}
-                onChange={e => setForm({ ...form, cpfCnpj: formatarCpfCnpj(e.target.value, form.tipoPessoa) })}
-                placeholder={form.tipoPessoa === 'PF' ? '000.000.000-00' : '00.000.000/0000-00'}
-                className={`${baseInputClass} ${campoErro(erros?.cpfCnpj)}`}
-              />
-            </Field>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Field label={novo ? 'Telefone *' : 'Telefone'} error={mostrar(erros?.telefone)}>
-              <input
-                type="text" inputMode="tel" value={form.telefone}
-                onChange={e => setForm({ ...form, telefone: formatarTelefone(e.target.value) })}
-                placeholder="(00) 00000-0000"
-                className={`${baseInputClass} ${campoErro(erros?.telefone)}`}
-              />
-            </Field>
-            <Field label="E-mail (opcional)" error={mostrar(erros?.email)}>
-              <input
-                type="email" value={form.email} maxLength={LIMITE.email}
-                onChange={e => setForm({ ...form, email: e.target.value })}
-                className={`${baseInputClass} ${campoErro(erros?.email)}`}
-              />
-            </Field>
-          </div>
-
-          <Field label="Contato / Representante (opcional)">
-            <input
-              type="text" value={form.contato} maxLength={LIMITE.contato}
-              onChange={e => setForm({ ...form, contato: e.target.value })}
-              placeholder="Ex: João — vendedor"
-              className={baseInputClass}
-            />
-          </Field>
-
-          <Field label={novo ? 'Endereço *' : 'Endereço'} error={mostrar(erros?.endereco)}>
-            <textarea
-              value={form.endereco} rows={2} maxLength={LIMITE.endereco}
-              onChange={e => setForm({ ...form, endereco: e.target.value })}
-              className={`${baseInputClass} ${campoErro(erros?.endereco)}`}
-            />
-          </Field>
-        </Modal>
-      )}
 
       {confirmando && (
         <ConfirmDialog

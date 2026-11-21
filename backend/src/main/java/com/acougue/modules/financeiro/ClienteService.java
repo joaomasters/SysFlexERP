@@ -1,5 +1,7 @@
 package com.acougue.modules.financeiro;
 
+import com.acougue.exception.BusinessException;
+import com.acougue.modules.estoque.DocumentoFiscal;
 import com.acougue.entity.Cliente;
 import com.acougue.repository.ClienteRepository;
 import com.acougue.repository.ContasAReceberRepository;
@@ -65,6 +67,7 @@ public class ClienteService {
     public Cliente criar(Cliente cliente, Long usuarioId) {
         cliente.setId(null); // garante criação, nunca sobrescreve por engano
         cliente.setCriadoPorId(usuarioId); // autoria vem do token, nunca do corpo da requisição
+        cliente.setCpfCnpj(documentoConferido(cliente.getCpfCnpj(), cliente.getTipoPessoa()));
         Cliente salvo = clienteRepo.save(cliente);
         // Saldo de fiado só nasce das vendas/faturamento — nunca informado no cadastro
         salvo.setSaldoFiadoAtual(BigDecimal.ZERO.setScale(2));
@@ -75,7 +78,9 @@ public class ClienteService {
     public Cliente atualizar(Long id, Cliente dados) {
         Cliente existente = carregar(id);
         existente.setNome(dados.getNome());
-        existente.setCpfCnpj(dados.getCpfCnpj());
+        // Documento antigo inválido não trava a edição (aparece no saneamento fiscal); trocar o documento exige um válido
+        boolean mudouDocumento = !DocumentoFiscal.normalizar(dados.getCpfCnpj()).equals(DocumentoFiscal.normalizar(existente.getCpfCnpj()));
+        existente.setCpfCnpj(mudouDocumento ? documentoConferido(dados.getCpfCnpj(), dados.getTipoPessoa()) : existente.getCpfCnpj());
         existente.setTipoPessoa(dados.getTipoPessoa());
         existente.setTelefone(dados.getTelefone());
         existente.setEmail(dados.getEmail());
@@ -84,6 +89,21 @@ public class ClienteService {
         existente.setLimiteCredito(dados.getLimiteCredito());
         // O saldo de fiado não é editável: é sempre calculado das contas a receber.
         return comSaldo(clienteRepo.save(existente));
+    }
+
+    /**
+     * Documento opcional; se informado, CPF ou CNPJ (numérico ou alfanumérico) com dígitos válidos.
+     * Grava como veio (em maiúsculas): a tela manda com máscara, integrações mandam só os caracteres.
+     */
+    static String documentoConferido(String valor, String tipoPessoa) {
+        String d = DocumentoFiscal.normalizar(valor);
+        if (d.isEmpty()) return null;
+        boolean pf = "PF".equals(tipoPessoa);
+        if (pf && !DocumentoFiscal.cpfValido(d)) throw new BusinessException("CPF inválido. Confira os números digitados.");
+        if (!pf && !DocumentoFiscal.cnpjValido(d)) {
+            throw new BusinessException("CNPJ inválido. Confira os caracteres digitados (o CNPJ novo pode ter letras).");
+        }
+        return valor.trim().toUpperCase();
     }
 
     @Transactional

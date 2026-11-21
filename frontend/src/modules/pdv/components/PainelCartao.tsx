@@ -358,7 +358,7 @@ export default function PainelCartao({ metodo, valor, maximo, setValor, vendaId,
               title="Cobrar em outra maquininha e digitar o comprovante (F7)"
               className={`shrink-0 px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors
                           disabled:opacity-60 disabled:cursor-not-allowed ${manual
-                            ? 'bg-amber-600 hover:bg-amber-500 text-white'
+                            ? 'bg-warning-600 hover:bg-warning-500 text-white'
                             : 'bg-gray-800 hover:bg-gray-700 border border-gray-600 text-gray-200'}`}
             >
               <Keyboard size={14} /> Venda manual <span className="text-xs font-normal opacity-70">[F7]</span>
@@ -390,20 +390,20 @@ export default function PainelCartao({ metodo, valor, maximo, setValor, vendaId,
       {(estado === 'idle' || estado === 'negado') && (
         <>
           {estado === 'idle' && ultimoAprovado && (
-            <p className="text-xs text-emerald-400 flex items-center gap-1.5">
+            <p className="text-xs text-success-400 flex items-center gap-1.5">
               <CheckCircle size={14} className="shrink-0" /> {ultimoAprovado}
             </p>
           )}
           {acimaDoMaximo && (
-            <p className="text-xs text-red-400">
+            <p className="text-xs text-danger-400">
               {metodo === 'PIX' ? 'PIX' : metodo === 'VOUCHER' ? 'Voucher' : 'Cartão'} não dá troco: o máximo é {formatBRL(maximo)}.
             </p>
           )}
           {estado === 'negado' && (
-            <div className="bg-red-900/30 border border-red-700 rounded-xl p-3 flex items-start gap-2">
-              <XCircle size={18} className="text-red-400 shrink-0 mt-0.5" />
+            <div className="bg-danger-900/30 border border-danger-700 rounded-xl p-3 flex items-start gap-2">
+              <XCircle size={18} className="text-danger-400 shrink-0 mt-0.5" />
               <div>
-                <p className="text-red-400 font-medium text-sm">Não aprovado</p>
+                <p className="text-danger-400 font-medium text-sm">Não aprovado</p>
                 <p className="text-xs text-gray-400">{mensagem}</p>
               </div>
             </div>
@@ -427,7 +427,7 @@ export default function PainelCartao({ metodo, valor, maximo, setValor, vendaId,
             {formatBRL(valor)}{metodo === 'CREDITO' && parcelas > 1 ? ` em ${parcelas}x` : ''}
           </p>
           {estado === 'aguardando' && transacao?.modoIntegracao === 'API_NUVEM' && (
-            <button onClick={cancelar} className="text-xs text-gray-400 hover:text-red-400">
+            <button onClick={cancelar} className="text-xs text-gray-400 hover:text-danger-400">
               Cancelar cobrança
             </button>
           )}
@@ -462,7 +462,7 @@ export default function PainelCartao({ metodo, valor, maximo, setValor, vendaId,
             </button>
             <button
               onClick={() => confirmarManual(true)}
-              className="flex-1 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-sm font-bold"
+              className="flex-1 py-2.5 rounded-lg bg-success-600 hover:bg-success-500 text-sm font-bold"
             >
               Aprovado <span className="text-xs font-normal opacity-70">[F8]</span>
             </button>
@@ -471,10 +471,10 @@ export default function PainelCartao({ metodo, valor, maximo, setValor, vendaId,
       )}
 
       {estado === 'erro_agente' && (
-        <div className="bg-amber-900/20 border border-amber-700 rounded-xl p-4 space-y-2">
+        <div className="bg-warning-900/20 border border-warning-700 rounded-xl p-4 space-y-2">
           <div className="flex items-center gap-2">
-            <AlertTriangle size={18} className="text-amber-400 shrink-0" />
-            <p className="text-amber-400 font-medium text-sm">Agente da maquininha não respondeu</p>
+            <AlertTriangle size={18} className="text-warning-400 shrink-0" />
+            <p className="text-warning-400 font-medium text-sm">Agente da maquininha não respondeu</p>
           </div>
           <p className="text-xs text-gray-400">{mensagem}</p>
           <div className="flex flex-wrap gap-3 pt-1 text-xs">
@@ -490,7 +490,7 @@ export default function PainelCartao({ metodo, valor, maximo, setValor, vendaId,
             >
               Concluir manualmente
             </button>
-            <button onClick={cancelar} className="text-gray-400 hover:text-red-400">Cancelar</button>
+            <button onClick={cancelar} className="text-gray-400 hover:text-danger-400">Cancelar</button>
           </div>
         </div>
       )}

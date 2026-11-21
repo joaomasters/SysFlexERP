@@ -126,6 +126,12 @@ public class NotaFiscalService {
         String statusAnterior = nf.getStatus();
         if (statusAnterior.equals(novoStatus)) return;
 
+        // Nota gerada por expedição industrial: a mercadoria já saiu do estoque no carregamento.
+        if (nf.getExpedicaoId() != null) {
+            if ("EMITIDA".equals(novoStatus)) nf.setUsuarioEmissaoId(usuarioId);
+            return;
+        }
+
         boolean vaiEmitir   = "EMITIDA".equals(novoStatus) && !"EMITIDA".equals(statusAnterior);
         boolean vaiCancelar = "CANCELADA".equals(novoStatus) && "EMITIDA".equals(statusAnterior);
 

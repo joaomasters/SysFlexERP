@@ -7,7 +7,7 @@ import {
 import { api } from '@/shared/api/axios'
 import toast from 'react-hot-toast'
 import type { Produto, FichaDesossa } from '@/types/produto'
-import { PageHeader, Card, Button, Modal, Field, baseInputClass, ConfirmDialog, Paginacao } from '@/shared/components/ui'
+import { PageHeader, Card, Button, Field, baseInputClass, ConfirmDialog, Paginacao, FormularioPagina, BuscaProduto } from '@/shared/components/ui'
 import { usePaginacao } from '@/shared/hooks/usePaginacao'
 
 // ─── tipos locais ────────────────────────────────────────────────────────────
@@ -20,9 +20,9 @@ interface ItemForm {
 const PERC_TOTAL_MAX = 100
 
 // Paleta categórica p/ distinguir cortes na mesma ficha visualmente — não é
-// cor de status, então não usa os tokens semânticos.
+// cor de status, então usa matizes distintos (inclusive âmbar/amarelo crus) em vez dos tokens semânticos.
 const CORES_CORTE = [
-  'bg-primary-500', 'bg-orange-500', 'bg-mostarda-500', 'bg-yellow-500',
+  'bg-primary-500', 'bg-orange-500', 'bg-amber-500', 'bg-yellow-400',
   'bg-lime-500', 'bg-success-500', 'bg-teal-500', 'bg-cyan-500',
   'bg-info-500', 'bg-violet-500', 'bg-purple-500', 'bg-pink-500',
 ]
@@ -77,14 +77,14 @@ function BarraPercentual({ itens }: { itens: ItemForm[] }) {
 // ════════════════════════════════════════════════════════════════════════════
 //  MODAL DE FORMULÁRIO
 // ════════════════════════════════════════════════════════════════════════════
-interface FormModalProps {
+interface FormFichaProps {
   ficha?: FichaDesossa | null
   produtos: Produto[]
   onClose: () => void
   onSaved: () => void
 }
 
-function FormModal({ ficha, produtos, onClose, onSaved }: FormModalProps) {
+function FormFicha({ ficha, produtos, onClose, onSaved }: FormFichaProps) {
   const editando = !!ficha
 
   const [nome,       setNome]       = useState(ficha?.nome ?? '')
@@ -106,8 +106,8 @@ function FormModal({ ficha, produtos, onClose, onSaved }: FormModalProps) {
   const produtosPai   = produtos.filter(p => p.unidadeMedida === 'KG')
   // Produto pai selecionado
   const paiSel        = produtos.find(p => p.id === parseInt(prodPaiId))
-  // Produtos filhos: exclui o produto pai
-  const produtosFilhos = produtos.filter(p => p.id !== parseInt(prodPaiId))
+  // Cortes que podem sair da peça: só produtos do tipo "Corte de Carne" (e nunca o próprio pai)
+  const cortesDisponiveis = produtos.filter(p => p.tipoProduto === 'CORTE' && p.id !== parseInt(prodPaiId))
 
   const qc = useQueryClient()
   const salvar = useMutation({
@@ -157,14 +157,13 @@ function FormModal({ ficha, produtos, onClose, onSaved }: FormModalProps) {
   }
 
   return (
-    <Modal
+    <FormularioPagina
       title={editando ? 'Editar Ficha de Desossa' : 'Nova Ficha de Desossa'}
+      subtitle="Cortes e percentuais de rendimento da peça"
       onClose={onClose}
-      maxWidth="lg"
-      footer={
+      actions={
         <>
-          <Button variant="secondary" fullWidth onClick={onClose}>Cancelar</Button>
-          <Button variant="primary" fullWidth disabled={invalido} loading={salvar.isPending} onClick={() => salvar.mutate()}>
+          <Button variant="primary" disabled={invalido} loading={salvar.isPending} onClick={() => salvar.mutate()}>
             {editando ? 'Salvar alterações' : 'Criar ficha'}
           </Button>
         </>
@@ -213,22 +212,35 @@ function FormModal({ ficha, produtos, onClose, onSaved }: FormModalProps) {
           </div>
         </div>
 
-        <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-          {itens.map((item, idx) => (
-            <div key={idx} className="grid grid-cols-12 gap-2 items-center bg-gray-50 border border-gray-100 rounded-lg p-2.5">
-              <div className="col-span-1 text-center text-xs text-gray-400 font-mono">{idx + 1}</div>
+        {cortesDisponiveis.length === 0 && (
+          <p className="mb-2 text-xs text-warning-700">
+            Nenhum produto cadastrado como "Corte de Carne". Cadastre em Produtos (tipo "Corte de Carne") para usá-lo aqui.
+          </p>
+        )}
+
+        <div className="space-y-2">
+          {itens.map((item, idx) => {
+            // Ficha antiga pode ter um corte que não é "Corte de Carne" (ex.: sebo/osso): continua
+            // visível nesta linha para não aparecer vazio, com um aviso. Novas escolhas são só cortes.
+            const idSel = parseInt(item.produtoFilhoId) || 0
+            const selecionado = produtos.find(p => p.id === idSel)
+            const foraDoTipo = !!selecionado && selecionado.tipoProduto !== 'CORTE'
+            const opcoes = foraDoTipo ? [...cortesDisponiveis, selecionado] : cortesDisponiveis
+            return (
+            <div key={idx} className="grid grid-cols-12 gap-2 items-start bg-gray-50 border border-gray-100 rounded-lg p-2.5">
+              <div className="col-span-1 pt-2 text-center text-xs text-gray-400 font-mono">{idx + 1}</div>
               <div className="col-span-7">
-                <select
-                  value={item.produtoFilhoId}
-                  onChange={e => updateItem(idx, 'produtoFilhoId', e.target.value)}
-                  className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white
-                             focus:outline-none focus:ring-2 focus:ring-primary-500"
-                >
-                  <option value="">Produto filho...</option>
-                  {produtosFilhos.map(p => (
-                    <option key={p.id} value={p.id}>{p.nome}</option>
-                  ))}
-                </select>
+                <BuscaProduto
+                  produtos={opcoes}
+                  value={idSel}
+                  onSelect={p => updateItem(idx, 'produtoFilhoId', String(p.id))}
+                  placeholder="Buscar corte por nome ou código..."
+                />
+                {foraDoTipo && (
+                  <p className="mt-1 text-[11px] text-warning-700">
+                    Este produto não é do tipo "Corte de Carne". Troque por um corte para manter a ficha padronizada.
+                  </p>
+                )}
               </div>
               <div className="col-span-3 relative">
                 <input
@@ -240,9 +252,9 @@ function FormModal({ ficha, produtos, onClose, onSaved }: FormModalProps) {
                   className="w-full border border-gray-300 rounded px-2 py-1.5 pr-6 bg-white
                              text-sm text-right focus:outline-none focus:ring-2 focus:ring-primary-500"
                 />
-                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs">%</span>
+                <span className="absolute right-2 top-[1.05rem] -translate-y-1/2 text-gray-400 text-xs">%</span>
               </div>
-              <div className="col-span-1 flex justify-center">
+              <div className="col-span-1 flex justify-center pt-2">
                 <button
                   onClick={() => removeItem(idx)}
                   disabled={itens.length === 1}
@@ -252,14 +264,15 @@ function FormModal({ ficha, produtos, onClose, onSaved }: FormModalProps) {
                 </button>
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
 
         <div className="mt-3">
           <BarraPercentual itens={itens} />
         </div>
       </div>
-    </Modal>
+    </FormularioPagina>
   )
 }
 
@@ -314,6 +327,18 @@ export default function FichasDesossaPage() {
   function fecharForm() {
     setShowForm(false)
     setEditFicha(null)
+  }
+
+  // Formulário em tela cheia (padrão da tela de Produto): enquanto aberto, substitui a listagem.
+  if (showForm) {
+    return (
+      <FormFicha
+        ficha={editFicha}
+        produtos={produtos}
+        onClose={fecharForm}
+        onSaved={fecharForm}
+      />
+    )
   }
 
   return (
@@ -514,14 +539,6 @@ export default function FichasDesossaPage() {
         {!isLoading && <Paginacao solta paginacao={pag} rotulo="fichas" />}
       </div>
 
-      {showForm && (
-        <FormModal
-          ficha={editFicha}
-          produtos={produtos}
-          onClose={fecharForm}
-          onSaved={fecharForm}
-        />
-      )}
 
       {/* Confirmação de inativação */}
       {confirmando && (

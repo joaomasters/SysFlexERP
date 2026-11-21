@@ -21,6 +21,8 @@ public class ProvedorFiscalSimulado implements ProvedorFiscal {
 
     static final String URL_QRCODE_PR = "http://www.fazenda.pr.gov.br/nfce/qrcode";
     static final String URL_CONSULTA_PR = "http://www.fazenda.pr.gov.br/nfce/consulta";
+    /** CPF válido reservado aos testes: a emissão para ele "fica sem resposta" (timeout simulado). */
+    public static final String CPF_SEM_RESPOSTA = "11144477735";
 
     private final SecureRandom aleatorio = new SecureRandom();
 
@@ -44,12 +46,35 @@ public class ProvedorFiscalSimulado implements ProvedorFiscal {
         if (!"HOMOLOGACAO".equals(nota.ambiente())) {
             return RetornoEmissao.erro("O provedor simulado só emite em homologação.");
         }
-        String chave = ChaveAcesso.gerar(ChaveAcesso.UF_PR, nota.dataEmissao(), nota.emitente().cnpj(), 65,
-                nota.serie(), nota.numero(), 1, 10_000_000 + aleatorio.nextInt(90_000_000));
+        if (CPF_SEM_RESPOSTA.equals(nota.destinatarioDocumento())) {
+            // Simula a transmissão que fica sem resposta, para testar o resultado desconhecido ponta a ponta
+            throw new IllegalStateException("Read timed out (simulado)");
+        }
+        String chave = nota.chave();
         String protocolo = "9" + String.format("%014d", Math.abs(aleatorio.nextLong()) % 100_000_000_000_000L);
         return new RetornoEmissao("AUTORIZADA", chave, protocolo, "Autorizado o uso da NFC-e (simulado)",
                 urlQrCode(chave, 2, credencial.cscId(), credencial.cscToken()), URL_CONSULTA_PR, null,
                 "SIM-" + chave, LocalDateTime.now());
+    }
+
+    /**
+     * O simulado não guarda nada: a consulta de uma nota de resultado desconhecido responde
+     * "autorizada" (homologação), para exercitar o fluxo de conciliação ponta a ponta.
+     */
+    @Override
+    public java.util.Optional<RetornoEmissao> consultarNfce(String ref, String chave, String ambiente, CredencialFiscal credencial) {
+        if (!"HOMOLOGACAO".equals(ambiente)) return java.util.Optional.empty();
+        String protocolo = "9" + String.format("%014d", Math.abs(aleatorio.nextLong()) % 100_000_000_000_000L);
+        return java.util.Optional.of(new RetornoEmissao("AUTORIZADA", chave, protocolo, "Autorizado o uso da NFC-e (simulado, consulta)",
+                urlQrCode(chave, 2, credencial.cscId(), credencial.cscToken()), URL_CONSULTA_PR, null,
+                "SIM-" + chave, LocalDateTime.now()));
+    }
+
+    @Override
+    public java.util.Optional<PedidoInutilizacao.Retorno> inutilizar(PedidoInutilizacao pedido, CredencialFiscal credencial) {
+        if (!"HOMOLOGACAO".equals(pedido.ambiente())) return java.util.Optional.empty();
+        String protocolo = "9" + String.format("%014d", Math.abs(aleatorio.nextLong()) % 100_000_000_000_000L);
+        return java.util.Optional.of(new PedidoInutilizacao.Retorno("HOMOLOGADA", protocolo, "Inutilização de número homologada (simulado)"));
     }
 
     /**

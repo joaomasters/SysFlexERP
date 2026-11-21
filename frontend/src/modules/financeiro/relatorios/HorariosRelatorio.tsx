@@ -5,6 +5,7 @@ import { api } from '@/shared/api/axios'
 import { formatBRL } from '@/shared/utils/mask'
 import { Card, Table, THead, TH, TBody, TR, TD } from '@/shared/components/ui'
 import PainelRelatorio, { Indicador, usePeriodo } from './PainelRelatorio'
+import { COR_GRAFICO } from '@/config/tema'
 
 interface Faixa { chave: number; quantidade: number; total: number }
 interface Horarios { porHora: Faixa[]; porDiaSemana: Faixa[] }
@@ -57,7 +58,7 @@ export default function HorariosRelatorio() {
                 <XAxis dataKey="rotulo" tick={{ fontSize: 11 }} />
                 <YAxis tickFormatter={n => `R$${Number(n).toFixed(0)}`} tick={{ fontSize: 11 }} width={70} />
                 <Tooltip formatter={(n: number) => formatBRL(n)} />
-                <Bar dataKey="total" name="Vendas" fill="#A32B1E" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="total" name="Vendas" fill={COR_GRAFICO.primaria} radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>

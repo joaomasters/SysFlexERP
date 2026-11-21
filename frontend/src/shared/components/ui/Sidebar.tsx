@@ -6,14 +6,14 @@ import {
   CreditCard, BarChart2, Scale, AlertTriangle,
   ClipboardList, TrendingDown, ArrowDownCircle, BarChart, LogOut,
   Truck, FileText, Users, ShieldCheck, Home, Contact,
-  ShieldAlert, CalendarClock, Percent, Building2, Store, Printer, Wrench, FileKey
+  ShieldAlert, CalendarClock, Percent, Building2, Store, Printer, Wrench, FileKey, Factory, Layers, ClipboardCheck, HardHat, Flame, BadgeCheck, PackageCheck, BarChart3
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import clsx from 'clsx'
 import { api } from '../../api/axios'
 import { removeSessao } from '../../auth'
 import { usePermissao } from '../../hooks/usePermissao'
-import logo from '../../../assets/sysflex-logo.png'
+import logo from '../../../assets/sysflex-logo-escuro.png'
 
 const nav = [
   { label: 'Início', href: '/inicio', icon: Home, sempreVisivel: true },
@@ -38,6 +38,17 @@ const nav = [
   { separator: 'Fiscal' },
   { label: 'NF de Saída', href: '/fiscal/notas', icon: FileText, modulo: 'NF_SAIDA' },
   { label: 'Emissão de Notas', href: '/fiscal/emissao', icon: FileKey, modulo: 'FISCAL' },
+
+  // Indústria: só nas empresas com os módulos industriais liberados (tela Empresas)
+  { separator: 'Indústria', industrial: true },
+  { label: 'Estrutura industrial', href: '/industrial/estrutura', icon: Factory, modulo: 'IND_ESTRUTURA', industrial: true },
+  { label: 'Engenharia de produto', href: '/industrial/engenharia', icon: Layers, modulo: 'IND_ENGENHARIA', industrial: true },
+  { label: 'Ordens de produção', href: '/industrial/ordens', icon: ClipboardCheck, modulo: 'IND_PCP', industrial: true },
+  { label: 'Chão de fábrica', href: '/industrial/chao', icon: HardHat, modulo: 'IND_APONTAMENTO', industrial: true },
+  { label: 'Extrusão', href: '/industrial/extrusao', icon: Flame, modulo: 'IND_EXTRUSAO', industrial: true },
+  { label: 'Qualidade', href: '/industrial/qualidade', icon: BadgeCheck, modulo: 'IND_QUALIDADE', industrial: true },
+  { label: 'Expedição', href: '/industrial/expedicao', icon: PackageCheck, modulo: 'IND_EXPEDICAO', industrial: true },
+  { label: 'Gestão industrial', href: '/industrial/gestao', icon: BarChart3, modulo: 'IND_CUSTOS', industrial: true },
 
   { separator: 'Financeiro' },
   { label: 'Faturamento',      href: '/financeiro/faturamento',    icon: DollarSign,  modulo: 'FATURAMENTO' },
@@ -90,6 +101,13 @@ export default function Sidebar({ aberto, onFechar }: SidebarProps) {
   })
   const qtdPendentesBalanca = pendentesBalanca?.total ?? 0
 
+  const { data: situacaoIndustrial } = useQuery<{ habilitado: boolean }>({
+    queryKey: ['industrial-situacao'],
+    queryFn: () => api.get('/industrial/situacao').then(r => r.data),
+    staleTime: 5 * 60_000,
+  })
+  const industrial = situacaoIndustrial?.habilitado ?? false
+
   const logout = () => {
     removeSessao()
     // Recarrega de propósito: o cache de consultas fica em memória e, numa troca
@@ -100,6 +118,7 @@ export default function Sidebar({ aberto, onFechar }: SidebarProps) {
   // Filtra os itens pelo que o perfil pode VER, e depois remove separadores
   // que ficaram sem nenhum item visível embaixo (evita título "solto").
   const itensVisiveis = nav.filter(item => {
+    if ('industrial' in item && item.industrial && !industrial) return false
     if ('separator' in item || item.sempreVisivel) return true
     if (item.somentePlataforma) return isAdministradorPlataforma
     if (item.somenteSuperAdmin) return isSuperAdmin && !sessao?.somenteLeitura
@@ -124,15 +143,18 @@ export default function Sidebar({ aberto, onFechar }: SidebarProps) {
     />
     <aside
       className={clsx(
-        'w-64 lg:w-60 shrink-0 bg-aco-900 text-white flex flex-col h-full',
+        'w-64 lg:w-60 shrink-0 bg-topbar text-white flex flex-col h-full',
         // Celular/tablet: gaveta fixa que desliza da esquerda. Desktop: coluna normal.
         'fixed inset-y-0 left-0 z-50 transition-transform duration-200 lg:static lg:translate-x-0',
         aberto ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
       )}
     >
-      <div className="px-5 py-5 border-b border-white/10 flex items-center justify-between">
-        <img src={logo} alt="SysFlex ERP" className="h-9 w-auto" />
-        <button onClick={onFechar} aria-label="Fechar menu" className="lg:hidden p-1.5 -mr-2 text-white/70 hover:text-white">
+      {/* Logo colorido num bloco claro, da mesma altura do cabeçalho (h-14): o topo do sistema
+          forma uma faixa branca contínua. O arquivo "escuro" tem "Sys" em azul-marinho, então
+          só funciona sobre fundo claro. */}
+      <div className="h-14 shrink-0 px-5 bg-card border-b border-border flex items-center justify-between">
+        <img src={logo} alt="SysFlex ERP" className="h-8 w-auto" />
+        <button onClick={onFechar} aria-label="Fechar menu" className="lg:hidden p-1.5 -mr-2 text-gray-500 hover:text-gray-800">
           <X size={20} />
         </button>
       </div>
@@ -173,7 +195,7 @@ export default function Sidebar({ aberto, onFechar }: SidebarProps) {
                 clsx(
                   'flex items-center gap-3 pl-[13px] pr-3 py-3 lg:py-2.5 border-l-[3px] text-sm transition-colors',
                   isActive
-                    ? 'border-talho-600 bg-aco-800 text-white font-medium'
+                    ? 'border-primary-400 bg-white/10 text-white font-medium'
                     : 'border-transparent text-white/70 hover:bg-white/5 hover:text-white'
                 )
               }
@@ -181,7 +203,7 @@ export default function Sidebar({ aberto, onFechar }: SidebarProps) {
               <Icon size={16} />
               <span className="flex-1">{item.label}</span>
               {item.href === '/balanca' && qtdPendentesBalanca > 0 && (
-                <span className="bg-mostarda-600 text-white text-[10px] font-semibold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                <span className="bg-warning-600 text-white text-[10px] font-semibold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
                   {qtdPendentesBalanca > 99 ? '99+' : qtdPendentesBalanca}
                 </span>
               )}

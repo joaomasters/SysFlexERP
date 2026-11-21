@@ -46,8 +46,8 @@ public class FornecedorService {
         garantirNomeLivre(dados.getNome(), id);
         // Só confere quando o documento mudou: fornecedores antigos com documento repetido
         // continuam editáveis (nome, telefone...) sem serem barrados por um dado legado.
-        if (!DocumentoFiscal.somenteDigitos(dados.getCpfCnpj())
-                .equals(DocumentoFiscal.somenteDigitos(existente.getCpfCnpj()))) {
+        if (!DocumentoFiscal.normalizar(dados.getCpfCnpj())
+                .equals(DocumentoFiscal.normalizar(existente.getCpfCnpj()))) {
             garantirDocumentoLivre(dados.getCpfCnpj(), id);
         }
 
@@ -98,7 +98,7 @@ public class FornecedorService {
 
     /** Documento é opcional (fornecedores antigos não têm), mas, se informado, precisa ser válido. */
     private void normalizarDocumento(Fornecedor f) {
-        String digitos = DocumentoFiscal.somenteDigitos(f.getCpfCnpj());
+        String digitos = DocumentoFiscal.normalizar(f.getCpfCnpj());
         if (digitos.isEmpty()) {
             f.setCpfCnpj(null);
             return;
@@ -108,13 +108,13 @@ public class FornecedorService {
             throw new BusinessException("CPF inválido. Confira os números digitados.");
         }
         if (!pf && !DocumentoFiscal.cnpjValido(digitos)) {
-            throw new BusinessException("CNPJ inválido. Confira os números digitados.");
+            throw new BusinessException("CNPJ inválido. Confira os caracteres digitados (o CNPJ novo pode ter letras).");
         }
         f.setCpfCnpj(DocumentoFiscal.formatar(digitos));
     }
 
     private void garantirDocumentoLivre(String cpfCnpj, Long idAtual) {
-        String digitos = DocumentoFiscal.somenteDigitos(cpfCnpj);
+        String digitos = DocumentoFiscal.normalizar(cpfCnpj);
         if (digitos.isEmpty()) return;
         fornecedorRepo.buscarPorCpfCnpjDigitos(digitos).stream()
                 .filter(outro -> !outro.getId().equals(idAtual))

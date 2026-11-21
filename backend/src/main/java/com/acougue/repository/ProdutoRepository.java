@@ -54,6 +54,14 @@ public interface ProdutoRepository extends JpaRepository<Produto, Long> {
     @Query("SELECT COUNT(p) FROM Produto p WHERE p.ativo = true AND (p.ncm IS NULL OR p.ncm = '')")
     long contarAtivosSemNcm();
 
+    /** Saneamento fiscal: ativos com NCM, CFOP ou CSOSN em branco (o serviço decide o que falta pelo regime). */
+    @Query("""
+            SELECT p FROM Produto p WHERE p.ativo = true
+              AND (p.ncm IS NULL OR p.ncm = '' OR p.cfop IS NULL OR p.cfop = '' OR p.csosn IS NULL OR p.csosn = '')
+            ORDER BY p.nome
+            """)
+    List<Produto> ativosComDadosFiscaisIncompletos();
+
     List<Produto> findByCodigoBalancaIsNotNullAndAtivoTrue();
 
     @Query("SELECT p FROM Produto p WHERE LOWER(p.nome) LIKE LOWER(CONCAT('%', :nome, '%')) AND p.ativo = true")

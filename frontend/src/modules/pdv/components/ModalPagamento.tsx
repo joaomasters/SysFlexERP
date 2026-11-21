@@ -37,12 +37,12 @@ const NOTAS = [5, 10, 20, 50, 100, 200]
 // F1 a F6 na ordem antiga; o Voucher (vale-alimentação/refeição) veio depois e ficou com o F9,
 // porque F7 é a "Venda manual" do PainelCartao e F8 o botão de confirmar
 const METODOS: { value: Metodo; label: string; icon: React.ElementType; cor: string; atalho: string }[] = [
-  { value: 'DINHEIRO', label: 'Dinheiro',  icon: Banknote,    cor: 'bg-emerald-600', atalho: 'F1' },
+  { value: 'DINHEIRO', label: 'Dinheiro',  icon: Banknote,    cor: 'bg-success-600', atalho: 'F1' },
   { value: 'DEBITO',   label: 'Débito',    icon: CreditCard,  cor: 'bg-blue-600',    atalho: 'F2' },
   { value: 'CREDITO',  label: 'Crédito',   icon: CreditCard,  cor: 'bg-violet-600',  atalho: 'F3' },
   { value: 'VOUCHER',  label: 'Voucher',   icon: Ticket,      cor: 'bg-rose-600',    atalho: 'F9' },
   { value: 'PIX',      label: 'PIX',       icon: Smartphone,  cor: 'bg-teal-600',    atalho: 'F4' },
-  { value: 'CHEQUE',   label: 'Cheque',    icon: FileCheck,   cor: 'bg-amber-600',   atalho: 'F5' },
+  { value: 'CHEQUE',   label: 'Cheque',    icon: FileCheck,   cor: 'bg-warning-600',   atalho: 'F5' },
   { value: 'FIADO',    label: 'Fiado',     icon: BookOpen,    cor: 'bg-orange-600',  atalho: 'F6' },
 ]
 
@@ -273,7 +273,7 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
             onClick={onCancelar}
             disabled={cartaoOcupado}
             title={cartaoOcupado ? 'Finalize ou cancele a cobrança no cartão primeiro' : undefined}
-            className="p-1 hover:text-red-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            className="p-1 hover:text-danger-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <X size={20} />
           </button>
@@ -289,11 +289,11 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
             </div>
             <div className="bg-gray-800 rounded-xl p-3">
               <p className="text-xs text-gray-400 mb-1">Pago</p>
-              <p className="text-xl font-black tabular-nums text-emerald-400">{brl(totalPago)}</p>
+              <p className="text-xl font-black tabular-nums text-success-400">{brl(totalPago)}</p>
             </div>
-            <div className={`rounded-xl p-3 ${troco > 0 ? 'bg-yellow-900/50' : restante > 0 ? 'bg-red-900/40' : 'bg-emerald-900/40'}`}>
+            <div className={`rounded-xl p-3 ${troco > 0 ? 'bg-warning-900/50' : restante > 0 ? 'bg-danger-900/40' : 'bg-success-900/40'}`}>
               <p className="text-xs text-gray-400 mb-1">{troco > 0 ? 'Troco' : 'Restante'}</p>
-              <p className={`text-xl font-black tabular-nums ${troco > 0 ? 'text-yellow-400' : restante > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+              <p className={`text-xl font-black tabular-nums ${troco > 0 ? 'text-warning-400' : restante > 0 ? 'text-danger-400' : 'text-success-400'}`}>
                 {brl(troco > 0 ? troco : restante)}
               </p>
             </div>
@@ -306,7 +306,7 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
                 <div key={i} className="bg-gray-800 rounded-lg px-3 py-2 text-sm">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <CheckCircle size={14} className="text-emerald-400 shrink-0" />
+                      <CheckCircle size={14} className="text-success-400 shrink-0" />
                       <span className="text-gray-300">{p.formaPagamento}</span>
                       {p.parcelas && p.parcelas > 1 && <span className="text-xs text-gray-500">{p.parcelas}x</span>}
                       {(p.bandeira || p.nsu) && (
@@ -315,19 +315,19 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="tabular-nums font-medium">{brl(p.valor)}</span>
-                      <button onClick={() => removePagamento(i)} className="text-gray-600 hover:text-red-400">
+                      <button onClick={() => removePagamento(i)} className="text-gray-600 hover:text-danger-400">
                         <Trash2 size={13} />
                       </button>
                     </div>
                   </div>
                   {confirmandoRemocao === i && (
                     <div className="mt-2 pt-2 border-t border-gray-700 text-xs space-y-1.5">
-                      <p className="text-amber-400">
+                      <p className="text-warning-400">
                         Este cartão já foi APROVADO na maquininha. Remover daqui não devolve o dinheiro:
                         faça o cancelamento/estorno na própria maquininha.
                       </p>
                       <div className="flex gap-3">
-                        <button onClick={() => removePagamento(i)} className="text-red-400 hover:text-red-300 font-medium">
+                        <button onClick={() => removePagamento(i)} className="text-danger-400 hover:text-danger-300 font-medium">
                           Já estornei, remover
                         </button>
                         <button onClick={() => setConfirmandoRemocao(null)} className="text-gray-400 hover:text-white">
@@ -345,7 +345,7 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
           {!pago && (
             <>
               {pagamentos.length > 0 && (
-                <p className="text-sm text-amber-300 bg-amber-900/20 border border-amber-700/50 rounded-lg px-3 py-2">
+                <p className="text-sm text-warning-300 bg-warning-900/20 border border-warning-700/50 rounded-lg px-3 py-2">
                   Pago {brl(totalPago)} · falta <strong className="tabular-nums">{brl(restante)}</strong>.
                   Escolha a próxima forma (F1–F6, F9).
                 </p>
@@ -378,13 +378,13 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
                       <span className="text-xs text-gray-400">Valor recebido do cliente:</span>
                       <button type="button" onClick={() => setValor(restante)}
                         className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors
-                          ${valor === restante ? 'bg-emerald-700 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}>
+                          ${valor === restante ? 'bg-success-700 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}>
                         Exato
                       </button>
                       {NOTAS.filter(n => n > restante).slice(0, 4).map(n => (
                         <button key={n} type="button" onClick={() => setValor(n)}
                           className={`px-2.5 py-1 rounded-lg text-xs font-semibold tabular-nums transition-colors
-                            ${valor === n ? 'bg-emerald-700 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}>
+                            ${valor === n ? 'bg-success-700 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}>
                           {brl(n)}
                         </button>
                       ))}
@@ -403,18 +403,18 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
                       onClick={confirmarDinheiro}
                       aria-label="Lançar pagamento"
                       title="Lançar este valor (Enter ou F8)"
-                      className="px-4 bg-emerald-600 hover:bg-emerald-500 rounded-lg font-bold transition-colors flex items-center gap-1.5"
+                      className="px-4 bg-success-600 hover:bg-success-500 rounded-lg font-bold transition-colors flex items-center gap-1.5"
                     >
                       ✓ <span className="text-xs font-normal opacity-70">[F8]</span>
                     </button>
                   </div>
                   {acimaDoRestante && (
-                    <p className="text-xs text-red-400">Fiado não dá troco: o máximo é {brl(restante)}.</p>
+                    <p className="text-xs text-danger-400">Fiado não dá troco: o máximo é {brl(restante)}.</p>
                   )}
                   {metodo === 'DINHEIRO' && valor > restante + 0.009 && (
-                    <div className="flex items-center justify-between rounded-xl border border-yellow-600/60 bg-yellow-900/30 px-4 py-3">
-                      <span className="text-sm text-yellow-200">Troco para o cliente</span>
-                      <span className="text-2xl font-black tabular-nums text-yellow-300">{brl(valor - restante)}</span>
+                    <div className="flex items-center justify-between rounded-xl border border-warning-600/60 bg-warning-900/30 px-4 py-3">
+                      <span className="text-sm text-warning-200">Troco para o cliente</span>
+                      <span className="text-2xl font-black tabular-nums text-warning-300">{brl(valor - restante)}</span>
                     </div>
                   )}
                 </div>
@@ -534,17 +534,17 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
                   )}
 
                   {pixSt === 'aprovado' && (
-                    <div className="bg-emerald-900/30 border border-emerald-700 rounded-xl p-4 flex items-center gap-3">
-                      <CheckCircle size={28} className="text-emerald-400 shrink-0" />
+                    <div className="bg-success-900/30 border border-success-700 rounded-xl p-4 flex items-center gap-3">
+                      <CheckCircle size={28} className="text-success-400 shrink-0" />
                       <div>
-                        <p className="font-bold text-emerald-400">PIX confirmado!</p>
+                        <p className="font-bold text-success-400">PIX confirmado!</p>
                         <p className="text-xs text-gray-400">ID: {pixMpId}</p>
                       </div>
                     </div>
                   )}
 
                   {pixSt === 'erro' && (
-                    <p className="text-sm text-red-400 text-center">
+                    <p className="text-sm text-danger-400 text-center">
                       Não foi possível gerar o PIX. Veja o motivo na mensagem acima.
                     </p>
                   )}
@@ -566,25 +566,25 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
                       placeholder="Banco"
                       value={chequeBanco}
                       onChange={e => setChequeBanco(e.target.value)}
-                      className="bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500"
+                      className="bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-warning-500"
                     />
                     <input
                       placeholder="Nº do Cheque *"
                       value={chequeNum}
                       onChange={e => setChequeNum(e.target.value)}
-                      className="bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500"
+                      className="bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-warning-500"
                     />
                   </div>
                   <input
                     placeholder="Titular do cheque"
                     value={chequeTit}
                     onChange={e => setChequeTit(e.target.value)}
-                    className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500"
+                    className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-warning-500"
                   />
                   <button
                     onClick={confirmarCheque}
                     disabled={!valor || !chequeBanco || !chequeNum}
-                    className="w-full py-3 bg-amber-600 hover:bg-amber-500 rounded-xl font-bold transition-colors disabled:opacity-50"
+                    className="w-full py-3 bg-warning-600 hover:bg-warning-500 rounded-xl font-bold transition-colors disabled:opacity-50"
                   >
                     Registrar Cheque <span className="text-xs font-normal opacity-70">[F8]</span>
                   </button>
@@ -595,11 +595,11 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
 
           {/* ── Venda Paga ── banner ─────────────────────────────────────── */}
           {pago && (
-            <div className="bg-emerald-900/30 border border-emerald-700 rounded-xl p-4 flex items-center gap-3">
-              <CheckCircle size={28} className="text-emerald-400 shrink-0" />
+            <div className="bg-success-900/30 border border-success-700 rounded-xl p-4 flex items-center gap-3">
+              <CheckCircle size={28} className="text-success-400 shrink-0" />
               <div>
-                <p className="font-bold text-emerald-400">Pagamento completo!</p>
-                {troco > 0 && <p className="text-sm text-yellow-400">Troco a devolver: {brl(troco)}</p>}
+                <p className="font-bold text-success-400">Pagamento completo!</p>
+                {troco > 0 && <p className="text-sm text-warning-400">Troco a devolver: {brl(troco)}</p>}
               </div>
             </div>
           )}
@@ -617,7 +617,7 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
           <button
             onClick={confirmarVenda}
             disabled={!pago}
-            className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500
+            className="flex-1 py-3 rounded-xl bg-success-600 hover:bg-success-500
                        disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed
                        font-bold text-sm transition-colors"
           >

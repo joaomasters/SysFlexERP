@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -27,4 +28,15 @@ public interface DocumentoFiscalRepository extends JpaRepository<DocumentoFiscal
     Optional<DocumentoFiscal> findFirstByVendaIdAndModeloOrderByIdDesc(Long vendaId, Short modelo);
 
     Optional<DocumentoFiscal> findFirstByVendaIdAndModeloAndStatus(Long vendaId, Short modelo, String status);
+
+    Optional<DocumentoFiscal> findFirstByVendaIdAndModeloAndStatusIn(Long vendaId, Short modelo, Collection<String> status);
+
+    @Query("SELECT MAX(d.numero) FROM DocumentoFiscal d WHERE d.modelo = :modelo AND d.serie = :serie AND d.ambiente = :ambiente")
+    Integer maiorNumero(@Param("modelo") Short modelo, @Param("serie") Short serie, @Param("ambiente") String ambiente);
+
+    @Query("SELECT MIN(d.numero) FROM DocumentoFiscal d WHERE d.modelo = :modelo AND d.serie = :serie AND d.ambiente = :ambiente")
+    Integer menorNumero(@Param("modelo") Short modelo, @Param("serie") Short serie, @Param("ambiente") String ambiente);
+
+    List<DocumentoFiscal> findByModeloAndSerieAndAmbienteAndNumeroBetweenOrderByNumero(Short modelo, Short serie, String ambiente,
+                                                                                      Integer de, Integer ate);
 }

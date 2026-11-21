@@ -93,6 +93,19 @@ public class TenantAdminController {
         return ResponseEntity.ok(buscarOuFalhar(id));
     }
 
+    /**
+     * Libera ou bloqueia os módulos industriais da empresa. Corpo: { "habilitado": true }.
+     * Bloquear não apaga nada: os cadastros industriais continuam no banco, só deixam de
+     * aparecer e de responder até a empresa ser liberada de novo.
+     */
+    @PatchMapping("/{id}/modulo-industrial")
+    public ResponseEntity<Tenant> moduloIndustrial(@PathVariable Long id, @RequestBody Map<String, Boolean> body) {
+        exigirAdministradorPlataforma();
+        buscarOuFalhar(id);
+        tenantRepository.definirModuloIndustrial(id, Boolean.TRUE.equals(body.get("habilitado")));
+        return ResponseEntity.ok(buscarOuFalhar(id));
+    }
+
     static final int NOME_MAX = 120;
 
     /** Tira espaços sobrando (inclusive os duplicados no meio) e recusa nome vazio ou longo demais. */

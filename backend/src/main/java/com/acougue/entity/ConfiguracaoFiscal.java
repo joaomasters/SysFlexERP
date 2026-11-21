@@ -107,6 +107,17 @@ public class ConfiguracaoFiscal {
     @Column(name = "csc_token_cripto", columnDefinition = "TEXT")
     private String cscTokenCripto;
 
+    /** Token da API do provedor fiscal (ex.: Focus NFe), um por ambiente, cifrado (V47). */
+    @Column(name = "provedor_token_homologacao_cripto", columnDefinition = "TEXT")
+    private String provedorTokenHomologacaoCripto;
+
+    @Column(name = "provedor_token_producao_cripto", columnDefinition = "TEXT")
+    private String provedorTokenProducaoCripto;
+
+    /** CST de PIS/COFINS dos itens (definido pela contabilidade; nulo = não informado). */
+    @Column(name = "pis_cofins_cst", length = 2)
+    private String pisCofinsCst;
+
     @Column(name = "certificado_cripto", columnDefinition = "TEXT")
     private String certificadoCripto;
 

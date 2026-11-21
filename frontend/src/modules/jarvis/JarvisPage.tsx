@@ -76,11 +76,11 @@ export default function JarvisPage() {
   const ativas = empresas.filter(e => e.ativo).length
 
   return (
-    <div className="min-h-screen bg-papel-50">
+    <div className="min-h-screen bg-background">
       <FaixaAmbiente />
-      <header className="bg-aco-900 text-white px-6 py-4 flex items-center justify-between">
+      <header className="bg-topbar text-white px-6 py-4 flex items-center justify-between">
         <div>
-          <h1 className="font-display font-semibold text-lg tracking-wide">JARVIS</h1>
+          <h1 className="font-semibold text-lg tracking-wide">JARVIS</h1>
           <p className="text-xs text-white/50">Visão de todas as empresas, somente leitura</p>
         </div>
         <button onClick={sair} className="flex items-center gap-2 text-sm text-white/60 hover:text-white transition-colors">
@@ -121,11 +121,11 @@ export default function JarvisPage() {
                   </td>
                   <td className="px-4 py-3">
                     {e.erro ? (
-                      <span className="inline-flex items-center gap-1 text-xs text-red-700">
+                      <span className="inline-flex items-center gap-1 text-xs text-danger-700">
                         <AlertTriangle size={13} /> Falha na leitura
                       </span>
                     ) : (
-                      <span className={`text-xs ${e.ativo ? 'text-emerald-700' : 'text-gray-500'}`}>
+                      <span className={`text-xs ${e.ativo ? 'text-success-700' : 'text-gray-500'}`}>
                         {e.ativo ? 'Ativa' : 'Inativa'}
                       </span>
                     )}

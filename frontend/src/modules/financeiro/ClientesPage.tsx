@@ -2,12 +2,26 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Search, Pencil, Ban, RotateCcw } from 'lucide-react'
 import { api } from '@/shared/api/axios'
+import { documentoValido, formatarCpfCnpj, normalizarDocumento, soDigitos } from '@/shared/utils/documento'
 import toast from 'react-hot-toast'
 import type { Cliente } from '@/types/venda'
 import { formatBRL } from '@/shared/utils/mask'
 import {
-  PageHeader, Modal, Button, StatusBadge, CurrencyInput, Field, baseInputClass, ConfirmDialog,
-  Table, THead, TH, TBody, TR, TD, EmptyState,
+  PageHeader,
+  Button,
+  StatusBadge,
+  CurrencyInput,
+  Field,
+  baseInputClass,
+  ConfirmDialog,
+  Table,
+  THead,
+  TH,
+  TBody,
+  TR,
+  TD,
+  EmptyState,
+  FormularioPagina,
 } from '@/shared/components/ui'
 import type { BadgeTone } from '@/shared/components/ui'
 import { usePermissao } from '@/shared/hooks/usePermissao'
@@ -47,22 +61,6 @@ type FormState = {
 }
 
 // ── Máscaras e validação do cadastro ─────────────────────────────────
-const soDigitos = (v: string) => v.replace(/\D/g, '')
-
-function formatarCpfCnpj(v: string, tipo: 'PF' | 'PJ'): string {
-  const d = soDigitos(v).slice(0, tipo === 'PF' ? 11 : 14)
-  if (tipo === 'PF') {
-    return d
-      .replace(/^(\d{3})(\d)/, '$1.$2')
-      .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
-      .replace(/\.(\d{3})(\d)/, '.$1-$2')
-  }
-  return d
-    .replace(/^(\d{2})(\d)/, '$1.$2')
-    .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
-    .replace(/\.(\d{3})(\d)/, '.$1/$2')
-    .replace(/(\d{4})(\d)/, '$1-$2')
-}
 
 function formatarTelefone(v: string): string {
   const d = soDigitos(v).slice(0, 11)
@@ -81,8 +79,11 @@ function validarCliente(f: FormState) {
   const tel = soDigitos(f.telefone).length
   return {
     nome:          f.nome.trim() ? '' : 'Informe o nome.',
-    cpfCnpj:       !novo || soDigitos(f.cpfCnpj).length === nDoc
-                     ? '' : `${f.tipoPessoa === 'PF' ? 'CPF' : 'CNPJ'} deve ter ${nDoc} dígitos.`,
+    cpfCnpj:       !f.cpfCnpj.trim() ? (novo ? `Informe o ${f.tipoPessoa === 'PF' ? 'CPF' : 'CNPJ'}.` : '')
+                     : normalizarDocumento(f.cpfCnpj, f.tipoPessoa).length !== nDoc
+                       ? `${f.tipoPessoa === 'PF' ? 'CPF' : 'CNPJ'} deve ter ${nDoc} ${f.tipoPessoa === 'PF' ? 'dígitos' : 'caracteres'}.`
+                     // na edição, documento antigo inválido não trava o cadastro (aparece no saneamento fiscal)
+                     : novo && !documentoValido(f.cpfCnpj, f.tipoPessoa) ? `${f.tipoPessoa === 'PF' ? 'CPF' : 'CNPJ'} inválido.` : '',
     telefone:      !novo || tel === 10 || tel === 11 ? '' : 'Informe o telefone com DDD.',
     email:         !f.email.trim() || /^\S+@\S+\.\S+$/.test(f.email.trim()) ? '' : 'E-mail inválido.',
     endereco:      !novo || f.endereco.trim() ? '' : 'Informe o endereço.',
@@ -179,6 +180,103 @@ export default function ClientesPage() {
     salvar.mutate(f)
   }
 
+  // Formulário em tela cheia (padrão da tela de Produto): enquanto aberto, substitui a listagem.
+  if (form) {
+    return (
+      <FormularioPagina
+        title={form.id ? 'Editar Cliente' : 'Novo Cliente'}
+        subtitle="Cadastre um cliente para venda, faturamento e fiado"
+        onClose={() => { setForm(null); setTentouSalvar(false) }}
+        actions={
+          <>
+            <Button
+              variant="primary"
+
+              loading={salvar.isPending}
+              onClick={() => tentarSalvar(form)}
+            >
+              Salvar Cliente
+            </Button>
+          </>
+        }
+      >
+        <Field label="Nome *" error={mostrar(erros?.nome)}>
+          <input
+            type="text" value={form.nome} autoFocus
+            onChange={e => setForm({ ...form, nome: e.target.value })}
+            className={`${baseInputClass} ${campoErro(erros?.nome)}`}
+          />
+        </Field>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label={novo ? 'Tipo de Pessoa *' : 'Tipo de Pessoa'}>
+            <select value={form.tipoPessoa}
+              onChange={e => {
+                const tipo = e.target.value as 'PF' | 'PJ'
+                setForm({ ...form, tipoPessoa: tipo, cpfCnpj: formatarCpfCnpj(form.cpfCnpj, tipo) })
+              }}
+              className={baseInputClass}>
+              <option value="PF">Pessoa Física</option>
+              <option value="PJ">Pessoa Jurídica</option>
+            </select>
+          </Field>
+          <Field label={`${form.tipoPessoa === 'PF' ? 'CPF' : 'CNPJ'}${novo ? ' *' : ''}`} error={mostrar(erros?.cpfCnpj)}>
+            <input type="text" inputMode={form.tipoPessoa === 'PF' ? 'numeric' : 'text'} value={form.cpfCnpj}
+              onChange={e => setForm({ ...form, cpfCnpj: formatarCpfCnpj(e.target.value, form.tipoPessoa) })}
+              placeholder={form.tipoPessoa === 'PF' ? '000.000.000-00' : '00.000.000/0000-00 (aceita letras)'}
+              className={`${baseInputClass} ${campoErro(erros?.cpfCnpj)}`} />
+          </Field>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label={novo ? 'Telefone *' : 'Telefone'} error={mostrar(erros?.telefone)}>
+            <input type="text" inputMode="tel" value={form.telefone}
+              onChange={e => setForm({ ...form, telefone: formatarTelefone(e.target.value) })}
+              placeholder="(00) 00000-0000"
+              className={`${baseInputClass} ${campoErro(erros?.telefone)}`} />
+          </Field>
+          <Field label="E-mail (opcional)" error={mostrar(erros?.email)}>
+            <input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })}
+              className={`${baseInputClass} ${campoErro(erros?.email)}`} />
+          </Field>
+        </div>
+
+        <Field label={novo ? 'Endereço *' : 'Endereço'} error={mostrar(erros?.endereco)}>
+          <textarea value={form.endereco} onChange={e => setForm({ ...form, endereco: e.target.value })}
+            rows={2} className={`${baseInputClass} ${campoErro(erros?.endereco)}`} />
+        </Field>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field
+            label={novo ? 'Tipo de Cliente *' : 'Tipo de Cliente'}
+            hint="Só clientes Atacado/Restaurante/Conveniado/Fiado aparecem pra Faturamento e compra a prazo."
+          >
+            <select value={form.tipoCliente} onChange={e => setForm({ ...form, tipoCliente: e.target.value as Cliente['tipoCliente'] })}
+              className={baseInputClass}>
+              <option value="VAREJO">Varejo</option>
+              <option value="ATACADO">Atacado</option>
+              <option value="RESTAURANTE">Restaurante</option>
+              <option value="CONVENIADO">Conveniado</option>
+              <option value="FIADO">Fiado</option>
+            </select>
+          </Field>
+          <Field label={novo ? 'Limite de Crédito *' : 'Limite de Crédito'} error={mostrar(erros?.limiteCredito)}>
+            <CurrencyInput value={form.limiteCredito} onChange={v => setForm({ ...form, limiteCredito: v })}
+              className={tentouSalvar && erros?.limiteCredito ? '[&_input]:!border-danger-500' : ''} />
+            {!novo && (
+              <p className="mt-1 text-xs text-gray-500">
+                Fiado em aberto: <strong>{brl(form.saldoFiadoAtual)}</strong>
+                {form.limiteCredito > 0
+                  ? ` · Disponível: ${brl(Math.max(form.limiteCredito - (form.saldoFiadoAtual ?? 0), 0))}`
+                  : ' · Sem limite cadastrado (não bloqueia vendas)'}
+              </p>
+            )}
+          </Field>
+        </div>
+      </FormularioPagina>
+    )
+  }
+
   return (
     <div className="p-4 sm:p-6">
       <PageHeader
@@ -269,101 +367,6 @@ export default function ClientesPage() {
         )}
       </div>
 
-      {/* Modal de cadastro/edição */}
-      {form && (
-        <Modal
-          title={form.id ? 'Editar Cliente' : 'Novo Cliente'}
-          onClose={() => { setForm(null); setTentouSalvar(false) }}
-          maxWidth="lg"
-          footer={
-            <>
-              <Button variant="secondary" fullWidth onClick={() => { setForm(null); setTentouSalvar(false) }}>Cancelar</Button>
-              <Button
-                variant="primary"
-                fullWidth
-                loading={salvar.isPending}
-                onClick={() => tentarSalvar(form)}
-              >
-                Salvar
-              </Button>
-            </>
-          }
-        >
-          <Field label="Nome *" error={mostrar(erros?.nome)}>
-            <input
-              type="text" value={form.nome} autoFocus
-              onChange={e => setForm({ ...form, nome: e.target.value })}
-              className={`${baseInputClass} ${campoErro(erros?.nome)}`}
-            />
-          </Field>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Field label={novo ? 'Tipo de Pessoa *' : 'Tipo de Pessoa'}>
-              <select value={form.tipoPessoa}
-                onChange={e => {
-                  const tipo = e.target.value as 'PF' | 'PJ'
-                  setForm({ ...form, tipoPessoa: tipo, cpfCnpj: formatarCpfCnpj(form.cpfCnpj, tipo) })
-                }}
-                className={baseInputClass}>
-                <option value="PF">Pessoa Física</option>
-                <option value="PJ">Pessoa Jurídica</option>
-              </select>
-            </Field>
-            <Field label={`${form.tipoPessoa === 'PF' ? 'CPF' : 'CNPJ'}${novo ? ' *' : ''}`} error={mostrar(erros?.cpfCnpj)}>
-              <input type="text" inputMode="numeric" value={form.cpfCnpj}
-                onChange={e => setForm({ ...form, cpfCnpj: formatarCpfCnpj(e.target.value, form.tipoPessoa) })}
-                placeholder={form.tipoPessoa === 'PF' ? '000.000.000-00' : '00.000.000/0000-00'}
-                className={`${baseInputClass} ${campoErro(erros?.cpfCnpj)}`} />
-            </Field>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Field label={novo ? 'Telefone *' : 'Telefone'} error={mostrar(erros?.telefone)}>
-              <input type="text" inputMode="tel" value={form.telefone}
-                onChange={e => setForm({ ...form, telefone: formatarTelefone(e.target.value) })}
-                placeholder="(00) 00000-0000"
-                className={`${baseInputClass} ${campoErro(erros?.telefone)}`} />
-            </Field>
-            <Field label="E-mail (opcional)" error={mostrar(erros?.email)}>
-              <input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })}
-                className={`${baseInputClass} ${campoErro(erros?.email)}`} />
-            </Field>
-          </div>
-
-          <Field label={novo ? 'Endereço *' : 'Endereço'} error={mostrar(erros?.endereco)}>
-            <textarea value={form.endereco} onChange={e => setForm({ ...form, endereco: e.target.value })}
-              rows={2} className={`${baseInputClass} ${campoErro(erros?.endereco)}`} />
-          </Field>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Field
-              label={novo ? 'Tipo de Cliente *' : 'Tipo de Cliente'}
-              hint="Só clientes Atacado/Restaurante/Conveniado/Fiado aparecem pra Faturamento e compra a prazo."
-            >
-              <select value={form.tipoCliente} onChange={e => setForm({ ...form, tipoCliente: e.target.value as Cliente['tipoCliente'] })}
-                className={baseInputClass}>
-                <option value="VAREJO">Varejo</option>
-                <option value="ATACADO">Atacado</option>
-                <option value="RESTAURANTE">Restaurante</option>
-                <option value="CONVENIADO">Conveniado</option>
-                <option value="FIADO">Fiado</option>
-              </select>
-            </Field>
-            <Field label={novo ? 'Limite de Crédito *' : 'Limite de Crédito'} error={mostrar(erros?.limiteCredito)}>
-              <CurrencyInput value={form.limiteCredito} onChange={v => setForm({ ...form, limiteCredito: v })}
-                className={tentouSalvar && erros?.limiteCredito ? '[&_input]:!border-danger-500' : ''} />
-              {!novo && (
-                <p className="mt-1 text-xs text-gray-500">
-                  Fiado em aberto: <strong>{brl(form.saldoFiadoAtual)}</strong>
-                  {form.limiteCredito > 0
-                    ? ` · Disponível: ${brl(Math.max(form.limiteCredito - (form.saldoFiadoAtual ?? 0), 0))}`
-                    : ' · Sem limite cadastrado (não bloqueia vendas)'}
-                </p>
-              )}
-            </Field>
-          </div>
-        </Modal>
-      )}
 
       {/* Confirmação de inativação */}
       {confirmando && (

@@ -169,7 +169,7 @@ export default function BuscaProduto({
           autoComplete="off"
           className={`w-full border rounded pl-7 pr-7 py-1.5 text-sm focus:outline-none focus:ring-2
             ${escuro
-              ? 'bg-gray-800 text-white placeholder-gray-500 focus:ring-emerald-500'
+              ? 'bg-gray-800 text-white placeholder-gray-500 focus:ring-success-500'
               : 'bg-white focus:ring-primary-500'}
             ${invalido ? 'border-danger-500' : escuro ? 'border-gray-600' : 'border-gray-300'}`}
         />
@@ -204,7 +204,7 @@ export default function BuscaProduto({
               onMouseEnter={() => setAtivo(i)}
               className={`px-3 py-1.5 cursor-pointer flex items-baseline justify-between gap-3
                 ${escuro
-                  ? (i === ativo ? 'bg-emerald-800 text-white' : 'text-gray-200')
+                  ? (i === ativo ? 'bg-success-800 text-white' : 'text-gray-200')
                   : (i === ativo ? 'bg-primary-50 text-primary-700' : 'text-gray-700')}`}
             >
               <span className="truncate">{p.nome}</span>

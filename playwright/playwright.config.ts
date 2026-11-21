@@ -59,6 +59,9 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
       testMatch: /\.global\.spec\.ts$/,
       dependencies: ['chromium'],
+      // Um de cada vez: dois arquivos globais mexendo na mesma configuração ao mesmo tempo se atrapalham
+      // (ex.: um desliga a indústria da empresa enquanto o outro está usando o menu industrial).
+      workers: 1,
     },
 
     // {

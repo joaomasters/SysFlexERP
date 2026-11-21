@@ -12,8 +12,11 @@ import {
 import { usePaginacao } from '@/shared/hooks/usePaginacao'
 import type { BadgeTone } from '@/shared/components/ui'
 import {
-  REGIMES_TRIBUTARIOS, type ConfiguracaoFiscal, type DocumentoFiscal, type StatusDocumentoFiscal,
+  REGIMES_TRIBUTARIOS, ROTULO_STATUS_DOCUMENTO, type ConfiguracaoFiscal, type DocumentoFiscal, type StatusDocumentoFiscal,
 } from '@/types/fiscal'
+import SaneamentoCadastral from './components/SaneamentoCadastral'
+import VigenciasRegime from './components/VigenciasRegime'
+import NumeracaoInutilizar from './components/NumeracaoInutilizar'
 
 /*
  Emissão de NFC-e (modelo 65) e NF-e (modelo 55), Paraná primeiro.
@@ -21,18 +24,24 @@ import {
  configuração estiver completa (o backend recusa ligar com pendência — ver PendenciasFiscais).
 */
 
-type Aba = 'configuracao' | 'documentos'
+type Aba = 'configuracao' | 'documentos' | 'saneamento'
 
 // Campos editáveis: o resto (pendências, certificado...) vem pronto do backend
 type Form = Pick<ConfiguracaoFiscal,
   'emitirNfce' | 'emitirNfe' | 'ambiente' | 'provedor' | 'razaoSocial' | 'nomeFantasia' | 'cnpj'
   | 'inscricaoEstadual' | 'regimeTributario' | 'logradouro' | 'numeroEndereco' | 'complemento' | 'bairro'
   | 'codigoMunicipio' | 'municipio' | 'cep' | 'telefone' | 'nfceSerie' | 'nfceProximoNumero' | 'nfeSerie'
-  | 'nfeProximoNumero' | 'nfceModo' | 'cscId'> & { cscToken: string; limparCsc: boolean }
+  | 'nfeProximoNumero' | 'nfceModo' | 'cscId'> & {
+    cscToken: string; limparCsc: boolean
+    tokenHomologacao: string; tokenProducao: string; limparTokens: boolean; pisCofinsCst: string
+  }
+
+/** Provedores que guardam certificado e CSC do lado deles: aqui só vão o token e o CST de PIS/COFINS. */
+const PROVEDORES_API = ['FOCUS_NFE']
 
 const TOM_STATUS: Record<StatusDocumentoFiscal, BadgeTone> = {
   AUTORIZADA: 'success', PENDENTE: 'info', CONTINGENCIA: 'warning', REJEITADA: 'danger', DENEGADA: 'danger',
-  ERRO: 'danger', CANCELADA: 'neutral', INUTILIZADA: 'neutral',
+  ERRO: 'danger', CANCELADA: 'neutral', INUTILIZADA: 'neutral', DESCONHECIDO: 'warning',
 }
 
 function paraForm(c: ConfiguracaoFiscal): Form {
@@ -44,6 +53,7 @@ function paraForm(c: ConfiguracaoFiscal): Form {
     cep: c.cep, telefone: c.telefone, nfceSerie: c.nfceSerie, nfceProximoNumero: c.nfceProximoNumero,
     nfeSerie: c.nfeSerie, nfeProximoNumero: c.nfeProximoNumero, nfceModo: c.nfceModo ?? 'SOB_DEMANDA',
     cscId: c.cscId, cscToken: '', limparCsc: false,
+    tokenHomologacao: '', tokenProducao: '', limparTokens: false, pisCofinsCst: c.pisCofinsCst ?? '',
   }
 }
 
@@ -66,11 +76,17 @@ export default function EmissaoFiscalPage() {
     <div className="p-4 sm:p-6 space-y-5">
       <PageHeader title="Emissão de Notas" subtitle="NFC-e (modelo 65) e NF-e (modelo 55) com a SEFAZ do Paraná" />
       <FilterTabs<Aba>
-        options={[{ value: 'configuracao', label: 'Configuração' }, { value: 'documentos', label: 'Documentos emitidos' }]}
+        options={[
+          { value: 'configuracao', label: 'Configuração' },
+          { value: 'documentos', label: 'Documentos emitidos' },
+          { value: 'saneamento', label: 'Saneamento cadastral' },
+        ]}
         value={aba}
         onChange={setAba}
       />
-      {aba === 'configuracao' ? <Configuracao /> : <Documentos />}
+      {aba === 'configuracao' && <><Configuracao /><VigenciasRegime /></>}
+      {aba === 'documentos' && <><Documentos /><NumeracaoInutilizar /></>}
+      {aba === 'saneamento' && <SaneamentoCadastral />}
     </div>
   )
 }
@@ -221,7 +237,7 @@ function Configuracao() {
         <div className="grid md:grid-cols-3 gap-3">
           {texto('cnpj', 'CNPJ *', { placeholder: '00.000.000/0000-00', max: 20, hint: 'Aceita o CNPJ com letras (a partir de jul/2026).' })}
           {texto('inscricaoEstadual', 'Inscrição Estadual (PR) *', { placeholder: '000.00000-00', max: 20 })}
-          <Field label="Regime tributário *" htmlFor="fiscal-regime">
+          <Field label="Regime tributário *" htmlFor="fiscal-regime" hint="Mudar aqui abre uma vigência a partir de hoje (histórico abaixo).">
             <select id="fiscal-regime" value={form.regimeTributario} disabled={!editavel}
                     onChange={e => set('regimeTributario', Number(e.target.value))} className={baseInputClass}>
               {REGIMES_TRIBUTARIOS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
@@ -257,6 +273,39 @@ function Configuracao() {
           </div>
         </Card>
 
+        {PROVEDORES_API.includes(form.provedor) ? (
+        <Card padding="md" className="space-y-4">
+          <h2 className="text-sm font-semibold text-gray-800">Acesso ao provedor fiscal</h2>
+          <p className="text-xs text-gray-500">
+            Com este provedor, o certificado A1 e o CSC ficam cadastrados no painel dele. Aqui vai só o token de acesso da
+            empresa (aba Tokens da empresa no painel) e o CST de PIS/COFINS. Os tokens ficam cifrados e não são mostrados de novo.
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Token de homologação" htmlFor="fiscal-tokenHomologacao">
+              <input id="fiscal-tokenHomologacao" type="password" autoComplete="off" value={form.tokenHomologacao}
+                     disabled={!editavel || form.limparTokens}
+                     placeholder={config.tokenHomologacaoConfigurado ? '•••••••• cadastrado — deixe em branco para manter' : 'Cole aqui'}
+                     onChange={e => set('tokenHomologacao', e.target.value)} className={baseInputClass} />
+            </Field>
+            <Field label="Token de produção" htmlFor="fiscal-tokenProducao">
+              <input id="fiscal-tokenProducao" type="password" autoComplete="off" value={form.tokenProducao}
+                     disabled={!editavel || form.limparTokens}
+                     placeholder={config.tokenProducaoConfigurado ? '•••••••• cadastrado — deixe em branco para manter' : 'Cole aqui'}
+                     onChange={e => set('tokenProducao', e.target.value)} className={baseInputClass} />
+            </Field>
+            <Field label="CST de PIS/COFINS" htmlFor="fiscal-pisCofinsCst" hint="Definido pela contabilidade (Simples costuma usar 49).">
+              <input id="fiscal-pisCofinsCst" value={form.pisCofinsCst} maxLength={2} disabled={!editavel} inputMode="numeric"
+                     placeholder="49" onChange={e => set('pisCofinsCst', e.target.value.replace(/\D/g, ''))} className={baseInputClass} />
+            </Field>
+          </div>
+          {(config.tokenHomologacaoConfigurado || config.tokenProducaoConfigurado) && (
+            <label className="flex items-center gap-2 text-xs text-gray-500">
+              <input type="checkbox" checked={form.limparTokens} disabled={!editavel} onChange={e => set('limparTokens', e.target.checked)} />
+              Remover tokens cadastrados
+            </label>
+          )}
+        </Card>
+        ) : (
         <Card padding="md" className="space-y-4">
           <h2 className="text-sm font-semibold text-gray-800">CSC da NFC-e</h2>
           <p className="text-xs text-gray-500">
@@ -277,6 +326,7 @@ function Configuracao() {
             </label>
           )}
         </Card>
+        )}
       </div>
 
       {/* Certificado */}
@@ -347,12 +397,22 @@ function Configuracao() {
 }
 
 function Documentos() {
+  const qc = useQueryClient()
   const [modelo, setModelo] = useState<'' | '65' | '55'>('')
   const { data: docs = [], isLoading } = useQuery<DocumentoFiscal[]>({
     queryKey: ['fiscal-documentos', modelo],
     queryFn: () => api.get('/fiscal/documentos', { params: { modelo: modelo || undefined } }).then(r => r.data),
   })
   const pag = usePaginacao(docs, modelo)
+  const emAberto = docs.filter(d => d.status === 'DESCONHECIDO' || d.status === 'PENDENTE').length
+  const consultar = useMutation({
+    mutationFn: (id: number) => api.post<{ status: StatusDocumentoFiscal }>(`/fiscal/nfce/documentos/${id}/consultar`).then(r => r.data),
+    onSuccess: r => {
+      qc.invalidateQueries({ queryKey: ['fiscal-documentos'] })
+      if (r.status === 'DESCONHECIDO') toast.error('A SEFAZ não deu resposta definitiva: a nota continua com resultado desconhecido.')
+      else toast.success(`Situação na SEFAZ: ${ROTULO_STATUS_DOCUMENTO[r.status]}`)
+    },
+  })
 
   return (
     <Card padding="none">
@@ -365,13 +425,20 @@ function Documentos() {
         </select>
         <span className="text-xs text-gray-500">Últimos 90 dias</span>
       </div>
+      {emAberto > 0 && (
+        <p className="mx-4 mt-4 flex items-start gap-2 rounded-lg border border-warning-100 bg-warning-50 p-3 text-sm text-warning-700">
+          <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+          {emAberto} nota(s) com resultado desconhecido: foram transmitidas e ficaram sem resposta, então podem ter sido
+          autorizadas. Consulte a situação antes de emitir de novo para a mesma venda.
+        </p>
+      )}
       {isLoading ? <LoadingState /> : docs.length === 0 ? (
         <EmptyState>Nenhuma nota emitida ainda. Com a emissão desligada, o PDV usa o cupom não fiscal.</EmptyState>
       ) : (
         <Table>
           <THead>
             <TH>Modelo</TH><TH>Série / Número</TH><TH>Data</TH><TH>Destinatário</TH>
-            <TH align="right">Valor</TH><TH>Status</TH>
+            <TH align="right">Valor</TH><TH>Status</TH><TH />
           </THead>
           <TBody>
             {pag.itens.map(d => (
@@ -382,8 +449,17 @@ function Documentos() {
                 <TD>{d.destinatarioNome ?? 'Consumidor'}</TD>
                 <TD align="right" className="tabular-nums">{formatBRL(d.valorTotal)}</TD>
                 <TD>
-                  <StatusBadge tone={TOM_STATUS[d.status]}>{d.status}</StatusBadge>
+                  <StatusBadge tone={TOM_STATUS[d.status]}>{ROTULO_STATUS_DOCUMENTO[d.status] ?? d.status}</StatusBadge>
                   {d.ambiente === 'HOMOLOGACAO' && <span className="ml-2 text-xs text-gray-400">homologação</span>}
+                  {d.mensagem && d.status !== 'AUTORIZADA' && <p className="mt-1 max-w-xs text-xs text-gray-500">{d.mensagem}</p>}
+                </TD>
+                <TD align="right">
+                  {d.modelo === 65 && (d.status === 'DESCONHECIDO' || d.status === 'PENDENTE') && (
+                    <Button size="sm" variant="secondary" loading={consultar.isPending && consultar.variables === d.id}
+                            onClick={() => consultar.mutate(d.id)}>
+                      Consultar situação
+                    </Button>
+                  )}
                 </TD>
               </TR>
             ))}

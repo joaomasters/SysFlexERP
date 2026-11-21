@@ -4,7 +4,7 @@ import { FileText, Plus, X, ChevronDown, ChevronUp, Upload, Download, Printer, C
 import { api } from '@/shared/api/axios'
 import toast from 'react-hot-toast'
 import { formatBRL, formatWeightDisplay, formatQuantidade, casasDaUnidade, somenteNumeros } from '@/shared/utils/mask'
-import { PageHeader, Card, Modal, Button, StatusBadge, CurrencyInput, WeightInput, Field, baseInputClass, ConfirmDialog, Paginacao } from '@/shared/components/ui'
+import { PageHeader, Card, Button, StatusBadge, CurrencyInput, WeightInput, Field, baseInputClass, ConfirmDialog, Paginacao, FormularioPagina } from '@/shared/components/ui'
 import { usePaginacao } from '@/shared/hooks/usePaginacao'
 import type { BadgeTone } from '@/shared/components/ui'
 import ImpressaoNFModal from './components/ImpressaoNFModal'
@@ -47,11 +47,17 @@ const NATUREZAS_OPERACAO = [
   'SIMPLES REMESSA',
 ]
 
-// PENDENTE = aguardando emissão (atenção); EMITIDA = concluída; CANCELADA = negativa.
+// Registro manual de notas emitidas FORA do sistema (emissor da SEFAZ, contador...): nada aqui é
+// transmitido. EMITIDA = a saída foi registrada (baixa o estoque); não quer dizer nota autorizada.
 const statusTom: Record<string, BadgeTone> = {
   PENDENTE:  'warning',
   EMITIDA:   'success',
   CANCELADA: 'danger',
+}
+const statusRotulo: Record<string, string> = {
+  PENDENTE:  'Pendente',
+  EMITIDA:   'Saída registrada',
+  CANCELADA: 'Cancelada',
 }
 
 // Mesmos padrões de filtro da tela de Recebimento de Mercadoria: por padrão,
@@ -141,7 +147,7 @@ export default function NotaFiscalPage() {
     mutationFn: ({ id, xml }: { id: number; xml: string }) =>
       api.put(`/fiscal/notas/${id}/xml`, { xml }),
     onSuccess: () => {
-      toast.success('XML vinculado e status atualizado para EMITIDA!')
+      toast.success('XML vinculado e saída registrada.')
       qc.invalidateQueries({ queryKey: ['notas-fiscais'] })
     },
   })
@@ -255,14 +261,146 @@ export default function NotaFiscalPage() {
   }
   const nfXml = notas.find(n => n.id === xmlViewId)
 
+  // Formulário em tela cheia (padrão da tela de Produto): enquanto aberto, substitui a listagem.
+  if (showForm) {
+    return (
+      <FormularioPagina
+        subtitle="Registro manual de nota emitida fora do sistema"
+        title="Registrar nota fiscal de saída"
+        onClose={resetForm}
+        actions={
+          <>
+            <Button variant="primary" loading={criar.isPending} onClick={tentarCriar}>
+              Criar NF
+            </Button>
+          </>
+        }
+      >
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Cliente *" className="col-span-2" error={mostrar(erros.cliente)}>
+            <select value={clienteId} onChange={e => setClienteId(e.target.value)}
+              className={`${baseInputClass} ${campoErro(erros.cliente)}`}>
+              <option value="">Selecione o cliente...</option>
+              {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+            </select>
+          </Field>
+          <Field label="Número NF *" error={mostrar(erros.numeroNf)}>
+            <input value={numeroNf} onChange={e => setNumeroNf(somenteNumeros(e.target.value))}
+              inputMode="numeric" maxLength={9} autoComplete="off"
+              className={`${baseInputClass} ${campoErro(erros.numeroNf)}`} placeholder="000001" />
+          </Field>
+          <Field label="Série *" error={mostrar(erros.serieNf)}>
+            <input value={serieNf} onChange={e => setSerieNf(e.target.value)}
+              className={`${baseInputClass} ${campoErro(erros.serieNf)}`} placeholder="1" />
+          </Field>
+          <Field label="Natureza da Operação *" className="col-span-2" error={mostrar(erros.natureza)}>
+            <select value={natureza} onChange={e => setNatureza(e.target.value)}
+              className={`${baseInputClass} ${campoErro(erros.natureza)}`}>
+              <option value="">Selecione...</option>
+              {NATUREZAS_OPERACAO.map(n => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </Field>
+          <Field label="Observação *" className="col-span-2" error={mostrar(erros.observacao)}>
+            <input value={observacao} onChange={e => setObservacao(e.target.value)}
+              className={`${baseInputClass} ${campoErro(erros.observacao)}`} />
+          </Field>
+        </div>
+
+        {/* Itens */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Itens *</label>
+            <button onClick={addItem} className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 font-medium">
+              <Plus size={12} /> Adicionar
+            </button>
+          </div>
+          <div className="space-y-2">
+            {itens.map((item, idx) => {
+              const ei = errosItens[idx]
+              const bad = (v: boolean) => (tentouSalvar && v ? '!border-danger-500' : '')
+              const lbl = 'text-xs text-gray-500 block mb-1'
+              const campo = 'w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white'
+              return (
+                <div key={idx} className="bg-gray-50 border border-gray-100 rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold text-gray-500">Item {idx + 1}</span>
+                    {itens.length > 1 && (
+                      <button onClick={() => removeItem(idx)}
+                        className="flex items-center gap-1 text-xs text-danger-600 hover:text-danger-700 font-medium">
+                        <X size={12} /> Remover
+                      </button>
+                    )}
+                  </div>
+                  {/* Duas colunas iguais: o que está em cima alinha com o que está embaixo */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-2">
+                    <div>
+                      <label className={lbl}>Produto *</label>
+                      <select
+                        value={item.produtoId ?? ''}
+                        onChange={e => updateItem(idx, 'produtoId', e.target.value ? parseInt(e.target.value) : null)}
+                        className={`${campo} ${bad(ei.produto)}`}
+                      >
+                        <option value="">Outro (informar descrição)</option>
+                        {produtos.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={lbl}>Descrição {item.produtoId === null ? '*' : ''}</label>
+                      <input
+                        value={item.descricao}
+                        onChange={e => updateItem(idx, 'descricao', e.target.value)}
+                        placeholder="Descrição do item"
+                        className={`${campo} ${bad(ei.produto)}`}
+                      />
+                    </div>
+                    <div>
+                      <label className={lbl}>Qtd *</label>
+                      <WeightInput
+                        value={item.quantidade}
+                        onChange={v => updateItem(idx, 'quantidade', v)}
+                        size="sm"
+                        unit=""
+                        decimals={casasDaUnidade(produtos.find(p => p.id === item.produtoId)?.unidadeMedida)}
+                        className={tentouSalvar && ei.quantidade ? '[&_input]:!border-danger-500' : ''}
+                      />
+                    </div>
+                    <div>
+                      <label className={lbl}>R$/un *</label>
+                      <CurrencyInput
+                        value={item.valorUnitario}
+                        onChange={v => updateItem(idx, 'valorUnitario', v)}
+                        size="sm"
+                        className={tentouSalvar && ei.valor ? '[&_input]:!border-danger-500' : ''}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          {tentouSalvar && itensInvalidos && (
+            <p className="text-danger-600 text-xs mt-2">
+              Em todos os itens, informe o produto (ou a descrição), a quantidade e o valor unitário — ou remova os itens em branco.
+            </p>
+          )}
+          {totalForm > 0 && (
+            <p className="text-right text-sm font-semibold text-gray-700 mt-2 tabular-nums">
+              Total: {brl(totalForm)}
+            </p>
+          )}
+        </div>
+      </FormularioPagina>
+    )
+  }
+
   return (
     <div className="p-4 sm:p-6">
       <PageHeader
         title="Notas Fiscais de Saída"
-        subtitle="Emissão de Nota fiscal"
+        subtitle="Registro manual de notas emitidas fora do sistema. Nada aqui é transmitido à SEFAZ: a NFC-e autorizada fica em Emissão de Notas."
         actions={
           <Button variant="primary" onClick={() => setShowForm(true)}>
-            Nova Danfe
+            Registrar nota de saída
           </Button>
         }
       />
@@ -320,7 +458,7 @@ export default function NotaFiscalPage() {
                   <p className="text-sm font-medium text-gray-800 tabular-nums">{brl(nf.valorTotal)}</p>
                 </div>
                 <div className="flex items-center">
-                  <StatusBadge tone={statusTom[nf.status] ?? 'neutral'}>{nf.status}</StatusBadge>
+                  <StatusBadge tone={statusTom[nf.status] ?? 'neutral'}>{statusRotulo[nf.status] ?? nf.status}</StatusBadge>
                 </div>
                 {podeVerIdentificacao && (
                   <div>
@@ -347,7 +485,7 @@ export default function NotaFiscalPage() {
                 {nf.status === 'PENDENTE' && (
                   <Button variant="ghost" size="sm" className="hover:!text-success-600"
                     onClick={e => { e.stopPropagation(); atualizarStatus.mutate({ id: nf.id, status: 'EMITIDA' }) }}
-                    title="Marcar como Emitida">
+                    title="Registrar a saída (baixa o estoque)">
                     <CheckCircle size={16} />
                   </Button>
                 )}
@@ -450,136 +588,6 @@ export default function NotaFiscalPage() {
         </div>
       )}
 
-      {/* Modal Nova NF */}
-      {showForm && (
-        <Modal
-          title="Nova Nota Fiscal de Saída"
-          onClose={resetForm}
-          maxWidth="xl"
-          footer={
-            <>
-              <Button variant="secondary" fullWidth onClick={resetForm}>Cancelar</Button>
-              <Button variant="primary" fullWidth loading={criar.isPending} onClick={tentarCriar}>
-                Criar NF
-              </Button>
-            </>
-          }
-        >
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Cliente *" className="col-span-2" error={mostrar(erros.cliente)}>
-              <select value={clienteId} onChange={e => setClienteId(e.target.value)}
-                className={`${baseInputClass} ${campoErro(erros.cliente)}`}>
-                <option value="">Selecione o cliente...</option>
-                {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-              </select>
-            </Field>
-            <Field label="Número NF *" error={mostrar(erros.numeroNf)}>
-              <input value={numeroNf} onChange={e => setNumeroNf(somenteNumeros(e.target.value))}
-                inputMode="numeric" maxLength={9} autoComplete="off"
-                className={`${baseInputClass} ${campoErro(erros.numeroNf)}`} placeholder="000001" />
-            </Field>
-            <Field label="Série *" error={mostrar(erros.serieNf)}>
-              <input value={serieNf} onChange={e => setSerieNf(e.target.value)}
-                className={`${baseInputClass} ${campoErro(erros.serieNf)}`} placeholder="1" />
-            </Field>
-            <Field label="Natureza da Operação *" className="col-span-2" error={mostrar(erros.natureza)}>
-              <select value={natureza} onChange={e => setNatureza(e.target.value)}
-                className={`${baseInputClass} ${campoErro(erros.natureza)}`}>
-                <option value="">Selecione...</option>
-                {NATUREZAS_OPERACAO.map(n => <option key={n} value={n}>{n}</option>)}
-              </select>
-            </Field>
-            <Field label="Observação *" className="col-span-2" error={mostrar(erros.observacao)}>
-              <input value={observacao} onChange={e => setObservacao(e.target.value)}
-                className={`${baseInputClass} ${campoErro(erros.observacao)}`} />
-            </Field>
-          </div>
-
-          {/* Itens */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Itens *</label>
-              <button onClick={addItem} className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 font-medium">
-                <Plus size={12} /> Adicionar
-              </button>
-            </div>
-            <div className="space-y-2">
-              {itens.map((item, idx) => {
-                const ei = errosItens[idx]
-                const bad = (v: boolean) => (tentouSalvar && v ? '!border-danger-500' : '')
-                const lbl = 'text-xs text-gray-500 block mb-1'
-                const campo = 'w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white'
-                return (
-                  <div key={idx} className="bg-gray-50 border border-gray-100 rounded-lg p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-semibold text-gray-500">Item {idx + 1}</span>
-                      {itens.length > 1 && (
-                        <button onClick={() => removeItem(idx)}
-                          className="flex items-center gap-1 text-xs text-danger-600 hover:text-danger-700 font-medium">
-                          <X size={12} /> Remover
-                        </button>
-                      )}
-                    </div>
-                    {/* Duas colunas iguais: o que está em cima alinha com o que está embaixo */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-2">
-                      <div>
-                        <label className={lbl}>Produto *</label>
-                        <select
-                          value={item.produtoId ?? ''}
-                          onChange={e => updateItem(idx, 'produtoId', e.target.value ? parseInt(e.target.value) : null)}
-                          className={`${campo} ${bad(ei.produto)}`}
-                        >
-                          <option value="">Outro (informar descrição)</option>
-                          {produtos.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className={lbl}>Descrição {item.produtoId === null ? '*' : ''}</label>
-                        <input
-                          value={item.descricao}
-                          onChange={e => updateItem(idx, 'descricao', e.target.value)}
-                          placeholder="Descrição do item"
-                          className={`${campo} ${bad(ei.produto)}`}
-                        />
-                      </div>
-                      <div>
-                        <label className={lbl}>Qtd *</label>
-                        <WeightInput
-                          value={item.quantidade}
-                          onChange={v => updateItem(idx, 'quantidade', v)}
-                          size="sm"
-                          unit=""
-                          decimals={casasDaUnidade(produtos.find(p => p.id === item.produtoId)?.unidadeMedida)}
-                          className={tentouSalvar && ei.quantidade ? '[&_input]:!border-danger-500' : ''}
-                        />
-                      </div>
-                      <div>
-                        <label className={lbl}>R$/un *</label>
-                        <CurrencyInput
-                          value={item.valorUnitario}
-                          onChange={v => updateItem(idx, 'valorUnitario', v)}
-                          size="sm"
-                          className={tentouSalvar && ei.valor ? '[&_input]:!border-danger-500' : ''}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-            {tentouSalvar && itensInvalidos && (
-              <p className="text-danger-600 text-xs mt-2">
-                Em todos os itens, informe o produto (ou a descrição), a quantidade e o valor unitário — ou remova os itens em branco.
-              </p>
-            )}
-            {totalForm > 0 && (
-              <p className="text-right text-sm font-semibold text-gray-700 mt-2 tabular-nums">
-                Total: {brl(totalForm)}
-              </p>
-            )}
-          </div>
-        </Modal>
-      )}
 
       {/* Confirmação de cancelamento */}
       {confirmandoCancelar && (
