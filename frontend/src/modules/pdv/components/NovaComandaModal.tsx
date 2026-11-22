@@ -46,11 +46,11 @@ export default function NovaComandaModal({ onSelecionar, onFechar }: Props) {
     !resultados.some(c => c.nome.toLowerCase() === busca.trim().toLowerCase())
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md p-5 text-white">
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+      <div className="bg-card border border-border rounded-2xl w-full max-w-md p-5 text-gray-900">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-bold text-lg">Nova Comanda</h2>
-          <button onClick={onFechar} className="text-gray-400 hover:text-white">
+          <button onClick={onFechar} className="text-gray-500 hover:text-gray-900">
             <X size={20} />
           </button>
         </div>
@@ -62,7 +62,7 @@ export default function NovaComandaModal({ onSelecionar, onFechar }: Props) {
             value={busca}
             onChange={e => buscar(e.target.value)}
             placeholder="Nome do cliente..."
-            className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-9 pr-3 py-2.5 text-sm
+            className="w-full bg-gray-100 border border-gray-200 rounded-lg pl-9 pr-3 py-2.5 text-sm
                        focus:outline-none focus:ring-2 focus:ring-primary-500"
           />
         </div>
@@ -74,7 +74,7 @@ export default function NovaComandaModal({ onSelecionar, onFechar }: Props) {
             <button
               key={c.id}
               onClick={() => onSelecionar(c.id)}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-800 text-left transition-colors"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 text-left transition-colors"
             >
               <User size={16} className="text-gray-500 shrink-0" />
               <span className="text-sm">{c.nome}</span>
@@ -86,9 +86,9 @@ export default function NovaComandaModal({ onSelecionar, onFechar }: Props) {
               onClick={criarECriarComanda}
               disabled={criando}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg
-                         bg-primary-700/20 hover:bg-primary-700/30 text-left transition-colors disabled:opacity-60"
+                         bg-primary-50 hover:bg-primary-100 text-left transition-colors disabled:opacity-60"
             >
-              <UserPlus size={16} className="text-primary-400 shrink-0" />
+              <UserPlus size={16} className="text-primary-600 shrink-0" />
               <span className="text-sm">
                 {criando ? 'Criando...' : <>Criar cliente "<strong>{busca.trim()}</strong>" e abrir comanda</>}
               </span>

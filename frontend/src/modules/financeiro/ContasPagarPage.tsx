@@ -22,6 +22,8 @@ import {
   EmptyState,
   Paginacao,
   FormularioPagina,
+  CampoBusca,
+  casaBusca,
 } from '@/shared/components/ui'
 import { usePaginacao } from '@/shared/hooks/usePaginacao'
 import type { BadgeTone } from '@/shared/components/ui'
@@ -69,6 +71,7 @@ export default function ContasPagarPage() {
   const qc = useQueryClient()
   const { podeVerIdentificacao } = usePermissao()
   const [statusFiltro, setStatusFiltro] = useState('ABERTO')
+  const [busca, setBusca] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [pagandoId, setPagandoId] = useState<number | null>(null)
   const [valorPag, setValorPag] = useState(0)
@@ -88,7 +91,12 @@ export default function ContasPagarPage() {
     queryFn: () => api.get(`/financeiro/contas-pagar?status=${statusFiltro}`).then(r => r.data),
   })
 
-  const pag = usePaginacao(contas.data ?? [], statusFiltro)
+  const contasFiltradas = useMemo(
+    () => (contas.data ?? []).filter(c =>
+      casaBusca(busca, c.descricao, c.fornecedor, c.categoria, c.observacao, c.valor.toFixed(2).replace('.', ','), c.dataVencimento)),
+    [contas.data, busca],
+  )
+  const pag = usePaginacao(contasFiltradas, `${statusFiltro}|${busca}`)
 
   // Fornecedores já usados em contas anteriores (mesma permissão da tela, não
   // depende de outro módulo). Só busca quando o modal de nova conta é aberto.
@@ -130,7 +138,7 @@ export default function ContasPagarPage() {
 
   const contaDoPagamento = pagandoId !== null ? contas.data?.find(c => c.id === pagandoId) : undefined
 
-  const totalAberto = contas.data?.reduce((s, c) => s + (c.valor - c.valorPago), 0) ?? 0
+  const totalAberto = contasFiltradas.reduce((s, c) => s + (c.valor - c.valorPago), 0)
 
   function fecharForm() {
     setShowForm(false)
@@ -287,6 +295,13 @@ export default function ContasPagarPage() {
         }
       />
 
+      <CampoBusca
+        onBuscar={setBusca}
+        placeholder="Buscar por descrição, fornecedor, categoria, valor ou vencimento..."
+        ariaLabel="Buscar contas a pagar"
+        className=""
+      />
+
       {/* Filtros + total */}
       <Card padding="sm" className="flex items-center gap-3 flex-wrap">
         <FilterTabs
@@ -320,7 +335,7 @@ export default function ContasPagarPage() {
             </tr>
           </THead>
           <TBody>
-            {contas.data?.length === 0 && (
+            {contasFiltradas.length === 0 && (
               <tr><td colSpan={7}><EmptyState>Nenhuma conta encontrada</EmptyState></td></tr>
             )}
             {pag.itens.map(c => (

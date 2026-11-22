@@ -3,7 +3,8 @@ import { useQuery } from '@tanstack/react-query'
 import { Filter, Plus, Pencil, Trash2 } from 'lucide-react'
 import { api } from '@/shared/api/axios'
 import type { LogAuditoria, ModuloInfo, Usuario } from '@/types/acesso'
-import { PageHeader, Card, StatusBadge, Field, EmptyState, LoadingState, Paginacao } from '@/shared/components/ui'
+import { PageHeader, Card, StatusBadge, Field, EmptyState, LoadingState, Paginacao, FilterTabs } from '@/shared/components/ui'
+import TicketsSaidaRelatorio from './TicketsSaidaRelatorio'
 import { usePaginacao } from '@/shared/hooks/usePaginacao'
 import type { BadgeTone } from '@/shared/components/ui'
 import { hojeISO } from '@/shared/utils/data'
@@ -21,6 +22,7 @@ const acaoConfig: Record<string, { label: string; tone: BadgeTone; icone: typeof
 const selectClass = 'border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500'
 
 export default function AuditoriaPage() {
+  const [aba, setAba] = useState<'acoes' | 'tickets'>('acoes')
   const [filtroInicio, setFiltroInicio]     = useState(seteDiasAtras)
   const [filtroFim, setFiltroFim]           = useState(hoje)
   const [filtroModulo, setFiltroModulo]     = useState('')
@@ -54,7 +56,20 @@ export default function AuditoriaPage() {
 
   return (
     <div className="p-4 sm:p-6">
-      <PageHeader title="Auditoria" subtitle="Histórico de ações administrativas" />
+      <PageHeader title="Auditoria" subtitle="Histórico de ações administrativas e tickets de saída" />
+
+      <div className="mb-4 flex flex-wrap gap-2">
+        <FilterTabs
+          options={[
+            { value: 'acoes', label: 'REGISTRO DE AÇÕES' },
+            { value: 'tickets', label: 'TICKETS DE SAÍDA' },
+          ]}
+          value={aba}
+          onChange={v => setAba(v as 'acoes' | 'tickets')}
+        />
+      </div>
+
+      {aba === 'tickets' ? <TicketsSaidaRelatorio /> : (<>
 
       {/* Filtros */}
       <Card padding="sm" className="mb-4 flex flex-wrap items-end gap-3">
@@ -125,7 +140,7 @@ export default function AuditoriaPage() {
                         <span className="flex items-center gap-1"><Icone size={11} /> {cfg.label}</span>
                       </StatusBadge>
                     </td>
-                    <td className="px-4 py-3 text-gray-500 font-mono text-xs">{l.descricao ?? '—'}</td>
+                    <td className="px-4 py-3 text-gray-600 text-xs break-words min-w-[260px] max-w-xl">{l.descricao ?? '—'}</td>
                   </tr>
                 )
               })}
@@ -137,6 +152,7 @@ export default function AuditoriaPage() {
         )}
         {!isLoading && <Paginacao paginacao={pag} rotulo="registros" />}
       </Card>
+      </>)}
     </div>
   )
 }

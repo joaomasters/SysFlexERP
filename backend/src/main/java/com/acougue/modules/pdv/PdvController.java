@@ -24,21 +24,24 @@ public class PdvController {
 
     // Caixa
 
-    @ExigirPermissao(modulo = Modulo.PDV, acao = Acao.CRIAR)
+    @ExigirPermissao(modulo = Modulo.PDV, acao = Acao.CRIAR, auditoriaPropria = true)
     @PostMapping("/caixa/abrir")
     public ResponseEntity<Caixa> abrirCaixa(
             @RequestParam(required = false) Long operadorId,
-            @RequestParam BigDecimal valorAbertura) {
-        // Abre o caixa para quem está logado — o operadorId enviado pela tela é ignorado
-        return ResponseEntity.ok(pdvService.abrirCaixa(ContextoUsuario.atual().getUsuarioId(), valorAbertura));
+            @RequestParam BigDecimal valorAbertura,
+            @RequestBody(required = false) @Valid ContagemCedulasDTO contagem) {
+        // Abre o caixa para quem está logado — o operadorId enviado pela tela é ignorado.
+        // A contagem de cédulas e moedas é opcional.
+        return ResponseEntity.ok(pdvService.abrirCaixa(ContextoUsuario.atual().getUsuarioId(), valorAbertura, contagem));
     }
 
-    @ExigirPermissao(modulo = Modulo.PDV, acao = Acao.CRIAR)
+    @ExigirPermissao(modulo = Modulo.PDV, acao = Acao.CRIAR, auditoriaPropria = true)
     @PostMapping("/caixa/{id}/fechar")
     public ResponseEntity<Caixa> fecharCaixa(
             @PathVariable Long id,
-            @RequestParam BigDecimal valorInformado) {
-        return ResponseEntity.ok(pdvService.fecharCaixa(id, valorInformado));
+            @RequestParam BigDecimal valorInformado,
+            @RequestBody(required = false) @Valid ContagemCedulasDTO contagem) {
+        return ResponseEntity.ok(pdvService.fecharCaixa(id, valorInformado, contagem));
     }
 
     // Venda
@@ -69,7 +72,7 @@ public class PdvController {
         return ResponseEntity.ok(pdvService.processarBarcode(ean13));
     }
 
-    @ExigirPermissao(modulo = Modulo.PDV, acao = Acao.CRIAR)
+    @ExigirPermissao(modulo = Modulo.PDV, acao = Acao.CRIAR, auditoriaPropria = true)
     @PostMapping("/vendas/{id}/itens")
     public ResponseEntity<Venda> adicionarItem(
             @PathVariable Long id,
@@ -77,15 +80,19 @@ public class PdvController {
         return ResponseEntity.ok(pdvService.adicionarItem(id, dto));
     }
 
-    @ExigirPermissao(modulo = Modulo.PDV, acao = Acao.CRIAR)
-    @DeleteMapping("/vendas/{vendaId}/itens/{itemId}")
+    // Excluir item exige a credencial de um administrador (login + senha), conferida no service.
+    // Era DELETE sem corpo; virou POST com a autorização no corpo — o endpoint antigo foi removido
+    // de propósito, para não existir um caminho que dispensa a senha.
+    @ExigirPermissao(modulo = Modulo.PDV, acao = Acao.CRIAR, auditoriaPropria = true)
+    @PostMapping("/vendas/{vendaId}/itens/{itemId}/remover")
     public ResponseEntity<Venda> removerItem(
             @PathVariable Long vendaId,
-            @PathVariable Long itemId) {
-        return ResponseEntity.ok(pdvService.removerItem(vendaId, itemId));
+            @PathVariable Long itemId,
+            @RequestBody @Valid AutorizacaoOperacaoDTO autorizacao) {
+        return ResponseEntity.ok(pdvService.removerItem(vendaId, itemId, autorizacao));
     }
 
-    @ExigirPermissao(modulo = Modulo.PDV, acao = Acao.CRIAR)
+    @ExigirPermissao(modulo = Modulo.PDV, acao = Acao.CRIAR, auditoriaPropria = true)
     @PutMapping("/vendas/{vendaId}/itens/{itemId}/quantidade")
     public ResponseEntity<Venda> alterarQuantidadeItem(
             @PathVariable Long vendaId,
@@ -111,14 +118,14 @@ public class PdvController {
         return ResponseEntity.ok(pdvService.fecharVenda(dto));
     }
 
-    // Cancelar uma venda é uma ação sensível — exige a permissão de EXCLUIR
-    // no módulo PDV, que por padrão só ADMIN e SUPER_ADMIN têm (GESTOR e
-    // CAIXA não). Isso restringe o cancelamento ao administrador sem
-    // precisar de um mecanismo novo: reaproveita a matriz de perfis já
-    // existente (ver V9__controle_acesso_perfis.sql).
-    @ExigirPermissao(modulo = Modulo.PDV, acao = Acao.EXCLUIR)
+    // Cancelar uma venda é uma ação sensível: o operador (CAIXA inclusive) pede, mas a venda só é
+    // cancelada com a credencial de um administrador (login + senha), conferida no service.
+    // Antes dependia de o próprio usuário logado ter EXCLUIR no PDV.
+    @ExigirPermissao(modulo = Modulo.PDV, acao = Acao.CRIAR, auditoriaPropria = true)
     @PostMapping("/vendas/{id}/cancelar")
-    public ResponseEntity<Venda> cancelarVenda(@PathVariable Long id) {
-        return ResponseEntity.ok(pdvService.cancelarVenda(id));
+    public ResponseEntity<Venda> cancelarVenda(
+            @PathVariable Long id,
+            @RequestBody @Valid AutorizacaoOperacaoDTO autorizacao) {
+        return ResponseEntity.ok(pdvService.cancelarVenda(id, autorizacao));
     }
 }

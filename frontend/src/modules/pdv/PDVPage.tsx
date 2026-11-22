@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ShoppingBag, Wifi, WifiOff, Trash2, Plus, User, LockOpen, Lock, Printer, LogOut } from 'lucide-react'
+import { ShoppingBag, Wifi, WifiOff, Trash2, Plus, User, LockOpen, Lock, Printer, LogOut, Coins } from 'lucide-react'
 import { useBarcodeScan } from '@/shared/hooks/useBarcodeScan'
 import { usePermissao } from '@/shared/hooks/usePermissao'
 import { getNomeUsuario } from '@/shared/auth'
@@ -8,6 +8,9 @@ import { api } from '@/shared/api/axios'
 import { usePdv, LimiteExcedidoError } from './hooks/usePdv'
 import type { LimiteExcedidoInfo } from './hooks/usePdv'
 import AutorizacaoLimiteModal from './components/AutorizacaoLimiteModal'
+import AutorizacaoAdminModal from './components/AutorizacaoAdminModal'
+import ContagemCedulas, { totalContagem, contagemParaApi } from './components/ContagemCedulas'
+import type { Contagem } from './components/ContagemCedulas'
 import type { PagamentoDTO } from '@/types/venda'
 import ListaItens, { ehEtiquetaBalanca } from './components/ListaItens'
 import QuantidadeItemModal from './components/QuantidadeItemModal'
@@ -28,20 +31,16 @@ import type { ConfiguracaoComprovante, PagamentoCupom } from '@/types/comprovant
 import type { ItemVenda, Venda } from '@/types/venda'
 import toast from 'react-hot-toast'
 
-// NOTA DE DESIGN: o PDV usa de propósito um tema escuro em tela cheia
-// ("console de caixa"), diferente do tema claro do back-office (financeiro,
-// estoque, etc.). Isso é um padrão comum em sistemas de ponto-de-venda —
-// alto contraste para operação rápida em balcão, teclas de atalho (F10),
-// texto grande no total. As cores dentro do PDV seguem seu próprio código
-// interno consistente: esmeralda = ação positiva/confirmar, vermelho =
-// cancelar/perigo, azul = informativo, âmbar = atenção — e os campos de
-// valor usam a MESMA lógica de máscara do resto do sistema
-// (CurrencyInput com a variante `dark`), só que com uma pele escura.
+// NOTA DE DESIGN: o PDV usa o mesmo tema claro do restante do sistema (tokens
+// bg-background / bg-card / border-border). Teclas de atalho (F10...) e texto
+// grande no total continuam para operação rápida em balcão. Cores: verde = ação
+// positiva/confirmar, vermelho = cancelar/perigo e valores dos itens, azul =
+// informativo, âmbar = atenção. Campos de valor usam CurrencyInput/WeightInput.
 const brl = formatBRL
 
 /** Tamanho do total a pagar conforme os dígitos: 55,35 → grande; 12.345,67 → menor. */
 const tamanhoTotal = (valor: string) =>
-  valor.length <= 5 ? 'text-5xl' : valor.length <= 8 ? 'text-4xl' : 'text-3xl'
+  valor.length <= 6 ? 'text-6xl' : valor.length <= 9 ? 'text-5xl' : 'text-4xl'
 
 interface FechamentoResumo {
   valorAbertura: number
@@ -73,6 +72,13 @@ export default function PDVPage() {
   const [hora, setHora]           = useState(new Date())
   const [valorAbertura, setValorAbertura] = useState(0)
   const [abrindo, setAbrindo]     = useState(false)
+  // Contagem de cédulas e moedas (opcional) na abertura e no fechamento do caixa
+  const [contarAbertura, setContarAbertura] = useState(false)
+  const [cedulasAbertura, setCedulasAbertura] = useState<Contagem>({})
+  const [contarFechamento, setContarFechamento] = useState(false)
+  const [cedulasFechamento, setCedulasFechamento] = useState<Contagem>({})
+  // Validando a senha do administrador (excluir item / cancelar venda)
+  const [autorizandoAdmin, setAutorizandoAdmin] = useState(false)
 
   const [showFechar, setShowFechar]       = useState(false)
   const [resumoFechar, setResumoFechar]   = useState<FechamentoResumo | null>(null)
@@ -161,12 +167,9 @@ export default function PDVPage() {
     }
     setPerguntarImpressao(false)
   }
-  const { podeExcluir, podeEditar } = usePermissao()
-  // Cancelar uma venda é restrito a quem tem a permissão de EXCLUIR no
-  // módulo PDV — por padrão, só ADMIN e SUPER_ADMIN (ver matriz de perfis).
-  // O botão fica visível mas desabilitado pro operador entender que a
-  // função existe, só que precisa de um administrador.
-  const podeCancelarVenda = podeExcluir('PDV')
+  const { podeEditar } = usePermissao()
+  // Excluir item e cancelar venda: qualquer operador pode pedir, mas só conclui com o login e a
+  // senha de um administrador (AutorizacaoAdminModal) — a senha é conferida no servidor.
   const podeDescontar = podeEditar('PDV')
 
   // Item em que F6 e F8 agem: o escolhido ou, por padrão, o último lançado
@@ -268,23 +271,34 @@ export default function PDVPage() {
   const atalhoRef = useRef(atalhoDoItem)
   atalhoRef.current = atalhoDoItem
 
-  async function confirmarExclusao() {
-    if (!excluindo) return
+  // Os dois devolvem true quando concluíram. O erro (senha errada, sem permissão...) já aparece no
+  // toast do interceptor do axios; o modal continua aberto para tentar de novo.
+  async function confirmarExclusao(login: string, senha: string): Promise<boolean> {
+    if (!excluindo) return false
+    setAutorizandoAdmin(true)
     try {
-      await removerItem(excluindo.id)
+      await removerItem(excluindo.id, { login, senha })
+      toast.success('Item excluído.', { duration: 1500 })
+      setExcluindo(null)
+      return true
     } catch {
-      // erro já mostrado pelo interceptor do axios
+      return false
+    } finally {
+      setAutorizandoAdmin(false)
     }
-    setExcluindo(null)
   }
 
-  async function confirmarCancelamento() {
+  async function confirmarCancelamento(login: string, senha: string, motivo?: string): Promise<boolean> {
+    setAutorizandoAdmin(true)
     try {
-      await cancelarVenda()
+      await cancelarVenda({ login, senha, motivo })
+      setCancelando(false)
+      return true
     } catch {
-      // erro já mostrado pelo interceptor do axios
+      return false
+    } finally {
+      setAutorizandoAdmin(false)
     }
-    setCancelando(false)
   }
 
   // F2 = Buscar produto, F4 = Sair da comanda, F9 = Cancelar venda, F10 = Finalizar.
@@ -298,9 +312,7 @@ export default function PDVPage() {
     if (e.key === 'F2') { e.preventDefault(); buscaRef.current?.focus() }
     if (e.key === 'F9') {
       e.preventDefault()
-      if (!venda) return
-      if (podeCancelarVenda) setCancelando(true)
-      else toast.error('Só um administrador pode cancelar uma venda.')
+      if (venda) setCancelando(true)
     }
   }
   const atalhoTelaRef = useRef(atalhoDaTela)
@@ -322,14 +334,16 @@ export default function PDVPage() {
       if (el && ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return // evita lançar em dobro
       adicionarItem(codigo)
     },
-    enabled: !showPagto && !semCaixa && !pesando && !perguntarImpressao && !descontando && !quantificando && !excluindo,
+    enabled: !showPagto && !semCaixa && !pesando && !perguntarImpressao && !descontando && !quantificando && !excluindo && !cancelando,
   })
 
   const handleAbrirCaixa = async () => {
     setAbrindo(true)
     try {
-      await abrirCaixa(valorAbertura)
+      await abrirCaixa(contarAbertura ? totalContagem(cedulasAbertura) : valorAbertura, contarAbertura ? contagemParaApi(cedulasAbertura) : undefined)
       setValorAbertura(0)
+      setContarAbertura(false)
+      setCedulasAbertura({})
     } finally {
       setAbrindo(false)
     }
@@ -342,48 +356,53 @@ export default function PDVPage() {
     setShowFechar(true)
   }
 
+  // Com a contagem por cédula ligada, o valor contado é a soma dela
+  const valorInformadoFechamento = contarFechamento ? totalContagem(cedulasFechamento) : valorContado
+
   const handleConfirmarFechamento = async () => {
     setFechando(true)
     try {
-      await fecharCaixa(valorContado)
+      await fecharCaixa(valorInformadoFechamento, contarFechamento ? contagemParaApi(cedulasFechamento) : undefined)
       setShowFechar(false)
       setResumoFechar(null)
       setValorContado(0)
+      setContarFechamento(false)
+      setCedulasFechamento({})
     } finally {
       setFechando(false)
     }
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-950 text-white select-none overflow-hidden">
+    <div className="h-screen flex flex-col bg-background text-gray-900 select-none overflow-hidden">
       <FaixaAmbiente />
       <FaixaJarvis />
 
       {/* ── Topbar ── */}
-      <header className="flex items-center justify-between px-6 py-3 bg-gray-900 border-b border-gray-800">
+      <header className="flex items-center justify-between px-6 py-3 bg-card border-b border-border">
         <div className="flex items-center gap-3">
           <span className="font-bold text-lg">PDV</span>
           {nomeOperador && (
-            <span className="flex items-center gap-1.5 text-xs bg-gray-800 text-gray-300 px-2.5 py-1 rounded-full">
+            <span className="flex items-center gap-1.5 text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full">
               <User size={12} /> {nomeOperador}
             </span>
           )}
           {venda && (
-            <span className="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full">
+            <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">
               Cupom #{venda.id}
             </span>
           )}
           {scanLoading && (
-            <span className="text-xs bg-warning-900 text-warning-300 px-2 py-0.5 rounded-full animate-pulse">
+            <span className="text-xs bg-warning-100 text-warning-700 px-2 py-0.5 rounded-full animate-pulse">
               Processando...
             </span>
           )}
         </div>
-        <div className="flex items-center gap-4 text-sm text-gray-400">
+        <div className="flex items-center gap-4 text-sm text-gray-500">
           {caixaId && (
             <button
               onClick={handleAbrirFechamento}
-              className="flex items-center gap-1.5 text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 px-2.5 py-1.5 rounded-lg"
+              className="flex items-center gap-1.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 px-2.5 py-1.5 rounded-lg"
             >
               Fechar Caixa
             </button>
@@ -401,25 +420,40 @@ export default function PDVPage() {
       {/* ── Sem caixa aberto: bloqueia o PDV até abrir um ── */}
       {semCaixa && (
         <div className="flex-1 flex items-center justify-center">
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 w-full max-w-sm text-center space-y-4">
+          <div className={`bg-card border border-border shadow-flutuante rounded-2xl p-8 w-full text-center space-y-4 max-h-full overflow-y-auto
+                           ${contarAbertura ? 'max-w-lg' : 'max-w-sm'}`}>
             <LockOpen size={32} className="mx-auto text-warning-500" />
             <div>
               <h2 className="font-bold text-lg">Nenhum caixa aberto</h2>
-              <p className="text-sm text-gray-400 mt-1">
+              <p className="text-sm text-gray-500 mt-1">
                 {nomeOperador ? `${nomeOperador}, abra` : 'Abra'} um caixa informando o valor inicial (fundo de troco).
               </p>
             </div>
             <CurrencyInput
-              value={valorAbertura}
+              value={contarAbertura ? totalContagem(cedulasAbertura) : valorAbertura}
               onChange={setValorAbertura}
-              dark
-              autoFocus
+              autoFocus={!contarAbertura}
+              disabled={contarAbertura}
+              aria-label="Valor inicial do caixa"
               className="[&_input]:text-lg [&_input]:text-center"
             />
             <button
+              type="button"
+              onClick={() => setContarAbertura(v => !v)}
+              className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700"
+            >
+              <Coins size={15} />
+              {contarAbertura ? 'Informar só o valor total' : 'Discriminar cédulas e moedas'}
+            </button>
+            {contarAbertura && (
+              <div className="text-left">
+                <ContagemCedulas contagem={cedulasAbertura} onChange={setCedulasAbertura} />
+              </div>
+            )}
+            <button
               onClick={handleAbrirCaixa}
-              disabled={!valorAbertura || abrindo}
-              className="w-full py-3 bg-success-600 hover:bg-success-500 rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!(contarAbertura ? totalContagem(cedulasAbertura) : valorAbertura) || abrindo}
+              className="w-full py-3 bg-success-600 hover:bg-success-500 rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed text-white"
             >
               {abrindo ? 'Abrindo...' : 'Abrir Caixa'}
             </button>
@@ -429,17 +463,17 @@ export default function PDVPage() {
 
       {/* ── Barra de Comandas ── */}
       {!semCaixa && (
-      <div className="flex items-center gap-2 px-4 py-2 bg-gray-900/60 border-b border-gray-800 overflow-x-auto shrink-0">
+      <div className="flex items-center gap-2 px-4 py-2 bg-card border-b border-border overflow-x-auto shrink-0">
         <button
           onClick={() => setShowNovaComanda(true)}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium
-                     bg-primary-600 hover:bg-primary-500 transition-colors shrink-0"
+                     bg-primary-600 hover:bg-primary-500 transition-colors shrink-0 text-white"
         >
           Nova Comanda
         </button>
 
         {comandas.length === 0 && (
-          <span className="text-xs text-gray-600 px-2">Nenhuma comanda aberta</span>
+          <span className="text-xs text-gray-400 px-2">Nenhuma comanda aberta</span>
         )}
 
         {comandas.map(c => (
@@ -449,7 +483,7 @@ export default function PDVPage() {
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium shrink-0 transition-colors
               ${venda?.id === c.id
                 ? 'bg-success-700 text-white'
-                : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
           >
             <User size={12} />
             {c.cliente?.nome ?? `Comanda #${c.id}`}
@@ -464,12 +498,11 @@ export default function PDVPage() {
       <div className="flex flex-1 overflow-hidden">
 
         {/* Coluna esquerda: itens */}
-        <div className="flex-1 flex flex-col overflow-hidden border-r border-gray-800">
-          <div className="px-4 py-3 border-b border-gray-800 bg-gray-900/40 flex items-center gap-3">
+        <div className="flex-1 flex flex-col overflow-hidden border-r border-border">
+          <div className="px-4 py-3 border-b border-border bg-card flex items-center gap-3">
             <BuscaProduto
               produtos={produtosAtivos}
               modo="acao"
-              escuro
               inputRef={buscaRef}
               placeholder="Buscar produto por nome ou código  (F2)"
               onSelect={escolherProduto}
@@ -482,7 +515,7 @@ export default function PDVPage() {
           </div>
           <ListaItens
             itens={itens}
-            onRemover={removerItem}
+            onRemover={id => { const it = itens.find(i => i.id === id); if (it) setExcluindo(it) }}
             onDesconto={setDescontando}
             onQuantidade={setQuantificando}
             podeDescontar={podeDescontar}
@@ -490,7 +523,7 @@ export default function PDVPage() {
             onSelecionar={setSelecionadoId}
           />
           {/* Rodapé da lista */}
-          <div className="px-4 py-3 bg-gray-900 border-t border-gray-800 flex justify-between text-sm text-gray-400">
+          <div className="px-4 py-3 bg-card border-t border-border flex justify-between text-sm text-gray-500">
             <span>{venda?.itens?.length ?? 0} iten(s)</span>
             {itens.length > 0 && (
               <span className="text-xs text-gray-500">↑ ↓ escolher item · + − quantidade · F6 desconto · F7 qtd · F8 excluir</span>
@@ -498,19 +531,19 @@ export default function PDVPage() {
             {(venda?.desconto ?? 0) > 0 && (
               <span>Desconto: -{brl(venda?.desconto ?? 0)}</span>
             )}
-            <span>Subtotal: <span className="text-white font-medium tabular-nums">{brl(venda?.subtotal ?? 0)}</span></span>
+            <span>Subtotal: <span className="text-gray-900 font-medium tabular-nums">{brl(venda?.subtotal ?? 0)}</span></span>
           </div>
         </div>
 
         {/* Coluna direita: totais e ações */}
-        <div className="w-72 flex flex-col gap-4 p-5 bg-gray-900">
+        <div className="w-96 shrink-0 flex flex-col gap-4 p-6 bg-card">
 
           {/* Total */}
-          <div className="bg-gray-800 rounded-2xl px-4 py-6 text-center shadow-inner">
-            <p className="text-gray-400 text-xs uppercase tracking-widest mb-3">Total a Pagar</p>
+          <div className="bg-gray-100 rounded-2xl px-4 py-8 text-center shadow-inner">
+            <p className="text-gray-500 text-sm uppercase tracking-widest mb-4">Total a Pagar</p>
             {/* "R$" menor e valor que encolhe com a quantidade de dígitos: sempre cabe centralizado */}
-            <p className="flex items-baseline justify-center gap-1.5 whitespace-nowrap font-black tabular-nums text-success-400 leading-none">
-              <span className="text-2xl">R$</span>
+            <p className="flex items-baseline justify-center gap-1.5 whitespace-nowrap font-black tabular-nums text-danger-600 leading-none">
+              <span className="text-3xl">R$</span>
               <span className={tamanhoTotal(formatCurrencyDisplay(totalVenda))}>
                 {formatCurrencyDisplay(totalVenda)}
               </span>
@@ -523,8 +556,8 @@ export default function PDVPage() {
             disabled={!venda?.itens?.length || loading}
             className="py-5 rounded-2xl text-xl font-bold
                        bg-success-600 hover:bg-success-500 active:scale-95
-                       disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed
-                       transition-all duration-150"
+                       disabled:bg-gray-200 disabled:text-gray-500 disabled:cursor-not-allowed
+                       transition-all duration-150 text-white"
           >
             FINALIZAR
             <span className="block text-xs font-normal opacity-70 mt-0.5">[F10]</span>
@@ -534,8 +567,7 @@ export default function PDVPage() {
             onClick={sairDaComandaAberta}
             disabled={!venda || loading}
             title="Deixa esta comanda em aberto (continua na aba) e volta à tela inicial do PDV"
-            className="py-3 rounded-xl text-sm font-medium bg-gray-800 hover:bg-gray-700 text-gray-200
-                       disabled:text-gray-600 disabled:cursor-not-allowed
+            className="py-3 rounded-xl text-sm font-medium bg-gray-100 hover:bg-gray-200 text-gray-700                       disabled:text-gray-400 disabled:cursor-not-allowed
                        flex items-center justify-center gap-2 transition-colors"
           >
             <LogOut size={15} />
@@ -545,35 +577,29 @@ export default function PDVPage() {
 
           <button
             onClick={() => setCancelando(true)}
-            disabled={!venda || !podeCancelarVenda}
-            title={!podeCancelarVenda ? 'Só um administrador pode cancelar uma venda' : undefined}
+            disabled={!venda}
+            title="Pede a senha de um administrador"
             className="py-3 rounded-xl text-sm font-medium
-                       bg-danger-900/60 hover:bg-danger-800 text-danger-300
-                       disabled:bg-gray-800 disabled:text-gray-600 disabled:cursor-not-allowed
+                       border border-danger-200 bg-danger-50 hover:bg-danger-100 text-danger-700
+                       disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed
                        flex items-center justify-center gap-2 transition-colors"
           >
             <Trash2 size={15} />
             CANCELAR VENDA
             <span className="text-xs font-normal opacity-60">[F9]</span>
           </button>
-          {venda && !podeCancelarVenda && (
-            <p className="text-center text-[11px] text-gray-600 -mt-2">
-              Cancelamento restrito a administradores
-            </p>
-          )}
 
           <button
             onClick={imprimirUltimo}
             disabled={!ultimoCupom || !configCupom}
             title={ultimoCupom ? `Venda #${ultimoCupom.venda.id}` : 'Nenhuma venda finalizada neste caixa ainda'}
-            className="w-full py-2.5 rounded-xl text-sm font-medium bg-gray-800 hover:bg-gray-700 text-gray-300
-                       disabled:text-gray-600 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
+            className="w-full py-2.5 rounded-xl text-sm font-medium bg-gray-100 hover:bg-gray-200 text-gray-600                       disabled:text-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
           >
             <Printer size={15} />
             Reimprimir último cupom
           </button>
 
-          <div className="mt-auto text-center text-xs text-gray-600">
+          <div className="mt-auto text-center text-xs text-gray-400">
             Leitor de barcode ativo
           </div>
         </div>
@@ -582,23 +608,23 @@ export default function PDVPage() {
 
       {/* Pergunta de impressão ao finalizar a venda */}
       {perguntarImpressao && ultimoCupom && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
              onKeyDown={e => { if (e.key === 'Escape') setPerguntarImpressao(false) }}>
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-sm p-6 space-y-4 text-center">
-            <Printer size={32} className="mx-auto text-success-400" />
+          <div className="bg-card border border-border rounded-2xl w-full max-w-sm p-6 space-y-4 text-center">
+            <Printer size={32} className="mx-auto text-success-700" />
             <div>
               <h2 className="text-lg font-bold">Venda #{ultimoCupom.venda.id} finalizada</h2>
-              <p className="text-sm text-gray-400">
+              <p className="text-sm text-gray-500">
                 {ultimoCupom.nfce ? `NFC-e nº ${ultimoCupom.nfce.numero} autorizada. Imprimir o DANFE?` : 'Imprimir o comprovante para o cliente?'}
               </p>
             </div>
             <div className="flex gap-3">
               <button onClick={() => setPerguntarImpressao(false)}
-                className="flex-1 py-3 rounded-xl bg-gray-700 hover:bg-gray-600 text-sm font-medium">
+                className="flex-1 py-3 rounded-xl bg-gray-200 hover:bg-gray-300 text-sm font-medium">
                 Não imprimir <span className="opacity-60">[Esc]</span>
               </button>
               <button autoFocus onClick={imprimirUltimo}
-                className="flex-1 py-3 rounded-xl bg-success-600 hover:bg-success-500 font-bold text-sm">
+                className="flex-1 py-3 rounded-xl bg-success-600 hover:bg-success-500 font-bold text-sm text-white">
                 Imprimir <span className="opacity-70 font-normal">[Enter]</span>
               </button>
             </div>
@@ -606,54 +632,30 @@ export default function PDVPage() {
         </div>
       )}
 
-      {/* Exclusão pelo atalho F8: tecla errada não pode apagar item sem confirmar */}
+      {/* Exclusão de item (lixeira ou F8): só conclui com a senha de um administrador */}
       {excluindo && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
-             onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape') setExcluindo(null) }}>
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-sm p-6 space-y-4 text-center">
-            <Trash2 size={32} className="mx-auto text-danger-400" />
-            <div>
-              <h2 className="text-lg font-bold">Excluir item?</h2>
-              <p className="text-sm text-gray-400">{excluindo.produto.nome} · {brl(excluindo.totalItem)}</p>
-            </div>
-            <div className="flex gap-3">
-              <button onClick={() => setExcluindo(null)}
-                className="flex-1 py-3 rounded-xl bg-gray-700 hover:bg-gray-600 text-sm font-medium">
-                Manter <span className="opacity-60">[Esc]</span>
-              </button>
-              <button autoFocus onClick={confirmarExclusao}
-                className="flex-1 py-3 rounded-xl bg-danger-700 hover:bg-danger-600 font-bold text-sm">
-                Excluir <span className="opacity-70 font-normal">[Enter]</span>
-              </button>
-            </div>
-          </div>
-        </div>
+        <AutorizacaoAdminModal
+          titulo="Excluir item?"
+          subtitulo={`${excluindo.produto.nome} · ${brl(excluindo.totalItem)}`}
+          confirmarLabel="Excluir item"
+          enviando={autorizandoAdmin}
+          onAutorizar={confirmarExclusao}
+          onCancelar={() => setExcluindo(null)}
+        />
       )}
 
-      {/* Cancelar venda (botão ou F9): pede confirmação, é a um toque de tecla */}
+      {/* Cancelar venda (botão ou F9): só conclui com a senha de um administrador */}
       {cancelando && venda && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
-             onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape') setCancelando(false) }}>
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-sm p-6 space-y-4 text-center">
-            <Trash2 size={32} className="mx-auto text-danger-400" />
-            <div>
-              <h2 className="text-lg font-bold">Cancelar esta venda?</h2>
-              <p className="text-sm text-gray-400">
-                {venda.itens?.length ?? 0} item(ns) · {brl(venda.total ?? 0)}. Não dá para desfazer.
-              </p>
-            </div>
-            <div className="flex gap-3">
-              <button onClick={() => setCancelando(false)}
-                className="flex-1 py-3 rounded-xl bg-gray-700 hover:bg-gray-600 text-sm font-medium">
-                Voltar <span className="opacity-60">[Esc]</span>
-              </button>
-              <button autoFocus onClick={confirmarCancelamento}
-                className="flex-1 py-3 rounded-xl bg-danger-700 hover:bg-danger-600 font-bold text-sm">
-                Cancelar venda <span className="opacity-70 font-normal">[Enter]</span>
-              </button>
-            </div>
-          </div>
-        </div>
+        <AutorizacaoAdminModal
+          titulo="Cancelar esta venda?"
+          subtitulo={`Venda #${venda.id} · ${venda.itens?.length ?? 0} item(ns) · ${brl(venda.total ?? 0)}`}
+          descricao="Não dá para desfazer. Um administrador precisa informar o login e a senha para autorizar o cancelamento."
+          confirmarLabel="Cancelar venda"
+          pedirMotivo
+          enviando={autorizandoAdmin}
+          onAutorizar={confirmarCancelamento}
+          onCancelar={() => setCancelando(false)}
+        />
       )}
 
       {/* Desconto no item */}
@@ -682,12 +684,12 @@ export default function PDVPage() {
 
       {/* Peso do produto escolhido na busca */}
       {pesando && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-sm p-6 space-y-4">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-card border border-border rounded-2xl w-full max-w-sm p-6 space-y-4">
             <div>
               <h2 className="text-lg font-bold">{pesando.nome}</h2>
               {pesando.precoVenda != null && (
-                <p className="text-sm text-gray-400">{brl(pesando.precoVenda)} por kg</p>
+                <p className="text-sm text-gray-500">{brl(pesando.precoVenda)} por kg</p>
               )}
             </div>
             <WeightInput
@@ -695,7 +697,6 @@ export default function PDVPage() {
               onChange={setPeso}
               unit={(pesando.unidadeMedida ?? 'kg').toLowerCase()}
               decimals={casasDaUnidade(pesando.unidadeMedida)}
-              dark
               autoFocus
               onKeyDown={e => {
                 if (e.key === 'Enter') confirmarPeso()
@@ -704,17 +705,17 @@ export default function PDVPage() {
               className="[&_input]:text-2xl [&_input]:font-bold"
             />
             {pesando.precoVenda != null && peso > 0 && (
-              <p className="text-right text-success-400 font-bold tabular-nums">
+              <p className="text-right text-success-700 font-bold tabular-nums">
                 Total: {brl(Math.round(peso * pesando.precoVenda * 100) / 100)}
               </p>
             )}
             <div className="flex gap-3">
               <button onClick={() => setPesando(null)}
-                className="flex-1 py-3 rounded-xl bg-gray-700 hover:bg-gray-600 text-sm font-medium">
+                className="flex-1 py-3 rounded-xl bg-gray-200 hover:bg-gray-300 text-sm font-medium">
                 Cancelar
               </button>
               <button onClick={confirmarPeso} disabled={peso <= 0 || scanLoading}
-                className="flex-1 py-3 rounded-xl bg-success-600 hover:bg-success-500 disabled:bg-gray-700 disabled:text-gray-500 font-bold text-sm">
+                className="flex-1 py-3 rounded-xl bg-success-600 hover:bg-success-500 disabled:bg-gray-200 disabled:text-gray-500 font-bold text-sm text-white">
                 Adicionar
               </button>
             </div>
@@ -776,8 +777,9 @@ export default function PDVPage() {
 
       {/* Modal de fechamento de caixa */}
       {showFechar && resumoFechar && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-sm p-6 space-y-4">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className={`bg-card border border-border shadow-flutuante rounded-2xl w-full p-6 space-y-4 max-h-[92vh] overflow-y-auto
+                           ${contarFechamento ? 'max-w-lg' : 'max-w-sm'}`}>
             <h2 className="text-lg font-bold flex items-center gap-2">
               Fechar Caixa
             </h2>
@@ -788,27 +790,45 @@ export default function PDVPage() {
                 ['Suprimento (+)', resumoFechar.totalSuprimento],
                 ['Sangria (-)', resumoFechar.totalSangria],
               ].map(([label, val]) => (
-                <div key={label as string} className="flex justify-between text-gray-400">
+                <div key={label as string} className="flex justify-between text-gray-500">
                   <span>{label}</span>
-                  <span className="tabular-nums text-gray-200">{brl(val as number)}</span>
+                  <span className="tabular-nums text-gray-700">{brl(val as number)}</span>
                 </div>
               ))}
-              <div className="flex justify-between pt-2 border-t border-gray-800 font-bold">
+              <div className="flex justify-between pt-2 border-t border-border font-bold">
                 <span>Saldo esperado em dinheiro</span>
-                <span className="text-success-400 tabular-nums">{brl(resumoFechar.saldoEsperado)}</span>
+                <span className="text-success-700 tabular-nums">{brl(resumoFechar.saldoEsperado)}</span>
               </div>
               <p className="text-xs text-gray-500">{resumoFechar.quantidadeVendas} venda(s) no período</p>
             </div>
 
             <div>
-              <label className="text-xs text-gray-400 font-medium block mb-1">Valor contado na gaveta</label>
-              <CurrencyInput value={valorContado} onChange={setValorContado} dark autoFocus />
-              {valorContado > 0 && (
+              <label className="text-xs text-gray-500 font-medium block mb-1">Valor contado na gaveta</label>
+              <CurrencyInput
+                value={valorInformadoFechamento}
+                onChange={setValorContado}
+                autoFocus={!contarFechamento}
+                disabled={contarFechamento}
+              />
+              <button
+                type="button"
+                onClick={() => setContarFechamento(v => !v)}
+                className="mt-2 inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700"
+              >
+                <Coins size={15} />
+                {contarFechamento ? 'Informar só o valor total' : 'Conferir por cédulas e moedas'}
+              </button>
+              {contarFechamento && (
+                <div className="mt-2">
+                  <ContagemCedulas contagem={cedulasFechamento} onChange={setCedulasFechamento} />
+                </div>
+              )}
+              {valorInformadoFechamento > 0 && (
                 (() => {
-                  const diff = valorContado - resumoFechar.saldoEsperado
-                  if (Math.abs(diff) < 0.01) return <p className="text-xs text-success-400 mt-1">Confere com o esperado.</p>
+                  const diff = valorInformadoFechamento - resumoFechar.saldoEsperado
+                  if (Math.abs(diff) < 0.01) return <p className="text-xs text-success-700 mt-1">Confere com o esperado.</p>
                   return (
-                    <p className={`text-xs mt-1 ${diff > 0 ? 'text-blue-400' : 'text-danger-400'}`}>
+                    <p className={`text-xs mt-1 ${diff > 0 ? 'text-primary-600' : 'text-danger-600'}`}>
                       {diff > 0 ? 'Sobra' : 'Falta'} de {brl(Math.abs(diff))} em relação ao esperado.
                     </p>
                   )
@@ -818,15 +838,15 @@ export default function PDVPage() {
 
             <div className="flex gap-3">
               <button
-                onClick={() => { setShowFechar(false); setResumoFechar(null); setValorContado(0) }}
-                className="flex-1 py-2.5 border border-gray-700 rounded-lg text-sm hover:bg-gray-800"
+                onClick={() => { setShowFechar(false); setResumoFechar(null); setValorContado(0); setContarFechamento(false); setCedulasFechamento({}) }}
+                className="flex-1 py-2.5 border border-gray-200 rounded-lg text-sm hover:bg-gray-100"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleConfirmarFechamento}
-                disabled={!valorContado || fechando}
-                className="flex-1 py-2.5 bg-primary-600 hover:bg-primary-500 rounded-lg text-sm font-medium disabled:opacity-50"
+                disabled={!valorInformadoFechamento || fechando}
+                className="flex-1 py-2.5 bg-primary-600 hover:bg-primary-500 rounded-lg text-sm font-medium disabled:opacity-50 text-white"
               >
                 {fechando ? 'Fechando...' : 'Confirmar Fechamento'}
               </button>

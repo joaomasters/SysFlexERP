@@ -4,7 +4,7 @@ import { Plus, FileText, X, ChevronDown, ChevronUp, Upload, Filter, Ban, AlertTr
 import { api } from '@/shared/api/axios'
 import toast from 'react-hot-toast'
 import { formatBRL, formatQuantidade, casasDaUnidade, somenteNumeros } from '@/shared/utils/mask'
-import { PageHeader, Card, Modal, Button, CurrencyInput, WeightInput, Field, baseInputClass, BuscaProduto, produtoPorCodigo, Paginacao, FormularioPagina } from '@/shared/components/ui'
+import { PageHeader, Card, Modal, Button, CurrencyInput, WeightInput, Field, baseInputClass, BuscaProduto, BuscaFornecedor, produtoPorCodigo, Paginacao, FormularioPagina } from '@/shared/components/ui'
 import { usePaginacao } from '@/shared/hooks/usePaginacao'
 import type { ProdutoBuscavel } from '@/shared/components/ui'
 import { useBarcodeScan } from '@/shared/hooks/useBarcodeScan'
@@ -279,8 +279,7 @@ export default function RecebimentoPage() {
       >
         <div className="grid grid-cols-2 gap-3">
           <Field label="Fornecedor *" className="col-span-2" error={mostrar(erros.fornecedor)}>
-            <input value={fornecedor} onChange={e => setFornecedor(e.target.value)}
-              className={`${baseInputClass} ${campoErro(erros.fornecedor)}`} placeholder="Nome do fornecedor" />
+            <BuscaFornecedor value={fornecedor} onSelect={setFornecedor} invalido={!!mostrar(erros.fornecedor)} />
           </Field>
           <Field label="Número NF *" error={mostrar(erros.numeroNf)}>
             <input value={numeroNf} onChange={e => setNumeroNf(somenteNumeros(e.target.value))}

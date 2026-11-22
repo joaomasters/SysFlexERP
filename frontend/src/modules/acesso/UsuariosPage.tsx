@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, KeyRound, Power, Lock } from 'lucide-react'
+import { Plus, KeyRound, Power, Lock, Pencil } from 'lucide-react'
 import { api } from '@/shared/api/axios'
 import { usePermissao } from '@/shared/hooks/usePermissao'
 import { formatPercent } from '@/shared/utils/mask'
@@ -26,6 +26,8 @@ export default function UsuariosPage() {
   const [novaSenha, setNovaSenha] = useState('')
   const [senhaAtual, setSenhaAtual] = useState('')
   const [confirmando, setConfirmando] = useState<Usuario | null>(null)
+  const [editando, setEditando] = useState<Usuario | null>(null)
+  const [nomeEdit, setNomeEdit] = useState('')
 
   const { data: usuarios = [] } = useQuery<Usuario[]>({
     queryKey: ['usuarios'],
@@ -55,6 +57,16 @@ export default function UsuariosPage() {
     onSuccess: () => {
       toast.success('Perfil do usuário atualizado.')
       qc.invalidateQueries({ queryKey: ['usuarios'] })
+    },
+  })
+
+  const renomear = useMutation({
+    mutationFn: ({ u, nome }: { u: Usuario; nome: string }) =>
+      api.put(`/usuarios/${u.id}`, { nome, perfilId: u.perfil.id }),
+    onSuccess: () => {
+      toast.success('Nome atualizado.')
+      qc.invalidateQueries({ queryKey: ['usuarios'] })
+      setEditando(null)
     },
   })
 
@@ -176,6 +188,11 @@ export default function UsuariosPage() {
                 <TD align="right">
                   <div className="flex items-center justify-end gap-2 whitespace-nowrap">
                     {podeEditar('USUARIOS') && (
+                      <Button variant="secondary" size="sm" onClick={() => { setEditando(u); setNomeEdit(u.nome) }}>
+                        <Pencil size={14} /> Editar nome
+                      </Button>
+                    )}
+                    {podeEditar('USUARIOS') && (
                       <Button variant="secondary" size="sm" onClick={() => setTrocandoSenhaId(u.id)}>
                         Trocar senha
                       </Button>
@@ -202,6 +219,44 @@ export default function UsuariosPage() {
         </Table>
         <Paginacao paginacao={pag} rotulo="usuários" />
       </Card>
+
+      {/* Modal de edição do nome */}
+      {editando && (
+        <Modal
+          title="Editar nome do usuário"
+          onClose={() => setEditando(null)}
+          footer={
+            <>
+              <Button variant="secondary" fullWidth onClick={() => setEditando(null)}>Cancelar</Button>
+              <Button
+                variant="primary"
+                fullWidth
+                disabled={!nomeEdit.trim() || nomeEdit.trim() === editando.nome}
+                loading={renomear.isPending}
+                onClick={() => renomear.mutate({ u: editando, nome: nomeEdit.trim() })}
+              >
+                Salvar nome
+              </Button>
+            </>
+          }
+        >
+          <Field label="Nome *">
+            <input
+              autoFocus
+              value={nomeEdit}
+              maxLength={120}
+              onChange={e => setNomeEdit(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && nomeEdit.trim() && nomeEdit.trim() !== editando.nome) {
+                  renomear.mutate({ u: editando, nome: nomeEdit.trim() })
+                }
+              }}
+              className={baseInputClass}
+            />
+          </Field>
+          <p className="text-[11px] text-gray-400">O login não muda; só o nome exibido no sistema.</p>
+        </Modal>
+      )}
 
       {/* Modal de troca de senha */}
       {trocandoSenhaId !== null && (

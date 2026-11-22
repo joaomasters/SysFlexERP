@@ -8,7 +8,7 @@ import type { ContasAReceber, Cliente } from '@/types/venda'
 import { formatBRL } from '@/shared/utils/mask'
 import {
   PageHeader, Card, FilterTabs, Modal, Button, StatusBadge, CurrencyInput,
-  Table, THead, TH, TBody, TR, TD, EmptyState, LoadingState, Paginacao,
+  Table, THead, TH, TBody, TR, TD, EmptyState, LoadingState, Paginacao, CampoBusca, casaBusca,
 } from '@/shared/components/ui'
 import { usePaginacao } from '@/shared/hooks/usePaginacao'
 import type { BadgeTone } from '@/shared/components/ui'
@@ -33,6 +33,7 @@ export default function ContasReceberPage() {
   const [searchParams] = useSearchParams()
   const [clienteId, setClienteId] = useState(searchParams.get('clienteId') ?? '')
   const [statusFiltro, setStatusFiltro] = useState('ABERTO')
+  const [busca, setBusca] = useState('')
   const [pagarId, setPagarId]     = useState<number | null>(null)
   const [valorPag, setValorPag]   = useState('')
   // Histórico de recebimentos (somente administradores): de uma conta, ou o relatório geral
@@ -67,10 +68,11 @@ export default function ContasReceberPage() {
   // AGRUPADO é um estado "resolvido" (absorvido por um fechamento) — só existe
   // quando o filtro de status é PAGO, então não precisa de tratamento especial
   // aqui; o back já devolve pelo status pedido.
-  const contasFiltradas = clienteId
+  const contasFiltradas = (clienteId
     ? contas.filter(c => String(c.cliente.id) === clienteId)
     : contas
-  const pag = usePaginacao(contasFiltradas, `${statusFiltro}|${clienteId}`)
+  ).filter(c => casaBusca(busca, c.cliente?.nome, c.descricao, c.id, c.valor.toFixed(2).replace('.', ','), c.dataVencimento))
+  const pag = usePaginacao(contasFiltradas, `${statusFiltro}|${clienteId}|${busca}`)
 
   const contaDoPagamento = pagarId ? contas.find(c => c.id === pagarId) : undefined
 
@@ -90,6 +92,12 @@ export default function ContasReceberPage() {
 
       {/* Filtros — mesmo esquema da tela de Contas a Pagar: status como abas
           e cliente como um filtro opcional a mais, não mais um portão */}
+      <CampoBusca
+        onBuscar={setBusca}
+        placeholder="Buscar por cliente, descrição, valor ou vencimento..."
+        ariaLabel="Buscar contas a receber"
+      />
+
       <Card padding="sm" className="flex items-center gap-3 mb-4 flex-wrap">
         <FilterTabs
           options={[
@@ -167,7 +175,7 @@ export default function ContasReceberPage() {
           </Table>
         )}
         {!isLoading && contasFiltradas.length === 0 && (
-          <EmptyState>Nenhuma conta com esse status.</EmptyState>
+          <EmptyState>{busca ? 'Nenhuma conta encontrada para a busca.' : 'Nenhuma conta com esse status.'}</EmptyState>
         )}
         {!isLoading && <Paginacao paginacao={pag} rotulo="contas" />}
       </Card>
