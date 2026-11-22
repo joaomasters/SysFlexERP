@@ -33,7 +33,7 @@ public class AuditoriaAspect {
 
     @AfterReturning(pointcut = "@annotation(exigirPermissao)", returning = "resultado")
     public void registrar(JoinPoint jp, ExigirPermissao exigirPermissao, Object resultado) {
-        if (exigirPermissao.acao() == Acao.VER) {
+        if (exigirPermissao.acao() == Acao.VER || exigirPermissao.auditoriaPropria()) {
             return;
         }
         try {

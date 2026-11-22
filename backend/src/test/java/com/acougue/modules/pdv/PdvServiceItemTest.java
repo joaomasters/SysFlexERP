@@ -6,6 +6,7 @@ import com.acougue.modules.balanca.EanBalancaParser;
 import com.acougue.modules.balanca.dto.EanParseResult;
 import com.acougue.modules.estoque.EstoqueService;
 import com.acougue.modules.pagamento.TransacaoTerminalService;
+import com.acougue.modules.pdv.dto.AutorizacaoOperacaoDTO;
 import com.acougue.modules.pdv.dto.ItemVendaDTO;
 import com.acougue.repository.*;
 import com.acougue.security.AutorizacaoAdminService;
@@ -150,7 +151,7 @@ class PdvServiceItemTest {
 
         assertThatThrownBy(() -> service.alterarQuantidadeItem(1L, 9L, new BigDecimal("2")))
                 .isInstanceOf(EntityNotFoundException.class);
-        assertThatThrownBy(() -> service.removerItem(1L, 9L))
+        assertThatThrownBy(() -> service.removerItem(1L, 9L, new AutorizacaoOperacaoDTO("admin", "segredo", null)))
                 .isInstanceOf(EntityNotFoundException.class);
         verify(itensRepo, never()).delete(any());
     }

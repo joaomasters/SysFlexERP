@@ -7,6 +7,12 @@ import type { Venda, ItemVendaDTO, PagamentoDTO } from '@/types/venda'
 /** Credencial de administrador que libera um fiado acima do limite do cliente. */
 export interface AutorizacaoLimite { login: string; senha: string }
 
+/** Credencial de administrador que autoriza excluir item / cancelar venda no PDV. */
+export interface AutorizacaoOperacao { login: string; senha: string; motivo?: string }
+
+/** Cédulas e moedas contadas (formato da API). */
+export interface CedulasApi { cedulas: { valor: number; quantidade: number }[] }
+
 /** Resposta 409 do backend quando o fiado ultrapassa o limite de crédito. */
 export interface LimiteExcedidoInfo {
   clienteNome: string
@@ -145,9 +151,9 @@ export function usePdv() {
     }
   }, [venda, atualizarComandaLocal])
 
-  const removerItem = useCallback(async (itemId: number) => {
+  const removerItem = useCallback(async (itemId: number, autorizacao: AutorizacaoOperacao) => {
     if (!venda) return
-    const { data } = await api.delete<Venda>(`/pdv/vendas/${venda.id}/itens/${itemId}`)
+    const { data } = await api.post<Venda>(`/pdv/vendas/${venda.id}/itens/${itemId}/remover`, autorizacao)
     setVenda(data)
     atualizarComandaLocal(data)
   }, [venda, atualizarComandaLocal])
@@ -192,9 +198,9 @@ export function usePdv() {
     }
   }, [venda, carregarComandas])
 
-  const cancelarVenda = useCallback(async () => {
+  const cancelarVenda = useCallback(async (autorizacao: AutorizacaoOperacao) => {
     if (!venda) return
-    await api.post(`/pdv/vendas/${venda.id}/cancelar`)
+    await api.post(`/pdv/vendas/${venda.id}/cancelar`, autorizacao)
     toast('Venda cancelada', { icon: '⚠️' })
     setVenda(null)
     carregarComandas()
@@ -206,15 +212,15 @@ export function usePdv() {
     carregarComandas()
   }, [carregarComandas])
 
-  const abrirCaixa = useCallback(async (valorAbertura: number) => {
+  const abrirCaixa = useCallback(async (valorAbertura: number, cedulas?: CedulasApi) => {
     if (!operadorId) throw new Error('Usuário não identificado.')
-    await api.post('/pdv/caixa/abrir', null, { params: { operadorId, valorAbertura } })
+    await api.post('/pdv/caixa/abrir', cedulas ?? null, { params: { operadorId, valorAbertura } })
     verificarCaixa()
   }, [operadorId, verificarCaixa])
 
-  const fecharCaixa = useCallback(async (valorInformado: number) => {
+  const fecharCaixa = useCallback(async (valorInformado: number, cedulas?: CedulasApi) => {
     if (!caixaId) return
-    await api.post(`/pdv/caixa/${caixaId}/fechar`, null, { params: { valorInformado } })
+    await api.post(`/pdv/caixa/${caixaId}/fechar`, cedulas ?? null, { params: { valorInformado } })
     setCaixaId(null)
     setVenda(null)
     setComandas([])

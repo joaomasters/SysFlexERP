@@ -48,21 +48,25 @@ public class PdvService {
     // ── Caixa ──────────────────────────────────────────────────
 
     @Transactional
-    public Caixa abrirCaixa(Long operadorId, BigDecimal valorAbertura) {
+    public Caixa abrirCaixa(Long operadorId, BigDecimal valorAbertura, ContagemCedulasDTO contagem) {
         if (valorAbertura == null || valorAbertura.compareTo(BigDecimal.ZERO) < 0) {
             throw new BusinessException("Valor de abertura não pode ser negativo.");
         }
         caixaRepo.findFirstByOperadorIdAndStatus(operadorId, "ABERTO")
                 .ifPresent(c -> { throw new BusinessException("Operador já possui caixa aberto."); });
-        return caixaRepo.save(Caixa.builder()
+        Caixa caixa = caixaRepo.save(Caixa.builder()
                 .operadorId(operadorId)
                 .valorAbertura(valorAbertura)
                 .status("ABERTO")
                 .build());
+        String cedulas = caixaService.registrarContagem(caixa.getId(), CaixaCedula.ABERTURA, valorAbertura, contagem);
+        auditoriaService.registrar("PDV", "CRIAR", "Abertura de caixa #" + caixa.getId() + " — valor inicial "
+                + brl(valorAbertura) + (cedulas != null ? " (" + cedulas + ")" : " (sem discriminar cédulas)"));
+        return caixa;
     }
 
     @Transactional
-    public Caixa fecharCaixa(Long caixaId, BigDecimal valorInformado) {
+    public Caixa fecharCaixa(Long caixaId, BigDecimal valorInformado, ContagemCedulasDTO contagem) {
         if (valorInformado == null || valorInformado.compareTo(BigDecimal.ZERO) < 0) {
             throw new BusinessException("Valor informado não pode ser negativo.");
         }
@@ -92,7 +96,16 @@ public class PdvService {
         caixa.setValorCalculado(saldoEsperado);
         caixa.setDataFechamento(LocalDateTime.now());
         caixa.setStatus("FECHADO");
-        return caixaRepo.save(caixa);
+        Caixa salvo = caixaRepo.save(caixa);
+
+        String cedulas = caixaService.registrarContagem(caixaId, CaixaCedula.FECHAMENTO, valorInformado, contagem);
+        BigDecimal diferenca = valorInformado.subtract(saldoEsperado);
+        String conferencia = diferenca.signum() == 0 ? "confere com o esperado"
+                : (diferenca.signum() > 0 ? "sobra de " : "falta de ") + brl(diferenca.abs());
+        auditoriaService.registrar("PDV", "EDITAR", "Fechamento de caixa #" + caixaId + " — contado " + brl(valorInformado)
+                + ", esperado " + brl(saldoEsperado) + " (" + conferencia + ")"
+                + (cedulas != null ? " — cédulas: " + cedulas : " — sem discriminar cédulas"));
+        return salvo;
     }
 
     // ── Venda ──────────────────────────────────────────────────
@@ -166,16 +179,28 @@ public class PdvService {
                 .tipoEntrada(dto.getTipoEntrada())
                 .build();
         itensRepo.save(item);
+        auditoriaService.registrar("PDV", "CRIAR", "Item incluído — Venda #" + venda.getId() + ": " + descreverItem(item));
 
         recalcularTotais(venda);
         return vendaRepo.save(venda);
     }
 
+    /**
+     * Exclui um item da comanda. Só com a credencial de um administrador (login + senha): quem
+     * autorizou e o item removido (produto, quantidade e valor) ficam na auditoria, já que o item
+     * deixa de existir na venda.
+     */
     @Transactional
-    public Venda removerItem(Long vendaId, Long itemId) {
+    public Venda removerItem(Long vendaId, Long itemId, AutorizacaoOperacaoDTO autorizacao) {
         Venda venda = buscarVendaAberta(vendaId);
         // Só itens desta comanda (antes apagava pelo id qualquer item, até de outra venda)
-        itensRepo.delete(itemDaVenda(vendaId, itemId));
+        ItensVenda item = itemDaVenda(vendaId, itemId);
+        Usuario administrador = autorizarAdministrador(venda, autorizacao);
+
+        auditoriaService.registrar("PDV", "EXCLUIR", "Item excluído — Venda #" + venda.getId() + ": " + descreverItem(item)
+                + " — autorizado por " + administrador.getNome() + " (login " + administrador.getLogin() + ")"
+                + motivoParaAuditoria(autorizacao));
+        itensRepo.delete(item);
         recalcularTotais(venda);
         return vendaRepo.save(venda);
     }
@@ -200,9 +225,13 @@ public class PdvService {
             throw new BusinessException(String.format(
                     "O desconto do item (R$ %.2f) ficaria maior que o novo valor. Tire o desconto antes.", desconto));
         }
+        BigDecimal quantidadeAnterior = item.getQuantidade();
         item.setQuantidade(quantidade);
         item.setTotalItem(valorCheio.subtract(desconto));
         itensRepo.save(item);
+        auditoriaService.registrar("PDV", "EDITAR", "Quantidade alterada — Venda #" + vendaId + ": "
+                + item.getProduto().getNome() + " de " + qtd(quantidadeAnterior) + " para " + qtd(quantidade)
+                + " (" + brl(item.getTotalItem()) + ")");
 
         recalcularTotais(venda);
         return vendaRepo.save(venda);
@@ -359,11 +388,52 @@ public class PdvService {
         return vendaRepo.save(venda);
     }
 
+    /**
+     * Cancela a comanda. Só com a credencial de um administrador (login + senha). Os itens que
+     * estavam na venda ficam registrados na auditoria, junto de quem autorizou e do motivo.
+     */
     @Transactional
-    public Venda cancelarVenda(Long vendaId) {
+    public Venda cancelarVenda(Long vendaId, AutorizacaoOperacaoDTO autorizacao) {
         Venda venda = buscarVendaAberta(vendaId);
+        Usuario administrador = autorizarAdministrador(venda, autorizacao);
+
+        String itens = venda.getItens().isEmpty() ? "sem itens"
+                : venda.getItens().stream().map(this::descreverItem).collect(java.util.stream.Collectors.joining("; "));
+        auditoriaService.registrar("PDV", "EXCLUIR", "Venda #" + venda.getId() + " cancelada — total "
+                + brl(venda.getTotal()) + " — itens: " + itens
+                + " — autorizado por " + administrador.getNome() + " (login " + administrador.getLogin() + ")"
+                + motivoParaAuditoria(autorizacao));
+
         venda.setStatus("CANCELADA");
+        if (autorizacao.getMotivo() != null && !autorizacao.getMotivo().isBlank()) {
+            venda.setObservacao("Cancelada: " + autorizacao.getMotivo().trim());
+        }
         return vendaRepo.save(venda);
+    }
+
+    /** Confere login e senha de um administrador; quem pede a autorização é o operador da venda. */
+    private Usuario autorizarAdministrador(Venda venda, AutorizacaoOperacaoDTO autorizacao) {
+        return autorizacaoAdminService.validar(venda.getOperadorId(), autorizacao.getLogin(), autorizacao.getSenha());
+    }
+
+    private static String motivoParaAuditoria(AutorizacaoOperacaoDTO autorizacao) {
+        String m = autorizacao.getMotivo();
+        return (m == null || m.isBlank()) ? "" : " — motivo: " + m.trim();
+    }
+
+    private static String brl(BigDecimal v) {
+        return LimiteCreditoExcedidoException.brl(v == null ? BigDecimal.ZERO : v);
+    }
+
+    /** 1,500 → "1,5"; 2,0000 → "2" (sem zeros à direita). */
+    private static String qtd(BigDecimal q) {
+        return q.stripTrailingZeros().toPlainString().replace('.', ',');
+    }
+
+    /** "Contrafilé — 1,5 KG × R$ 40,00 = R$ 60,00" */
+    private String descreverItem(ItensVenda i) {
+        return i.getProduto().getNome() + " — " + qtd(i.getQuantidade()) + " " + i.getProduto().getUnidadeMedida()
+                + " × " + brl(i.getPrecoUnitario()) + " = " + brl(i.getTotalItem());
     }
 
     /**

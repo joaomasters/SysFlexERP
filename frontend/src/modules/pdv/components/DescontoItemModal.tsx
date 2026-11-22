@@ -37,27 +37,27 @@ export default function DescontoItemModal({ item, onConfirmar, onCancelar }: Pro
 
   return (
     <div
-      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
       // stopPropagation: F2/F4/F10 do PDV não podem agir por trás do modal
       onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape') onCancelar() }}
     >
       <form
         onSubmit={e => { e.preventDefault(); if (valido && !salvando) confirmar(desconto) }}
-        className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-sm p-6 space-y-4"
+        className="bg-card border border-border rounded-2xl w-full max-w-sm p-6 space-y-4"
       >
         <div>
           <h2 className="text-lg font-bold">Desconto no item</h2>
-          <p className="text-sm text-gray-400">{item.produto.nome} · {formatBRL(valorCheio)}</p>
+          <p className="text-sm text-gray-500">{item.produto.nome} · {formatBRL(valorCheio)}</p>
         </div>
 
-        <div className="grid grid-cols-2 gap-1 rounded-lg bg-gray-800 p-1">
+        <div className="grid grid-cols-2 gap-1 rounded-lg bg-gray-100 p-1">
           {([['reais', 'R$'], ['percentual', '%']] as const).map(([valor, rotulo]) => (
             <button
               key={valor}
               type="button"
               onClick={() => setModo(valor)}
               className={`py-1.5 rounded-md text-sm font-medium transition-colors
-                ${modo === valor ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-white'}`}
+                ${modo === valor ? 'bg-gray-300 text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}
             >
               {rotulo}
             </button>
@@ -65,7 +65,7 @@ export default function DescontoItemModal({ item, onConfirmar, onCancelar }: Pro
         </div>
 
         {modo === 'reais' ? (
-          <CurrencyInput value={reais} onChange={setReais} dark autoFocus className="[&_input]:text-2xl [&_input]:font-bold" />
+          <CurrencyInput value={reais} onChange={setReais} autoFocus className="[&_input]:text-2xl [&_input]:font-bold" />
         ) : (
           <input
             autoFocus
@@ -74,36 +74,35 @@ export default function DescontoItemModal({ item, onConfirmar, onCancelar }: Pro
             onChange={e => setPercentual(e.target.value.replace(/[^\d.,]/g, ''))}
             placeholder="0"
             aria-label="Percentual de desconto"
-            className="w-full rounded-lg bg-gray-800 border border-gray-700 px-3 py-2 text-2xl font-bold text-white
-                       focus:outline-none focus:ring-2 focus:ring-success-500"
+            className="w-full rounded-lg bg-gray-100 border border-gray-200 px-3 py-2 text-2xl font-bold text-gray-900                       focus:outline-none focus:ring-2 focus:ring-success-500"
           />
         )}
 
         <div className="text-sm space-y-1">
-          <div className="flex justify-between text-gray-400">
+          <div className="flex justify-between text-gray-500">
             <span>Desconto</span>
-            <span className="tabular-nums text-warning-400">-{formatBRL(desconto)}</span>
+            <span className="tabular-nums text-warning-700">-{formatBRL(desconto)}</span>
           </div>
           <div className="flex justify-between font-bold">
             <span>Item fica por</span>
-            <span className="tabular-nums text-success-400">{formatBRL(Math.max(0, arredondar(valorCheio - desconto)))}</span>
+            <span className="tabular-nums text-success-700">{formatBRL(Math.max(0, arredondar(valorCheio - desconto)))}</span>
           </div>
-          {!valido && <p className="text-xs text-danger-400">O desconto deve ser menor que o valor do item.</p>}
+          {!valido && <p className="text-xs text-danger-600">O desconto deve ser menor que o valor do item.</p>}
         </div>
 
         <div className="flex gap-3">
           <button type="button" onClick={onCancelar}
-            className="flex-1 py-3 rounded-xl bg-gray-700 hover:bg-gray-600 text-sm font-medium">
+            className="flex-1 py-3 rounded-xl bg-gray-200 hover:bg-gray-300 text-sm font-medium">
             Cancelar
           </button>
           {(item.descontoItem ?? 0) > 0 && (
             <button type="button" onClick={() => confirmar(0)} disabled={salvando}
-              className="flex-1 py-3 rounded-xl bg-gray-700 hover:bg-gray-600 text-sm font-medium disabled:opacity-50">
+              className="flex-1 py-3 rounded-xl bg-gray-200 hover:bg-gray-300 text-sm font-medium disabled:opacity-50">
               Remover
             </button>
           )}
           <button type="submit" disabled={!valido || salvando}
-            className="flex-1 py-3 rounded-xl bg-success-600 hover:bg-success-500 disabled:bg-gray-700 disabled:text-gray-500 font-bold text-sm">
+            className="flex-1 py-3 rounded-xl bg-success-600 hover:bg-success-500 disabled:bg-gray-200 disabled:text-gray-500 font-bold text-sm text-white">
             Aplicar
           </button>
         </div>

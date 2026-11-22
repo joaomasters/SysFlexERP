@@ -2,6 +2,7 @@ package com.acougue.modules.pdv;
 
 import com.acougue.entity.SangriaCaixa;
 import com.acougue.entity.Caixa;
+import com.acougue.entity.CaixaCedula;
 import com.acougue.entity.Modulo;
 import com.acougue.modules.pdv.dto.FechamentoCaixaDetalhadoDTO;
 import com.acougue.modules.pdv.dto.SangriaDTO;
@@ -64,5 +65,12 @@ public class CaixaController {
     @GetMapping("/{id}/movimentos")
     public ResponseEntity<List<SangriaCaixa>> movimentos(@PathVariable Long id) {
         return ResponseEntity.ok(caixaService.listarMovimentos(id));
+    }
+
+    /** Cédulas e moedas contadas na abertura e no fechamento (vazio se o operador não discriminou). */
+    @ExigirPermissao(modulo = Modulo.PDV, acao = Acao.VER)
+    @GetMapping("/{id}/cedulas")
+    public ResponseEntity<List<CaixaCedula>> cedulas(@PathVariable Long id) {
+        return ResponseEntity.ok(caixaService.listarCedulas(id));
     }
 }
