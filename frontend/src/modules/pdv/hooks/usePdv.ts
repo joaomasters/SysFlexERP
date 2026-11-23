@@ -8,7 +8,7 @@ import type { Venda, ItemVendaDTO, PagamentoDTO } from '@/types/venda'
 export interface AutorizacaoLimite { login: string; senha: string }
 
 /** Credencial de administrador que autoriza excluir item / cancelar venda no PDV. */
-export interface AutorizacaoOperacao { login: string; senha: string; motivo?: string }
+export interface AutorizacaoOperacao { login?: string; senha: string; motivo?: string }
 
 /** Cédulas e moedas contadas (formato da API). */
 export interface CedulasApi { cedulas: { valor: number; quantidade: number }[] }

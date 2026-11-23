@@ -13,7 +13,7 @@ import lombok.ToString;
 @AllArgsConstructor
 public class AutorizacaoOperacaoDTO {
 
-    @NotBlank
+    /** Opcional: sem login, o sistema autoriza pela senha de qualquer administrador ativo. */
     @Size(max = 50)
     private String login;
 

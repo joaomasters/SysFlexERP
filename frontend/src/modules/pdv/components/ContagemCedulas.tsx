@@ -27,9 +27,13 @@ interface Props {
 function Linha({ cent, qtd, onQtd, disabled }: { cent: number; qtd: number; onQtd: (q: number) => void; disabled?: boolean }) {
   const set = (q: number) => onQtd(Math.max(0, Math.min(9999, q)))
   return (
-    <div className="flex items-center gap-2 py-1">
-      <span className="w-16 text-sm text-gray-600 tabular-nums">{formatBRL(cent / 100)}</span>
-      <div className="flex items-center">
+    <div className="flex items-center gap-2 py-1 min-w-0">
+      {/* rótulo + subtotal embaixo: a linha não depende da largura da coluna */}
+      <div className="w-24 shrink-0 leading-tight">
+        <span className="block text-sm text-gray-700 tabular-nums">{formatBRL(cent / 100)}</span>
+        <span className="block h-4 text-[11px] text-gray-500 tabular-nums">{qtd > 0 ? `= ${formatBRL((cent * qtd) / 100)}` : ''}</span>
+      </div>
+      <div className="flex items-center shrink-0">
         <button type="button" disabled={disabled || qtd <= 0} onClick={() => set(qtd - 1)} aria-label={`Menos uma de ${formatBRL(cent / 100)}`}
           className="h-8 w-8 flex items-center justify-center rounded-l-lg bg-gray-100 border border-gray-200 text-gray-600 hover:bg-gray-200 disabled:opacity-40">
           <Minus size={14} />
@@ -42,14 +46,13 @@ function Linha({ cent, qtd, onQtd, disabled }: { cent: number; qtd: number; onQt
           aria-label={`Quantidade de ${formatBRL(cent / 100)}`}
           onChange={e => set(parseInt(e.target.value.replace(/\D/g, ''), 10) || 0)}
           onFocus={e => e.target.select()}
-          className="h-8 w-14 text-center text-sm tabular-nums bg-gray-100 border-y border-gray-200 text-gray-900                     focus:outline-none focus:ring-2 focus:ring-success-500 focus:z-10"
+          className="h-8 w-12 text-center text-sm tabular-nums bg-gray-100 border-y border-gray-200 text-gray-900                     focus:outline-none focus:ring-2 focus:ring-success-500 focus:z-10"
         />
         <button type="button" disabled={disabled || qtd >= 9999} onClick={() => set(qtd + 1)} aria-label={`Mais uma de ${formatBRL(cent / 100)}`}
           className="h-8 w-8 flex items-center justify-center rounded-r-lg bg-gray-100 border border-gray-200 text-gray-600 hover:bg-gray-200 disabled:opacity-40">
           <Plus size={14} />
         </button>
       </div>
-      <span className="ml-auto text-xs text-gray-500 tabular-nums">{qtd > 0 ? formatBRL((cent * qtd) / 100) : ''}</span>
     </div>
   )
 }
@@ -63,13 +66,13 @@ export default function ContagemCedulas({ contagem, onChange, disabled }: Props)
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 rounded-xl bg-background border border-border p-3">
+    <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-x-8 rounded-xl bg-background border border-border p-3">
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 mb-1">Cédulas</p>
         {NOTAS.map(c => <Linha key={c} cent={c} qtd={contagem[c] ?? 0} onQtd={q => atualizar(c, q)} disabled={disabled} />)}
       </div>
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 mb-1 mt-3 sm:mt-0">Moedas</p>
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 mb-1 mt-3 md:mt-0">Moedas</p>
         {MOEDAS.map(c => <Linha key={c} cent={c} qtd={contagem[c] ?? 0} onQtd={q => atualizar(c, q)} disabled={disabled} />)}
       </div>
     </div>

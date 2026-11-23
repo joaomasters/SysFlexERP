@@ -130,6 +130,40 @@ class AutorizacaoAdminServiceTest {
     }
 
     @Test
+    @DisplayName("só com a senha: acha o administrador dono dela")
+    void soSenhaAutoriza() {
+        Usuario admin = usuario("admin", "segredo", Perfil.SUPER_ADMIN, true);
+        Usuario caixa = usuario("caixa", "1234", "OPERADOR", true);
+        when(usuarioRepo.findByAtivoTrue()).thenReturn(java.util.List.of(caixa, admin));
+
+        assertThat(service.validar(10L, null, "segredo")).isSameAs(admin);
+        assertThat(service.validar(10L, "  ", "segredo")).isSameAs(admin);
+    }
+
+    @Test
+    @DisplayName("só com a senha: senha de quem não é administrador é recusada")
+    void soSenhaDeOperadorRecusada() {
+        Usuario admin = usuario("admin", "segredo", Perfil.SUPER_ADMIN, true);
+        Usuario caixa = usuario("caixa", "1234", "OPERADOR", true);
+        when(usuarioRepo.findByAtivoTrue()).thenReturn(java.util.List.of(caixa, admin));
+
+        assertThatThrownBy(() -> service.validar(10L, null, "1234")).isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    @DisplayName("só com a senha: 3 erros bloqueiam o operador")
+    void soSenhaBloqueia() {
+        when(usuarioRepo.findByAtivoTrue())
+                .thenReturn(java.util.List.of(usuario("admin", "segredo", Perfil.SUPER_ADMIN, true)));
+
+        for (int i = 0; i < 3; i++) {
+            assertThatThrownBy(() -> service.validar(10L, "", "errada")).isInstanceOf(BusinessException.class);
+        }
+        assertThatThrownBy(() -> service.validar(10L, "", "segredo"))
+                .isInstanceOf(BusinessException.class).hasMessageContaining("Muitas tentativas");
+    }
+
+    @Test
     @DisplayName("depois de 3 erros o operador fica bloqueado, mesmo digitando a senha certa")
     void bloqueioPorTentativas() {
         when(usuarioRepo.findByLogin("admin")).thenReturn(Optional.of(usuario("admin", "segredo", Perfil.SUPER_ADMIN, true)));
