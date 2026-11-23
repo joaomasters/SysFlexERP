@@ -6,7 +6,7 @@ import { usePermissao } from '@/shared/hooks/usePermissao'
 import toast from 'react-hot-toast'
 import type { Tenant } from '@/types/tenant'
 import {
-  PageHeader, Card, Button, Field, baseInputClass, StatusBadge, Modal,
+  PageHeader, Card, Button, Field, baseInputClass, StatusBadge, Modal, FormularioPagina,
   Table, THead, TH, TBody, TR, TD, EmptyState, LoadingState, Paginacao,
 } from '@/shared/components/ui'
 import { usePaginacao } from '@/shared/hooks/usePaginacao'
@@ -67,6 +67,9 @@ export default function TenantsPage() {
       </div>
     )
   }
+
+  // Formulário em tela cheia: enquanto aberto, substitui a listagem.
+  if (showNovo) return <NovaEmpresaForm onClose={() => setShowNovo(false)} />
 
   return (
     <div className="p-4 sm:p-6">
@@ -165,7 +168,6 @@ export default function TenantsPage() {
         {!isLoading && <Paginacao paginacao={pag} rotulo="empresas" />}
       </Card>
 
-      {showNovo && <NovaEmpresaModal onClose={() => setShowNovo(false)} />}
       {limpando && <LimparDadosModal empresa={limpando} onClose={() => setLimpando(null)} />}
       {renomeando && <RenomearEmpresaModal empresa={renomeando} onClose={() => setRenomeando(null)} />}
     </div>
@@ -174,7 +176,7 @@ export default function TenantsPage() {
 
 // ─── Nova empresa ───────────────────────────────────────────────────────────
 
-function NovaEmpresaModal({ onClose }: { onClose: () => void }) {
+function NovaEmpresaForm({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient()
   const [nome, setNome] = useState('')
   const [adminNome, setAdminNome] = useState('')
@@ -194,18 +196,16 @@ function NovaEmpresaModal({ onClose }: { onClose: () => void }) {
 
   const valido = nome.trim() && adminNome.trim() && adminLogin.trim() && adminSenha.length >= 8
 
+  // Formulário em tela cheia (padrão das demais telas): substitui a listagem enquanto aberto.
   return (
-    <Modal
+    <FormularioPagina
       title="Nova Empresa"
-      maxWidth="md"
+      subtitle="Cada empresa roda isolada, com seus próprios produtos, vendas e usuários"
       onClose={onClose}
-      footer={
-        <>
-          <Button variant="secondary" fullWidth onClick={onClose}>Cancelar</Button>
-          <Button variant="primary" fullWidth disabled={!valido} loading={provisionar.isPending} onClick={() => provisionar.mutate()}>
-            Criar
-          </Button>
-        </>
+      actions={
+        <Button variant="primary" disabled={!valido} loading={provisionar.isPending} onClick={() => provisionar.mutate()}>
+          Criar Empresa
+        </Button>
       }
     >
       <Field label="Nome da empresa *" hint="O código de acesso é gerado automaticamente (ex: 004).">
@@ -219,7 +219,7 @@ function NovaEmpresaModal({ onClose }: { onClose: () => void }) {
           <Field label="Nome *">
             <input value={adminNome} onChange={e => setAdminNome(e.target.value)} className={baseInputClass} />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Login *">
               <input value={adminLogin} onChange={e => setAdminLogin(e.target.value)} autoComplete="off"
                      className={baseInputClass} />
@@ -237,7 +237,7 @@ function NovaEmpresaModal({ onClose }: { onClose: () => void }) {
         <strong>inativa</strong> — ative na lista quando quiser liberar o acesso. Passe ao cliente o código,
         o login e a senha.
       </p>
-    </Modal>
+    </FormularioPagina>
   )
 }
 

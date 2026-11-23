@@ -481,11 +481,11 @@ export default function FichasDesossaPage() {
                 </div>
 
                 <div className="flex items-center gap-1 shrink-0">
-                  <Button variant="ghost" size="sm" onClick={e => { e.stopPropagation(); abrirEditar(ficha) }} title="Editar">
-                    <Pencil size={15} />
+                  <Button variant="secondary" size="sm" onClick={e => { e.stopPropagation(); abrirEditar(ficha) }} title="Editar">
+                    Editar
                   </Button>
                   <Button
-                    variant="ghost" size="sm"
+                    variant="outline-danger" size="sm"
                     className={ficha.ativo ? 'hover:!text-danger-600' : 'hover:!text-success-600'}
                     onClick={e => {
                       e.stopPropagation()
@@ -493,7 +493,7 @@ export default function FichasDesossaPage() {
                     }}
                     title={ficha.ativo ? 'Inativar' : 'Reativar'}
                   >
-                    <Power size={15} />
+                    Inativar
                   </Button>
                   {expanded
                     ? <ChevronUp size={16} className="text-gray-400" />

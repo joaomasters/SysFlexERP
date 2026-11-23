@@ -143,7 +143,7 @@ export default function Sidebar({ aberto, onFechar }: SidebarProps) {
     />
     <aside
       className={clsx(
-        'w-64 lg:w-60 shrink-0 bg-topbar text-white flex flex-col h-full',
+        'w-64 lg:w-60 shrink-0 bg-sidebar text-sidebar-foreground border-r border-sidebar-borda/20 flex flex-col h-full',
         // Celular/tablet: gaveta fixa que desliza da esquerda. Desktop: coluna normal.
         'fixed inset-y-0 left-0 z-50 transition-transform duration-200 lg:static lg:translate-x-0',
         aberto ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
@@ -166,7 +166,7 @@ export default function Sidebar({ aberto, onFechar }: SidebarProps) {
             return (
               <p
                 key={i}
-                className="px-3 pt-5 pb-1.5 text-xs text-white/40 border-t border-white/10 first:border-t-0 first:pt-0"
+                className="px-3 pt-5 pb-1.5 text-xs text-sidebar-foreground/60 border-t border-sidebar-borda/20 first:border-t-0 first:pt-0"
               >
                 {item.separator}
               </p>
@@ -180,7 +180,7 @@ export default function Sidebar({ aberto, onFechar }: SidebarProps) {
                 href={item.href}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center gap-3 pl-[13px] pr-3 py-3 lg:py-2.5 border-l-[3px] border-transparent text-sm text-white/70 hover:bg-white/5 hover:text-white transition-colors"
+                className="flex items-center gap-3 pl-[13px] pr-3 py-3 lg:py-2.5 border-l-[3px] border-transparent text-sm text-sidebar-foreground/80 hover:bg-sidebar-hover hover:text-sidebar-foreground transition-colors"
               >
                 <Icon size={16} />
                 {item.label}
@@ -195,8 +195,8 @@ export default function Sidebar({ aberto, onFechar }: SidebarProps) {
                 clsx(
                   'flex items-center gap-3 pl-[13px] pr-3 py-3 lg:py-2.5 border-l-[3px] text-sm transition-colors',
                   isActive
-                    ? 'border-primary-400 bg-white/10 text-white font-medium'
-                    : 'border-transparent text-white/70 hover:bg-white/5 hover:text-white'
+                    ? 'border-primary-600 bg-sidebar-ativo text-primary-700 font-semibold'
+                    : 'border-transparent text-sidebar-foreground/80 hover:bg-sidebar-hover hover:text-sidebar-foreground'
                 )
               }
             >
@@ -212,10 +212,10 @@ export default function Sidebar({ aberto, onFechar }: SidebarProps) {
         })}
       </nav>
 
-      <div className="px-3 py-3 border-t border-white/10">
+      <div className="px-3 py-3 border-t border-sidebar-borda/20">
         <button
           onClick={logout}
-          className="flex items-center gap-3 pl-[13px] pr-3 py-3 lg:py-2.5 border-l-[3px] border-transparent text-sm text-white/50 hover:bg-white/5 hover:text-white transition-colors w-full"
+          className="flex items-center gap-3 pl-[13px] pr-3 py-3 lg:py-2.5 border-l-[3px] border-transparent text-sm text-sidebar-foreground/70 hover:bg-sidebar-hover hover:text-sidebar-foreground transition-colors w-full"
         >
           <LogOut size={16} />
           Sair
