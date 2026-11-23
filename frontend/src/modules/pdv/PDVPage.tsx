@@ -13,6 +13,8 @@ import ContagemCedulas, { totalContagem, contagemParaApi } from './components/Co
 import type { Contagem } from './components/ContagemCedulas'
 import type { PagamentoDTO } from '@/types/venda'
 import ListaItens, { ehEtiquetaBalanca } from './components/ListaItens'
+import UltimoItem from './components/UltimoItem'
+import BarraAtalhos from './components/BarraAtalhos'
 import QuantidadeItemModal from './components/QuantidadeItemModal'
 import DescontoItemModal from './components/DescontoItemModal'
 import ModalPagamento from './components/ModalPagamento'
@@ -273,11 +275,11 @@ export default function PDVPage() {
 
   // Os dois devolvem true quando concluíram. O erro (senha errada, sem permissão...) já aparece no
   // toast do interceptor do axios; o modal continua aberto para tentar de novo.
-  async function confirmarExclusao(login: string, senha: string): Promise<boolean> {
+  async function confirmarExclusao(senha: string): Promise<boolean> {
     if (!excluindo) return false
     setAutorizandoAdmin(true)
     try {
-      await removerItem(excluindo.id, { login, senha })
+      await removerItem(excluindo.id, { senha })
       toast.success('Item excluído.', { duration: 1500 })
       setExcluindo(null)
       return true
@@ -288,10 +290,10 @@ export default function PDVPage() {
     }
   }
 
-  async function confirmarCancelamento(login: string, senha: string, motivo?: string): Promise<boolean> {
+  async function confirmarCancelamento(senha: string, motivo?: string): Promise<boolean> {
     setAutorizandoAdmin(true)
     try {
-      await cancelarVenda({ login, senha, motivo })
+      await cancelarVenda({ senha, motivo })
       setCancelando(false)
       return true
     } catch {
@@ -421,7 +423,7 @@ export default function PDVPage() {
       {semCaixa && (
         <div className="flex-1 flex items-center justify-center">
           <div className={`bg-card border border-border shadow-flutuante rounded-2xl p-8 w-full text-center space-y-4 max-h-full overflow-y-auto
-                           ${contarAbertura ? 'max-w-lg' : 'max-w-sm'}`}>
+                           ${contarAbertura ? 'max-w-3xl' : 'max-w-sm'}`}>
             <LockOpen size={32} className="mx-auto text-warning-500" />
             <div>
               <h2 className="font-bold text-lg">Nenhum caixa aberto</h2>
@@ -513,6 +515,8 @@ export default function PDVPage() {
               className="flex-1 [&_input]:py-2.5 [&_input]:text-base"
             />
           </div>
+          <UltimoItem item={itemSelecionado} numero={itemSelecionado ? itens.indexOf(itemSelecionado) + 1 : undefined} />
+          <div className="px-4 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-widest text-gray-500 shrink-0">Cupom</div>
           <ListaItens
             itens={itens}
             onRemover={id => { const it = itens.find(i => i.id === id); if (it) setExcluindo(it) }}
@@ -523,15 +527,9 @@ export default function PDVPage() {
             onSelecionar={setSelecionadoId}
           />
           {/* Rodapé da lista */}
-          <div className="px-4 py-3 bg-card border-t border-border flex justify-between text-sm text-gray-500">
+          <div className="px-4 py-2 bg-card border-t border-border flex justify-between text-xs text-gray-500">
             <span>{venda?.itens?.length ?? 0} iten(s)</span>
-            {itens.length > 0 && (
-              <span className="text-xs text-gray-500">↑ ↓ escolher item · + − quantidade · F6 desconto · F7 qtd · F8 excluir</span>
-            )}
-            {(venda?.desconto ?? 0) > 0 && (
-              <span>Desconto: -{brl(venda?.desconto ?? 0)}</span>
-            )}
-            <span>Subtotal: <span className="text-gray-900 font-medium tabular-nums">{brl(venda?.subtotal ?? 0)}</span></span>
+            {itens.length > 0 && <span>↑ ↓ escolher item · + − quantidade</span>}
           </div>
         </div>
 
@@ -563,47 +561,45 @@ export default function PDVPage() {
             <span className="block text-xs font-normal opacity-70 mt-0.5">[F10]</span>
           </button>
 
-          <button
-            onClick={sairDaComandaAberta}
-            disabled={!venda || loading}
-            title="Deixa esta comanda em aberto (continua na aba) e volta à tela inicial do PDV"
-            className="py-3 rounded-xl text-sm font-medium bg-gray-100 hover:bg-gray-200 text-gray-700                       disabled:text-gray-400 disabled:cursor-not-allowed
-                       flex items-center justify-center gap-2 transition-colors"
-          >
-            <LogOut size={15} />
-            SAIR DA COMANDA
-            <span className="text-xs font-normal opacity-60">[F4]</span>
-          </button>
+          {/* Resumo da venda */}
+          <dl className="rounded-xl border border-border px-4 py-3 text-sm space-y-1.5">
+            <div className="flex justify-between"><dt className="text-gray-500">Itens</dt><dd className="tabular-nums font-medium">{venda?.itens?.length ?? 0}</dd></div>
+            <div className="flex justify-between"><dt className="text-gray-500">Subtotal</dt><dd className="tabular-nums font-medium">{brl(venda?.subtotal ?? 0)}</dd></div>
+            {(venda?.desconto ?? 0) > 0 && (
+              <div className="flex justify-between"><dt className="text-gray-500">Desconto</dt><dd className="tabular-nums font-medium text-warning-700">−{brl(venda?.desconto ?? 0)}</dd></div>
+            )}
+          </dl>
 
-          <button
-            onClick={() => setCancelando(true)}
-            disabled={!venda}
-            title="Pede a senha de um administrador"
-            className="py-3 rounded-xl text-sm font-medium
-                       border border-danger-200 bg-danger-50 hover:bg-danger-100 text-danger-700
-                       disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed
-                       flex items-center justify-center gap-2 transition-colors"
-          >
-            <Trash2 size={15} />
-            CANCELAR VENDA
-            <span className="text-xs font-normal opacity-60">[F9]</span>
-          </button>
-
-          <button
-            onClick={imprimirUltimo}
-            disabled={!ultimoCupom || !configCupom}
-            title={ultimoCupom ? `Venda #${ultimoCupom.venda.id}` : 'Nenhuma venda finalizada neste caixa ainda'}
-            className="w-full py-2.5 rounded-xl text-sm font-medium bg-gray-100 hover:bg-gray-200 text-gray-600                       disabled:text-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
-          >
-            <Printer size={15} />
-            Reimprimir último cupom
-          </button>
+          {/* Cliente da comanda */}
+          <div className="rounded-xl border border-border px-4 py-3 text-sm">
+            <p className="text-[11px] uppercase tracking-wide text-gray-500">Cliente</p>
+            <p className="font-medium text-gray-900 truncate">{venda?.cliente?.nome ?? 'Consumidor final'}</p>
+          </div>
 
           <div className="mt-auto text-center text-xs text-gray-400">
             Leitor de barcode ativo
           </div>
         </div>
       </div>
+      )}
+
+      {/* ── Atalhos do caixa (clicáveis; as teclas continuam valendo) ── */}
+      {!semCaixa && (
+        <BarraAtalhos atalhos={[
+          { tecla: 'F2', rotulo: 'Buscar', onClick: () => buscaRef.current?.focus() },
+          { tecla: 'F6', rotulo: 'Desconto', desabilitado: !itemSelecionado || !podeDescontar,
+            onClick: () => itemSelecionado && setDescontando(itemSelecionado) },
+          { tecla: 'F7', rotulo: 'Quantidade', desabilitado: !itemSelecionado,
+            onClick: () => {
+              if (!itemSelecionado) return
+              if (ehEtiquetaBalanca(itemSelecionado)) toast.error('O peso vem da etiqueta da balança.')
+              else setQuantificando(itemSelecionado)
+            } },
+          { tecla: 'F8', rotulo: 'Excluir item', desabilitado: !itemSelecionado, onClick: () => itemSelecionado && setExcluindo(itemSelecionado) },
+          { tecla: 'F4', rotulo: 'Sair da comanda', desabilitado: !venda || loading, onClick: sairDaComandaAberta, icone: <LogOut size={12} /> },
+          { tecla: 'F9', rotulo: 'Cancelar venda', desabilitado: !venda, perigo: true, onClick: () => setCancelando(true), icone: <Trash2 size={12} /> },
+          { tecla: '', rotulo: 'Reimprimir último', desabilitado: !ultimoCupom || !configCupom, onClick: imprimirUltimo, icone: <Printer size={12} /> },
+        ]} />
       )}
 
       {/* Pergunta de impressão ao finalizar a venda */}
@@ -649,7 +645,7 @@ export default function PDVPage() {
         <AutorizacaoAdminModal
           titulo="Cancelar esta venda?"
           subtitulo={`Venda #${venda.id} · ${venda.itens?.length ?? 0} item(ns) · ${brl(venda.total ?? 0)}`}
-          descricao="Não dá para desfazer. Um administrador precisa informar o login e a senha para autorizar o cancelamento."
+          descricao="Não dá para desfazer. Um administrador precisa digitar a senha para autorizar o cancelamento."
           confirmarLabel="Cancelar venda"
           pedirMotivo
           enviando={autorizandoAdmin}
@@ -779,7 +775,7 @@ export default function PDVPage() {
       {showFechar && resumoFechar && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className={`bg-card border border-border shadow-flutuante rounded-2xl w-full p-6 space-y-4 max-h-[92vh] overflow-y-auto
-                           ${contarFechamento ? 'max-w-lg' : 'max-w-sm'}`}>
+                           ${contarFechamento ? 'max-w-3xl' : 'max-w-sm'}`}>
             <h2 className="text-lg font-bold flex items-center gap-2">
               Fechar Caixa
             </h2>

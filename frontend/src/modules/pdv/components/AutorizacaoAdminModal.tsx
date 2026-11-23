@@ -13,12 +13,12 @@ interface Props {
   pedirMotivo?: boolean
   enviando?: boolean
   /** Devolve true se a operação foi concluída; false mantém o modal aberto (senha errada etc.). */
-  onAutorizar: (login: string, senha: string, motivo?: string) => Promise<boolean>
+  onAutorizar: (senha: string, motivo?: string) => Promise<boolean>
   onCancelar: () => void
 }
 
 /**
- * Pede login e senha de um administrador para liberar uma operação sensível do PDV
+ * Pede a senha de um administrador (só a senha: o servidor descobre quem é) para liberar uma operação sensível do PDV
  * (excluir item, cancelar venda). Tema claro, igual ao resto do sistema; só a borda é vermelha
  * para sinalizar a ação sensível. A credencial só trafega na chamada e é conferida no servidor.
  * Serve também de confirmação: a operação só acontece depois de autorizada.
@@ -26,15 +26,14 @@ interface Props {
 export default function AutorizacaoAdminModal({
   titulo, subtitulo, descricao, confirmarLabel, pedirMotivo, enviando, onAutorizar, onCancelar,
 }: Props) {
-  const [login, setLogin] = useState('')
   const [senha, setSenha] = useState('')
   const [motivo, setMotivo] = useState('')
-  const pronto = login.trim() !== '' && senha !== '' && !enviando
+  const pronto = senha !== '' && !enviando
 
   async function enviar(e: React.FormEvent) {
     e.preventDefault()
     if (!pronto) return
-    const ok = await onAutorizar(login.trim(), senha, pedirMotivo ? motivo.trim() || undefined : undefined)
+    const ok = await onAutorizar(senha, pedirMotivo ? motivo.trim() || undefined : undefined)
     if (!ok) setSenha('')   // erro: limpa só a senha e deixa tentar de novo
   }
 
@@ -62,14 +61,11 @@ export default function AutorizacaoAdminModal({
 
         <div className="px-4 sm:px-6 py-5 space-y-4 overflow-y-auto min-h-0 flex-1">
           <p className="text-sm text-gray-600">
-            {descricao ?? 'Esta ação precisa da autorização de um administrador. Informe o login e a senha dele para continuar.'}
+            {descricao ?? 'Esta ação precisa da autorização de um administrador. Digite a senha de um administrador para continuar.'}
           </p>
-          <Field label="Login do administrador">
-            <input className={baseInputClass} value={login} onChange={e => setLogin(e.target.value)}
-              autoComplete="off" autoFocus maxLength={50} />
-          </Field>
-          <Field label="Senha">
-            <PasswordInput value={senha} onChange={e => setSenha(e.target.value)} autoComplete="new-password" maxLength={100} />
+          <Field label="Senha do administrador">
+            <PasswordInput value={senha} onChange={e => setSenha(e.target.value)}
+              autoComplete="new-password" autoFocus maxLength={100} />
           </Field>
           {pedirMotivo && (
             <Field label="Motivo (opcional)">

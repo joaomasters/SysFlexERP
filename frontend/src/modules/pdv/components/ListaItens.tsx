@@ -28,7 +28,7 @@ export default function ListaItens({ itens, onRemover, onDesconto, onQuantidade,
   if (itens.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">
-        Bipe o código de barras ou busque o produto acima (F2)
+        Nenhum item lançado nesta comanda
       </div>
     )
   }
