@@ -260,11 +260,11 @@ export default function ProdutosPage() {
                   )}
                   <TD>
                     <div className="flex items-center gap-1 justify-end">
-                      <Button variant="ghost" size="sm" aria-label="Editar produto" onClick={() => navigate(`/produtos/${p.id}/editar`)}>
-                        <Pencil size={14} />
+                      <Button variant="secondary" size="sm" aria-label="Editar produto" onClick={() => navigate(`/produtos/${p.id}/editar`)}>
+                        Editar 
                       </Button>
-                      <Button variant="ghost" size="sm" aria-label="Inativar produto" className="hover:!text-danger-600" onClick={() => setConfirmando(p)}>
-                        <Trash2 size={14} />
+                      <Button variant="outline-danger" size="sm" aria-label="Inativar produto" className="hover:!text-danger-600" onClick={() => setConfirmando(p)}>
+                        Inativar
                       </Button>
                     </div>
                   </TD>

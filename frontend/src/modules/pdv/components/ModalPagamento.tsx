@@ -412,7 +412,7 @@ export default function ModalPagamento({ totalVenda, vendaId, onConfirmar, onCan
                   )}
                   {metodo === 'DINHEIRO' && valor > restante + 0.009 && (
                     <div className="flex items-center justify-between rounded-xl border border-warning-300 bg-warning-100 px-4 py-3">
-                      <span className="text-sm text-warning-200">Troco para o cliente</span>
+                      <span className="text-sm font-semibold text-warning-800">Troco para o cliente</span>
                       <span className="text-2xl font-black tabular-nums text-warning-700">{brl(valor - restante)}</span>
                     </div>
                   )}

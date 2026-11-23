@@ -5,7 +5,7 @@ import { api } from '@/shared/api/axios'
 import { usePermissao } from '@/shared/hooks/usePermissao'
 import toast from 'react-hot-toast'
 import type { Perfil, ModuloInfo } from '@/types/acesso'
-import { PageHeader, Card, Button, Field, baseInputClass } from '@/shared/components/ui'
+import { PageHeader, Card, Button, Field, FormularioPagina, baseInputClass } from '@/shared/components/ui'
 
 type Acao = 'podeVer' | 'podeCriar' | 'podeEditar' | 'podeExcluir'
 
@@ -52,6 +52,10 @@ export default function PerfisPage() {
     })
     setMatriz(nova)
   }, [perfilSelId, perfis, modulos])
+
+  function fecharNovo() {
+    setNovoNome(''); setNovaDescricao(''); setShowNovo(false)
+  }
 
   const criarPerfil = useMutation({
     mutationFn: () => api.post('/perfis', { nome: novoNome.trim().toUpperCase(), descricao: novaDescricao }),
@@ -116,41 +120,57 @@ export default function PerfisPage() {
     )
   }
 
+  // Formulário em tela cheia (padrão das demais telas): enquanto aberto, substitui a listagem.
+  if (showNovo) {
+    const podeCriar = novoNome.trim() !== '' && !criarPerfil.isPending
+    return (
+      <FormularioPagina
+        title="Novo Perfil"
+        subtitle="Crie um perfil e depois defina o que ele pode ver e fazer em cada módulo"
+        onClose={fecharNovo}
+        actions={
+          <Button variant="primary" disabled={!novoNome.trim()} loading={criarPerfil.isPending}
+            onClick={() => criarPerfil.mutate()}>
+            Criar Perfil
+          </Button>
+        }
+      >
+        <Field label="Nome *">
+          <input
+            autoFocus
+            value={novoNome}
+            maxLength={50}
+            onChange={e => setNovoNome(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && podeCriar) criarPerfil.mutate() }}
+            placeholder="Ex: FISCAL"
+            className={`${baseInputClass} uppercase`}
+          />
+        </Field>
+        <Field label="Descrição">
+          <input
+            value={novaDescricao}
+            maxLength={200}
+            onChange={e => setNovaDescricao(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && podeCriar) criarPerfil.mutate() }}
+            placeholder="Para que serve esse perfil"
+            className={baseInputClass}
+          />
+        </Field>
+      </FormularioPagina>
+    )
+  }
+
   return (
     <div className="p-4 sm:p-6">
       <PageHeader
         title="Perfis de Acesso"
         subtitle="Defina o que cada perfil pode ver e fazer em cada módulo"
         actions={
-          <Button variant="primary" onClick={() => setShowNovo(v => !v)}>
+          <Button variant="primary" onClick={() => setShowNovo(true)}>
             Novo Perfil
           </Button>
         }
       />
-
-      {showNovo && (
-        <Card className="mb-5 flex gap-3 items-end max-w-2xl">
-          <Field label="Nome *" className="flex-1">
-            <input
-              value={novoNome}
-              onChange={e => setNovoNome(e.target.value)}
-              placeholder="Ex: FISCAL"
-              className={`${baseInputClass} uppercase`}
-            />
-          </Field>
-          <Field label="Descrição" className="flex-[2]">
-            <input
-              value={novaDescricao}
-              onChange={e => setNovaDescricao(e.target.value)}
-              placeholder="Para que serve esse perfil"
-              className={baseInputClass}
-            />
-          </Field>
-          <Button variant="success" disabled={!novoNome.trim()} loading={criarPerfil.isPending} onClick={() => criarPerfil.mutate()}>
-            Criar
-          </Button>
-        </Card>
-      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
         {/* Lista de perfis */}

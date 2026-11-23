@@ -7,7 +7,7 @@ import { formatPercent } from '@/shared/utils/mask'
 import toast from 'react-hot-toast'
 import type { Usuario, Perfil } from '@/types/acesso'
 import {
-  PageHeader, Card, Modal, Button, StatusBadge, Field, PasswordInput, baseInputClass, ConfirmDialog,
+  PageHeader, Card, Modal, FormularioPagina, Button, StatusBadge, Field, PasswordInput, baseInputClass, ConfirmDialog,
   Table, THead, TH, TBody, TR, TD, EmptyState, Paginacao,
 } from '@/shared/components/ui'
 import { usePaginacao } from '@/shared/hooks/usePaginacao'
@@ -41,6 +41,10 @@ export default function UsuariosPage() {
     queryFn: () => api.get('/perfis').then(r => r.data),
     enabled: podeVer('USUARIOS'),
   })
+
+  function fecharNovo() {
+    setNome(''); setLogin(''); setSenha(''); setPerfilId(''); setShowNovo(false)
+  }
 
   const criar = useMutation({
     mutationFn: () => api.post('/usuarios', { nome, login, senha, perfilId: Number(perfilId) }),
@@ -105,29 +109,28 @@ export default function UsuariosPage() {
     )
   }
 
-  return (
-    <div className="p-4 sm:p-6">
-      <PageHeader
-        title="Usuários"
-        subtitle="Contas de acesso ao sistema e seus perfis"
+  // Formulário em tela cheia (padrão das demais telas): enquanto aberto, substitui a listagem.
+  if (showNovo && podeCriar('USUARIOS')) {
+    const pronto = !!nome.trim() && !!login.trim() && senha.length >= 8 && !!perfilId
+    return (
+      <FormularioPagina
+        title="Novo Usuário"
+        subtitle="Crie uma conta de acesso ao sistema e escolha o perfil dela"
+        onClose={fecharNovo}
         actions={
-          podeCriar('USUARIOS') && (
-            <Button variant="primary" onClick={() => setShowNovo(v => !v)}>
-              Novo Usuário
-            </Button>
-          )
+          <Button variant="primary" disabled={!pronto} loading={criar.isPending} onClick={() => criar.mutate()}>
+            Criar Usuário
+          </Button>
         }
-      />
-
-      {showNovo && podeCriar('USUARIOS') && (
-        <Card className="mb-5 grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
-          <Field label="Nome *">
-            <input value={nome} onChange={e => setNome(e.target.value)} className={baseInputClass} />
-          </Field>
+      >
+        <Field label="Nome *">
+          <input autoFocus value={nome} maxLength={120} onChange={e => setNome(e.target.value)} className={baseInputClass} />
+        </Field>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <Field label="Login *">
-            <input value={login} onChange={e => setLogin(e.target.value)} className={baseInputClass} />
+            <input value={login} maxLength={50} autoComplete="off" onChange={e => setLogin(e.target.value)} className={baseInputClass} />
           </Field>
-          <Field label="Senha * (mín. 8)">
+          <Field label="Senha *" hint="Mínimo 8 caracteres">
             <PasswordInput value={senha} onChange={e => setSenha(e.target.value)} autoComplete="new-password" />
           </Field>
           <Field label="Perfil *">
@@ -136,16 +139,24 @@ export default function UsuariosPage() {
               {perfis.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
             </select>
           </Field>
-          <Button
-            variant="success"
-            disabled={!nome || !login || senha.length < 8 || !perfilId}
-            loading={criar.isPending}
-            onClick={() => criar.mutate()}
-          >
-            Criar
-          </Button>
-        </Card>
-      )}
+        </div>
+      </FormularioPagina>
+    )
+  }
+
+  return (
+    <div className="p-4 sm:p-6">
+      <PageHeader
+        title="Usuários"
+        subtitle="Contas de acesso ao sistema e seus perfis"
+        actions={
+          podeCriar('USUARIOS') && (
+            <Button variant="primary" onClick={() => setShowNovo(true)}>
+              Novo Usuário
+            </Button>
+          )
+        }
+      />
 
       <Card padding="none" className="overflow-hidden">
         <Table>

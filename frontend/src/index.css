@@ -27,6 +27,13 @@
     --topbar-soft: 213 50% 22%;
     --topbar-foreground: 0 0% 100%;
 
+    /* Barra lateral do sistema: cinza frio claro; item ativo em "pílula" branca */
+    --sidebar: 210 22% 93%;
+    --sidebar-foreground: 213 40% 22%;
+    --sidebar-ativo: 0 0% 100%;
+    --sidebar-hover: 210 22% 88%;
+    --sidebar-borda: 210 14% 50%;
+
     /* Séries dos gráficos (espelhadas em src/config/tema.ts, para o Recharts) */
     --chart-faturamento: #0f6cbd;
     --chart-custos: #ca5010;
