@@ -36,7 +36,7 @@ class ProdutoServiceEanTest {
     @InjectMocks ProdutoService service;
 
     private Produto produto(Long id, String ean, boolean ativo) {
-        return Produto.builder().id(id)
+        return Produto.builder().ncm("02013000").cfop("5102").origem("0").csosn("102").id(id)
                 .nome("Kurupi").unidadeMedida("UN").tipoProduto("BEBIDA")
                 .precoVenda(new BigDecimal("24.98")).codigoInterno("P000001")
                 .ean13(ean).ativo(ativo)

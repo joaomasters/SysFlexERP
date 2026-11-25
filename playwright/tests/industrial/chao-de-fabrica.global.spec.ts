@@ -1,5 +1,6 @@
 import { test, expect } from '../../fixtures'
 import type { APIRequestContext } from '@playwright/test'
+import { FISCAL_PRODUTO } from '../../support/produtoFiscal'
 
 /*
  Chão de fábrica (sprint 3): o operador inicia, pausa com motivo, retoma e finaliza pela tela de tablet,
@@ -42,8 +43,8 @@ test.describe('Chão de fábrica', () => {
     const c = await post(request, '/api/industrial/centros', { setorId: s.id, codigo: `C${sufixo}`, nome: `Prensa ${sufixo}` })
     const tipo = await post(request, '/api/industrial/tipos-maquina', { codigo: `PR${sufixo}`, nome: `Prensa ${sufixo}`, categoria: 'PRENSA_EXTRUSAO', parametros: [] })
     await post(request, '/api/industrial/maquinas', { codigo: `M${sufixo}`, descricao: 'Prensa 1800 t', tipoMaquinaId: tipo.id, centroTrabalhoId: c.id, parametros: [] })
-    const perfil = await post(request, '/api/estoque/produtos', { nome: `Perfil Chão ${sufixo}`, unidadeMedida: 'KG', tipoProduto: 'INDUSTRIALIZADO', precoVenda: 10 })
-    const tarugo = await post(request, '/api/estoque/produtos', { nome: `Tarugo Chão ${sufixo}`, unidadeMedida: 'KG', tipoProduto: 'INSUMO', precoVenda: 10 })
+    const perfil = await post(request, '/api/estoque/produtos', { ...FISCAL_PRODUTO, nome: `PERFIL CHÃO ${sufixo}`, unidadeMedida: 'KG', tipoProduto: 'INDUSTRIALIZADO', precoVenda: 10 })
+    const tarugo = await post(request, '/api/estoque/produtos', { ...FISCAL_PRODUTO, nome: `TARUGO CHÃO ${sufixo}`, unidadeMedida: 'KG', tipoProduto: 'INSUMO', precoVenda: 10 })
     const bom = await post(request, '/api/industrial/engenharia/boms', { produtoId: perfil.id, quantidadeBase: 1, itens: [{ componenteId: tarugo.id, quantidade: 1 }] })
     await post(request, `/api/industrial/engenharia/boms/${bom.id}/ativar`, {})
     const rot = await post(request, '/api/industrial/engenharia/roteiros', {
@@ -65,7 +66,7 @@ test.describe('Chão de fábrica', () => {
     await page.getByLabel('Centro de trabalho').selectOption({ label: `C${sufixo} · Prensa ${sufixo}` })
 
     const cartao = page.locator('div', { hasText: numeroOP }).filter({ has: page.getByRole('button', { name: 'Iniciar' }) }).last()
-    await expect(cartao).toContainText(`Perfil Chão ${sufixo}`)
+    await expect(cartao).toContainText(`PERFIL CHÃO ${sufixo}`)
     await cartao.getByRole('button', { name: 'Iniciar' }).click()
     // a única máquina livre do tipo já vem escolhida
     await page.getByRole('button', { name: 'Iniciar' }).last().click()

@@ -4,13 +4,14 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Search, X, AlertTriangle, Pencil, Trash2, ChevronLeft, ChevronRight,
-  ArrowUp, ArrowDown, ArrowUpDown, Printer,
+  ArrowUp, ArrowDown, ArrowUpDown, Printer, FileSpreadsheet,
 } from 'lucide-react'
 import { api } from '@/shared/api/axios'
 import toast from 'react-hot-toast'
 import { nomeTipoProduto } from '@/types/produto'
 import type { Produto } from '@/types/produto'
 import RelatorioEstoqueModal from './components/RelatorioEstoqueModal'
+import PlanilhaFiscalModal from './components/PlanilhaFiscalModal'
 import { usePermissao } from '@/shared/hooks/usePermissao'
 import { useBarcodeScan } from '@/shared/hooks/useBarcodeScan'
 import { formatBRL, formatQuantidade } from '@/shared/utils/mask'
@@ -73,12 +74,13 @@ function THOrdenavel({ campo, ordem, onOrdenar, align, children }: {
 export default function ProdutosPage() {
   const qc       = useQueryClient()
   const navigate = useNavigate()
-  const { podeVerIdentificacao } = usePermissao()
+  const { podeVerIdentificacao, isSuperAdmin } = usePermissao()
   const [busca, setBusca]   = useState('')
   const [termo, setTermo]   = useState('')
   const [ordem, setOrdem]   = useState<Ordem>({ campo: 'nome', direcao: 'asc' })
   const [confirmando, setConfirmando] = useState<Produto | null>(null)
   const [showRelatorio, setShowRelatorio] = useState(false)
+  const [showPlanilhaFiscal, setShowPlanilhaFiscal] = useState(false)
   const buscaRef = useRef<HTMLInputElement>(null)
 
   // Só filtra a lista quando o usuário para de digitar.
@@ -103,7 +105,7 @@ export default function ProdutosPage() {
 
   // Leitor com o foco fora do campo de busca (com o foco nele, os dígitos entram direto)
   useBarcodeScan({
-    enabled: !showRelatorio && confirmando === null,
+    enabled: !showRelatorio && !showPlanilhaFiscal && confirmando === null,
     onScan: codigo => {
       const el = document.activeElement
       if (el && ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return
@@ -143,6 +145,11 @@ export default function ProdutosPage() {
         subtitle="Cadastro e gestão de estoque"
         actions={
           <>
+            {isSuperAdmin && (
+              <Button variant="secondary" onClick={() => setShowPlanilhaFiscal(true)}>
+                <FileSpreadsheet size={16} /> Planilha fiscal
+              </Button>
+            )}
             <Button variant="secondary" onClick={() => setShowRelatorio(true)}>
               <Printer size={16} /> Relatório de Estoque
             </Button>
@@ -293,6 +300,7 @@ export default function ProdutosPage() {
       )}
 
       {showRelatorio && <RelatorioEstoqueModal onClose={() => setShowRelatorio(false)} />}
+      {showPlanilhaFiscal && <PlanilhaFiscalModal produtos={produtos} onClose={() => setShowPlanilhaFiscal(false)} />}
     </div>
   )
 }
