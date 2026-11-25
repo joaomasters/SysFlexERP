@@ -18,6 +18,7 @@ test.describe('Cadastro de produto: estoque máximo e informações fiscais', ()
         await page.locator('#produto-ean13').fill('789' + faker.string.numeric(10))
         await page.locator('#produto-nome').fill(nome)
         await page.locator('#produto-precoVenda').fill('5990')
+        await page.locator('#produto-estoqueAtual').fill('0')
 
         await page.getByRole('tab', { name: 'Informações Fiscais' }).click()
         await page.locator('#produto-ncm').fill('02013000')

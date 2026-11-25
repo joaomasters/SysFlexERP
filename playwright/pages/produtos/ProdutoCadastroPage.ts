@@ -104,7 +104,9 @@ export class ProdutoCadastroPage {
         if (dados.pluBalanca) await this.pluBalanca.fill(dados.pluBalanca)
         if (dados.precoCusto) await this.precoCusto.fill(dados.precoCusto)
         if (dados.estoqueMinimo) await this.estoqueMinimo.fill(dados.estoqueMinimo)
+        // Estoque inicial é obrigatório no cadastro novo (só editável lá): padrão 0
         if (dados.estoqueAtual) await this.estoqueAtual.fill(dados.estoqueAtual)
+        else if (await this.estoqueAtual.isEditable()) await this.estoqueAtual.fill('0')
         if (dados.marca) await this.marca.fill(dados.marca)
         if (dados.validadeDias) await this.validadeDias.fill(dados.validadeDias)
         if (!dados.semFiscal) {

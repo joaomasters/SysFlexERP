@@ -6,7 +6,7 @@ import {
   CreditCard, BarChart2, Scale, AlertTriangle,
   ClipboardList, TrendingDown, ArrowDownCircle, BarChart, LogOut,
   Truck, FileText, Users, ShieldCheck, Home, Contact,
-  ShieldAlert, CalendarClock, Percent, Building2, Store, Printer, Wrench, FileKey, Factory, Layers, ClipboardCheck, HardHat, Flame, BadgeCheck, PackageCheck, BarChart3
+  ShieldAlert, CalendarClock, Percent, Building2, Store, Printer, Wrench, Database, FileKey, Factory, Layers, ClipboardCheck, HardHat, Flame, BadgeCheck, PackageCheck, BarChart3
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import clsx from 'clsx'
@@ -67,6 +67,7 @@ const nav = [
   { label: 'Comprovante', href: '/acesso/comprovante', icon: Printer, modulo: 'COMPROVANTE' },
   // Sem Modulo: só o SUPER_ADMIN de cada empresa (limpar cache etc.)
   { label: 'Manutenção', href: '/acesso/manutencao', icon: Wrench, somenteSuperAdmin: true },
+  { label: 'Consulta SQL', href: '/acesso/consulta-sql', icon: Database, somenteSuperAdmin: true },
   // Sem Modulo no backend de propósito: só o super admin da EMPRESA PRINCIPAL
   // gerencia empresas (o SUPER_ADMIN de cada empresa cliente não vê este item).
   { label: 'Empresas', href: '/acesso/empresas', icon: Building2, somentePlataforma: true },
