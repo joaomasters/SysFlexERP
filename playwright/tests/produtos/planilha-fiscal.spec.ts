@@ -30,6 +30,7 @@ test.describe('Planilha fiscal de produtos', () => {
         await expect(page.locator('input[name="nome"]')).toHaveValue('PICANHA MATURADA')
         await page.locator('input[name="ean13"]').fill('789' + faker.string.numeric(10))
         await page.locator('input[name="precoVenda"]').fill('4990')
+        await page.locator('input[name="estoqueAtual"]').fill('0')
         await page.getByRole('button', { name: 'Salvar Produto' }).click()
         await expect(page.getByRole('tab', { name: /Informações Fiscais/ })).toHaveAttribute('aria-selected', 'true')
         await expect(page.getByText('Informe o NCM.')).toBeVisible()
