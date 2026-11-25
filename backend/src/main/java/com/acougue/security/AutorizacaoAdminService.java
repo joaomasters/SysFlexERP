@@ -53,8 +53,10 @@ public class AutorizacaoAdminService {
      *                           ou bloqueado por tentativas demais
      */
     public Usuario validar(Long operadorId, String login, String senha) {
+        boolean semLogin = login == null || login.isBlank();
         String empresa = "autorizacao:" + TenantContext.get();
-        String chaveTentativas = operadorId + ">" + (login == null ? "" : login.trim().toLowerCase(Locale.ROOT));
+        // Sem login (só a senha) o controle de tentativas vale para o operador como um todo.
+        String chaveTentativas = operadorId + ">" + (semLogin ? "*" : login.trim().toLowerCase(Locale.ROOT));
 
         long minutos = limitador.minutosBloqueado(empresa, chaveTentativas);
         if (minutos > 0) {
@@ -62,8 +64,9 @@ public class AutorizacaoAdminService {
                     + minutos + " minuto(s).");
         }
 
-        Usuario usuario = (login == null || login.isBlank())
-                ? null : usuarioRepo.findByLogin(login.trim()).orElse(null);
+        if (semLogin) return validarSoPelaSenha(empresa, chaveTentativas, senha);
+
+        Usuario usuario = usuarioRepo.findByLogin(login.trim()).orElse(null);
 
         // Mesma mensagem para "não existe", "inativo" e "senha errada", e o BCrypt roda nos três
         // casos — para ninguém descobrir quais logins existem pela resposta ou pelo tempo.
@@ -80,6 +83,34 @@ public class AutorizacaoAdminService {
 
         limitador.registrarSucesso(empresa, chaveTentativas);
         return usuario;
+    }
+
+    /**
+     * Autorização rápida de balcão: o administrador digita só a senha e o sistema procura, entre
+     * os administradores ativos, quem tem essa senha. Se mais de um tiver a mesma senha, vale o
+     * primeiro encontrado. O BCrypt roda contra todos os administradores (ou contra o hash falso,
+     * se não houver nenhum) para o tempo de resposta não revelar nada. Errar conta no mesmo
+     * limitador de tentativas — como não há login para "travar", o bloqueio é do operador.
+     */
+    private Usuario validarSoPelaSenha(String empresa, String chaveTentativas, String senha) {
+        String tentativa = senha == null ? "" : senha;
+        Usuario autorizador = null;
+        boolean algumAdmin = false;
+        for (Usuario u : usuarioRepo.findByAtivoTrue()) {
+            if (!ehAdministrador(u)) continue;
+            algumAdmin = true;
+            if (passwordEncoder.matches(tentativa, u.getSenhaHash()) && autorizador == null) {
+                autorizador = u;
+            }
+        }
+        if (!algumAdmin) passwordEncoder.matches(tentativa, hashFalso);
+
+        if (autorizador == null || tentativa.isEmpty()) {
+            limitador.registrarFalha(empresa, chaveTentativas);
+            throw new BusinessException("Senha de administrador inválida.");
+        }
+        limitador.registrarSucesso(empresa, chaveTentativas);
+        return autorizador;
     }
 
     private boolean ehAdministrador(Usuario usuario) {

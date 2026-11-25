@@ -76,7 +76,7 @@ public class UsuarioService {
                     "Este é o único usuário SUPER_ADMIN ativo. Não é possível remover esse perfil dele.");
         }
 
-        usuario.setNome(dto.getNome());
+        usuario.setNome(dto.getNome().trim());
         usuario.setPerfil(novoPerfil);
         return usuarioRepo.save(usuario);
     }

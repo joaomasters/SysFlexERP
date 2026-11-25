@@ -7,6 +7,8 @@ import com.acougue.modules.estoque.EstoqueService;
 import com.acougue.modules.pagamento.TransacaoTerminalService;
 import com.acougue.modules.pdv.dto.*;
 import com.acougue.repository.*;
+import com.acougue.security.AutorizacaoAdminService;
+import com.acougue.security.auditoria.AuditoriaService;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -41,6 +43,8 @@ class PdvServiceTest {
     @Mock ApplicationEventPublisher  eventPublisher;
     @Mock CaixaService               caixaService;
     @Mock TransacaoTerminalService   transacaoTerminalService;
+    @Mock AutorizacaoAdminService    autorizacaoAdminService;
+    @Mock AuditoriaService           auditoriaService;
 
     @InjectMocks PdvService service;
 
@@ -61,7 +65,7 @@ class PdvServiceTest {
                 .estoqueAtual(new BigDecimal("20.000")).build();
     }
 
-    
+
 
     @Test
     @DisplayName("abrirCaixa: cria caixa com status ABERTO")
@@ -69,7 +73,7 @@ class PdvServiceTest {
         when(caixaRepo.findFirstByOperadorIdAndStatus(10L, "ABERTO")).thenReturn(Optional.empty());
         when(caixaRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        Caixa resultado = service.abrirCaixa(10L, new BigDecimal("200.00"));
+        Caixa resultado = service.abrirCaixa(10L, new BigDecimal("200.00"), null);
 
         assertThat(resultado.getStatus()).isEqualTo("ABERTO");
         assertThat(resultado.getOperadorId()).isEqualTo(10L);
@@ -83,14 +87,14 @@ class PdvServiceTest {
         when(caixaRepo.findFirstByOperadorIdAndStatus(10L, "ABERTO"))
                 .thenReturn(Optional.of(caixaAberto));
 
-        assertThatThrownBy(() -> service.abrirCaixa(10L, new BigDecimal("200.00")))
+        assertThatThrownBy(() -> service.abrirCaixa(10L, new BigDecimal("200.00"), null))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("caixa aberto");
 
         verify(caixaRepo, never()).save(any());
     }
 
-    
+
 
     @Test
     @DisplayName("fecharCaixa: muda status para FECHADO")
@@ -100,7 +104,7 @@ class PdvServiceTest {
         when(caixaService.calcularFechamento(1L)).thenReturn(
                 FechamentoCaixaDetalhadoDTO.builder().saldoEsperado(new BigDecimal("350.00")).build());
 
-        Caixa resultado = service.fecharCaixa(1L, new BigDecimal("350.00"));
+        Caixa resultado = service.fecharCaixa(1L, new BigDecimal("350.00"), null);
 
         assertThat(resultado.getStatus()).isEqualTo("FECHADO");
         assertThat(resultado.getValorFechamentoInformado()).isEqualByComparingTo("350.00");
@@ -112,7 +116,7 @@ class PdvServiceTest {
         caixaAberto.setStatus("FECHADO");
         when(caixaRepo.findById(1L)).thenReturn(Optional.of(caixaAberto));
 
-        assertThatThrownBy(() -> service.fecharCaixa(1L, new BigDecimal("100.00")))
+        assertThatThrownBy(() -> service.fecharCaixa(1L, new BigDecimal("100.00"), null))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("fechado");
     }
@@ -122,12 +126,12 @@ class PdvServiceTest {
     void fecharCaixa_lancaExcecao_caixaNaoEncontrado() {
         when(caixaRepo.findById(99L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.fecharCaixa(99L, BigDecimal.ZERO))
+        assertThatThrownBy(() -> service.fecharCaixa(99L, BigDecimal.ZERO, null))
                 .isInstanceOf(EntityNotFoundException.class)
                 .hasMessageContaining("99");
     }
 
-    
+
 
     @Test
     @DisplayName("abrirVenda: cria venda com status ABERTA vinculada ao caixa")
@@ -162,7 +166,7 @@ class PdvServiceTest {
                 .hasMessageContaining("Caixa está fechado");
     }
 
-    
+
 
     @Test
     @DisplayName("fecharVenda: calcula troco corretamente")
@@ -274,7 +278,7 @@ class PdvServiceTest {
 
         PagamentoDTO pag = new PagamentoDTO();
         pag.setFormaPagamento("DINHEIRO");
-        pag.setValor(new BigDecimal("80.00")); 
+        pag.setValor(new BigDecimal("80.00"));
         dto.setPagamentos(List.of(pag));
 
         when(vendaRepo.findById(1L)).thenReturn(Optional.of(venda));
@@ -289,7 +293,7 @@ class PdvServiceTest {
     void fecharVenda_fiado_semCliente_lancaExcecao() {
         Venda venda = Venda.builder()
                 .id(1L).status("ABERTA").caixa(caixaAberto)
-                .cliente(null) 
+                .cliente(null)
                 .total(new BigDecimal("50.00")).desconto(BigDecimal.ZERO).build();
 
         FecharVendaDTO dto = new FecharVendaDTO();
@@ -301,8 +305,8 @@ class PdvServiceTest {
         dto.setPagamentos(List.of(pag));
 
         when(vendaRepo.findById(1L)).thenReturn(Optional.of(venda));
-        
-        
+
+
 
         assertThatThrownBy(() -> service.fecharVenda(dto))
                 .isInstanceOf(BusinessException.class)
@@ -404,7 +408,7 @@ class PdvServiceTest {
         verify(pagRepo, never()).save(any());
     }
 
-    
+
 
     @Test
     @DisplayName("cancelarVenda: muda status para CANCELADA")
@@ -414,10 +418,29 @@ class PdvServiceTest {
 
         when(vendaRepo.findById(1L)).thenReturn(Optional.of(venda));
         when(vendaRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(autorizacaoAdminService.validar(any(), eq("admin"), eq("segredo")))
+                .thenReturn(Usuario.builder().nome("Admin").login("admin").build());
 
-        Venda resultado = service.cancelarVenda(1L);
+        Venda resultado = service.cancelarVenda(1L, new AutorizacaoOperacaoDTO("admin", "segredo", "cliente desistiu"));
 
         assertThat(resultado.getStatus()).isEqualTo("CANCELADA");
+        assertThat(resultado.getObservacao()).contains("cliente desistiu");
+        verify(auditoriaService).registrar(eq("PDV"), eq("EXCLUIR"), contains("autorizado por Admin"));
+    }
+
+    @Test
+    @DisplayName("cancelarVenda: credencial de administrador inválida não cancela a venda")
+    void cancelarVenda_semAutorizacaoValida_naoCancela() {
+        Venda venda = Venda.builder().id(1L).status("ABERTA").caixa(caixaAberto).build();
+        when(vendaRepo.findById(1L)).thenReturn(Optional.of(venda));
+        when(autorizacaoAdminService.validar(any(), any(), any()))
+                .thenThrow(new BusinessException("Login ou senha de administrador inválidos."));
+
+        assertThatThrownBy(() -> service.cancelarVenda(1L, new AutorizacaoOperacaoDTO("x", "y", null)))
+                .isInstanceOf(BusinessException.class);
+
+        assertThat(venda.getStatus()).isEqualTo("ABERTA");
+        verify(vendaRepo, never()).save(any());
     }
 
     @Test
@@ -428,12 +451,12 @@ class PdvServiceTest {
 
         when(vendaRepo.findById(1L)).thenReturn(Optional.of(venda));
 
-        assertThatThrownBy(() -> service.cancelarVenda(1L))
+        assertThatThrownBy(() -> service.cancelarVenda(1L, new AutorizacaoOperacaoDTO("admin", "segredo", null)))
                 .isInstanceOf(EntityNotFoundException.class)
                 .hasMessageContaining("já encerrada");
     }
 
-    
+
 
     @Test
     @DisplayName("processarBarcode: EAN padrão retorna item com quantidade 1")

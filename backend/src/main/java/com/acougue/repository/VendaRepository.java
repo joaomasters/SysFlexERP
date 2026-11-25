@@ -17,6 +17,14 @@ public interface VendaRepository extends JpaRepository<Venda, Long> {
 
     List<Venda> findByCaixaIdAndStatus(Long caixaId, String status);
 
+    /** Relatório de tickets de saída: todas as vendas do período (qualquer status), já com os itens. */
+    @Query("SELECT DISTINCT v FROM Venda v LEFT JOIN FETCH v.itens " +
+            "WHERE v.dataVenda BETWEEN :inicio AND :fim ORDER BY v.dataVenda DESC")
+    List<Venda> findTicketsDoPeriodo(
+            @Param("inicio") LocalDateTime inicio,
+            @Param("fim") LocalDateTime fim
+    );
+
     @Query("SELECT v FROM Venda v WHERE v.dataVenda BETWEEN :inicio AND :fim ORDER BY v.dataVenda DESC")
     List<Venda> findByPeriodo(
             @Param("inicio") LocalDateTime inicio,

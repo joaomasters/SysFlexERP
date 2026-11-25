@@ -22,4 +22,10 @@ import java.lang.annotation.Target;
 public @interface ExigirPermissao {
     Modulo modulo();
     Acao acao();
+
+    /**
+     * true quando o próprio método de negócio já grava um registro de auditoria detalhado
+     * (ex.: itens do PDV): o {@code AuditoriaAspect} então não grava a linha genérica, para não duplicar.
+     */
+    boolean auditoriaPropria() default false;
 }

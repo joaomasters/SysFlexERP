@@ -66,12 +66,12 @@ export default function CpfNaNotaModal({ modo, documentoInicial, onEscolher, onV
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4">
-      <div role="dialog" aria-label="CPF na nota" className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-sm p-6 space-y-4 text-white">
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4">
+      <div role="dialog" aria-label="CPF na nota" className="bg-card border border-gray-200 rounded-2xl w-full max-w-sm p-6 space-y-4 text-gray-900">
         <div className="text-center space-y-1">
-          <FileText size={30} className="mx-auto text-success-400" />
+          <FileText size={30} className="mx-auto text-success-700" />
           <h2 className="text-lg font-bold">CPF na nota?</h2>
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-gray-500">
             {sobDemanda
               ? 'Digite o CPF para emitir a NFC-e (Nota Paraná). Sem CPF, sai o cupom não fiscal.'
               : 'Digite o CPF ou CNPJ do cliente, ou deixe em branco.'}
@@ -88,19 +88,19 @@ export default function CpfNaNotaModal({ modo, documentoInicial, onEscolher, onV
             if (e.key === 'Enter') { e.preventDefault(); confirmar() }
             if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onVoltar() }
           }}
-          className="w-full bg-gray-800 border border-gray-600 rounded-xl px-4 py-3 text-xl text-center font-bold tabular-nums tracking-wide focus:outline-none focus:border-success-500"
+          className="w-full bg-gray-100 border border-gray-300 rounded-xl px-4 py-3 text-xl text-center font-bold tabular-nums tracking-wide focus:outline-none focus:border-success-500"
         />
-        {erro && <p className="text-sm text-danger-400 text-center">{erro}</p>}
+        {erro && <p className="text-sm text-danger-600 text-center">{erro}</p>}
         <div className="grid grid-cols-2 gap-2">
-          <button onClick={onVoltar} className="py-3 rounded-xl bg-gray-700 hover:bg-gray-600 text-sm font-medium">
+          <button onClick={onVoltar} className="py-3 rounded-xl bg-gray-200 hover:bg-gray-300 text-sm font-medium">
             Voltar <span className="opacity-60 text-xs">[Esc]</span>
           </button>
-          <button onClick={() => confirmar()} className="py-3 rounded-xl bg-success-600 hover:bg-success-500 text-sm font-bold">
+          <button onClick={() => confirmar()} className="py-3 rounded-xl bg-success-600 hover:bg-success-500 text-sm font-bold text-white">
             {doc ? 'Emitir NFC-e' : sobDemanda ? 'Sem nota' : 'NFC-e sem CPF'} <span className="opacity-70 text-xs font-normal">[Enter]</span>
           </button>
         </div>
         {sobDemanda && (
-          <button onClick={() => confirmar(true)} className="w-full text-xs text-gray-400 hover:text-white">
+          <button onClick={() => confirmar(true)} className="w-full text-xs text-gray-500 hover:text-gray-900">
             Emitir NFC-e sem CPF
           </button>
         )}

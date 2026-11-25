@@ -38,6 +38,15 @@ export default {
           foreground: 'hsl(var(--topbar-foreground))',
         },
 
+        // Barra lateral do sistema (azul claro). Com <alpha-value> para aceitar /10, /70 etc.
+        sidebar: {
+          DEFAULT: 'hsl(var(--sidebar) / <alpha-value>)',
+          foreground: 'hsl(var(--sidebar-foreground) / <alpha-value>)',
+          ativo: 'hsl(var(--sidebar-ativo) / <alpha-value>)',
+          hover: 'hsl(var(--sidebar-hover) / <alpha-value>)',
+          borda: 'hsl(var(--sidebar-borda) / <alpha-value>)',
+        },
+
         // ─── Neutros frios (substituem o cinza padrão do Tailwind) ────────
         gray: {
           50: '#f8f9fb', 100: '#f1f3f6', 200: '#e1e5ea', 300: '#cdd3da', 400: '#8a94a1',

@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, KeyRound, Power, Lock } from 'lucide-react'
+import { Plus, KeyRound, Power, Lock, Pencil } from 'lucide-react'
 import { api } from '@/shared/api/axios'
 import { usePermissao } from '@/shared/hooks/usePermissao'
 import { formatPercent } from '@/shared/utils/mask'
 import toast from 'react-hot-toast'
 import type { Usuario, Perfil } from '@/types/acesso'
 import {
-  PageHeader, Card, Modal, Button, StatusBadge, Field, PasswordInput, baseInputClass, ConfirmDialog,
+  PageHeader, Card, Modal, FormularioPagina, Button, StatusBadge, Field, PasswordInput, baseInputClass, ConfirmDialog,
   Table, THead, TH, TBody, TR, TD, EmptyState, Paginacao,
 } from '@/shared/components/ui'
 import { usePaginacao } from '@/shared/hooks/usePaginacao'
@@ -26,6 +26,8 @@ export default function UsuariosPage() {
   const [novaSenha, setNovaSenha] = useState('')
   const [senhaAtual, setSenhaAtual] = useState('')
   const [confirmando, setConfirmando] = useState<Usuario | null>(null)
+  const [editando, setEditando] = useState<Usuario | null>(null)
+  const [nomeEdit, setNomeEdit] = useState('')
 
   const { data: usuarios = [] } = useQuery<Usuario[]>({
     queryKey: ['usuarios'],
@@ -39,6 +41,10 @@ export default function UsuariosPage() {
     queryFn: () => api.get('/perfis').then(r => r.data),
     enabled: podeVer('USUARIOS'),
   })
+
+  function fecharNovo() {
+    setNome(''); setLogin(''); setSenha(''); setPerfilId(''); setShowNovo(false)
+  }
 
   const criar = useMutation({
     mutationFn: () => api.post('/usuarios', { nome, login, senha, perfilId: Number(perfilId) }),
@@ -55,6 +61,16 @@ export default function UsuariosPage() {
     onSuccess: () => {
       toast.success('Perfil do usuário atualizado.')
       qc.invalidateQueries({ queryKey: ['usuarios'] })
+    },
+  })
+
+  const renomear = useMutation({
+    mutationFn: ({ u, nome }: { u: Usuario; nome: string }) =>
+      api.put(`/usuarios/${u.id}`, { nome, perfilId: u.perfil.id }),
+    onSuccess: () => {
+      toast.success('Nome atualizado.')
+      qc.invalidateQueries({ queryKey: ['usuarios'] })
+      setEditando(null)
     },
   })
 
@@ -93,29 +109,28 @@ export default function UsuariosPage() {
     )
   }
 
-  return (
-    <div className="p-4 sm:p-6">
-      <PageHeader
-        title="Usuários"
-        subtitle="Contas de acesso ao sistema e seus perfis"
+  // Formulário em tela cheia (padrão das demais telas): enquanto aberto, substitui a listagem.
+  if (showNovo && podeCriar('USUARIOS')) {
+    const pronto = !!nome.trim() && !!login.trim() && senha.length >= 8 && !!perfilId
+    return (
+      <FormularioPagina
+        title="Novo Usuário"
+        subtitle="Crie uma conta de acesso ao sistema e escolha o perfil dela"
+        onClose={fecharNovo}
         actions={
-          podeCriar('USUARIOS') && (
-            <Button variant="primary" onClick={() => setShowNovo(v => !v)}>
-              Novo Usuário
-            </Button>
-          )
+          <Button variant="primary" disabled={!pronto} loading={criar.isPending} onClick={() => criar.mutate()}>
+            Criar Usuário
+          </Button>
         }
-      />
-
-      {showNovo && podeCriar('USUARIOS') && (
-        <Card className="mb-5 grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
-          <Field label="Nome *">
-            <input value={nome} onChange={e => setNome(e.target.value)} className={baseInputClass} />
-          </Field>
+      >
+        <Field label="Nome *">
+          <input autoFocus value={nome} maxLength={120} onChange={e => setNome(e.target.value)} className={baseInputClass} />
+        </Field>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <Field label="Login *">
-            <input value={login} onChange={e => setLogin(e.target.value)} className={baseInputClass} />
+            <input value={login} maxLength={50} autoComplete="off" onChange={e => setLogin(e.target.value)} className={baseInputClass} />
           </Field>
-          <Field label="Senha * (mín. 8)">
+          <Field label="Senha *" hint="Mínimo 8 caracteres">
             <PasswordInput value={senha} onChange={e => setSenha(e.target.value)} autoComplete="new-password" />
           </Field>
           <Field label="Perfil *">
@@ -124,16 +139,24 @@ export default function UsuariosPage() {
               {perfis.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
             </select>
           </Field>
-          <Button
-            variant="success"
-            disabled={!nome || !login || senha.length < 8 || !perfilId}
-            loading={criar.isPending}
-            onClick={() => criar.mutate()}
-          >
-            Criar
-          </Button>
-        </Card>
-      )}
+        </div>
+      </FormularioPagina>
+    )
+  }
+
+  return (
+    <div className="p-4 sm:p-6">
+      <PageHeader
+        title="Usuários"
+        subtitle="Contas de acesso ao sistema e seus perfis"
+        actions={
+          podeCriar('USUARIOS') && (
+            <Button variant="primary" onClick={() => setShowNovo(true)}>
+              Novo Usuário
+            </Button>
+          )
+        }
+      />
 
       <Card padding="none" className="overflow-hidden">
         <Table>
@@ -176,6 +199,11 @@ export default function UsuariosPage() {
                 <TD align="right">
                   <div className="flex items-center justify-end gap-2 whitespace-nowrap">
                     {podeEditar('USUARIOS') && (
+                      <Button variant="secondary" size="sm" onClick={() => { setEditando(u); setNomeEdit(u.nome) }}>
+                        <Pencil size={14} /> Editar nome
+                      </Button>
+                    )}
+                    {podeEditar('USUARIOS') && (
                       <Button variant="secondary" size="sm" onClick={() => setTrocandoSenhaId(u.id)}>
                         Trocar senha
                       </Button>
@@ -202,6 +230,44 @@ export default function UsuariosPage() {
         </Table>
         <Paginacao paginacao={pag} rotulo="usuários" />
       </Card>
+
+      {/* Modal de edição do nome */}
+      {editando && (
+        <Modal
+          title="Editar nome do usuário"
+          onClose={() => setEditando(null)}
+          footer={
+            <>
+              <Button variant="secondary" fullWidth onClick={() => setEditando(null)}>Cancelar</Button>
+              <Button
+                variant="primary"
+                fullWidth
+                disabled={!nomeEdit.trim() || nomeEdit.trim() === editando.nome}
+                loading={renomear.isPending}
+                onClick={() => renomear.mutate({ u: editando, nome: nomeEdit.trim() })}
+              >
+                Salvar nome
+              </Button>
+            </>
+          }
+        >
+          <Field label="Nome *">
+            <input
+              autoFocus
+              value={nomeEdit}
+              maxLength={120}
+              onChange={e => setNomeEdit(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && nomeEdit.trim() && nomeEdit.trim() !== editando.nome) {
+                  renomear.mutate({ u: editando, nome: nomeEdit.trim() })
+                }
+              }}
+              className={baseInputClass}
+            />
+          </Field>
+          <p className="text-[11px] text-gray-400">O login não muda; só o nome exibido no sistema.</p>
+        </Modal>
+      )}
 
       {/* Modal de troca de senha */}
       {trocandoSenhaId !== null && (

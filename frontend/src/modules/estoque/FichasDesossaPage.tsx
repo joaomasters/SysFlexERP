@@ -7,17 +7,21 @@ import {
 import { api } from '@/shared/api/axios'
 import toast from 'react-hot-toast'
 import type { Produto, FichaDesossa } from '@/types/produto'
-import { PageHeader, Card, Button, Field, baseInputClass, ConfirmDialog, Paginacao, FormularioPagina, BuscaProduto } from '@/shared/components/ui'
+import { PageHeader, Card, Button, Field, baseInputClass, ConfirmDialog, Paginacao, FormularioPagina, BuscaProduto, WeightInput } from '@/shared/components/ui'
 import { usePaginacao } from '@/shared/hooks/usePaginacao'
+import { formatWeight } from '@/shared/utils/mask'
 
 // ─── tipos locais ────────────────────────────────────────────────────────────
 interface ItemForm {
   produtoFilhoId: string
-  percentualRendimento: string
+  /** Peso do corte em kg: é o que se digita. O % é calculado a partir dele e do peso da peça. */
+  kg: number
   sequencia: number
 }
 
 const PERC_TOTAL_MAX = 100
+/** A ficha guarda só percentuais. Ao editar uma ficha já salva, parte-se de 100 kg (kg = %). */
+const PESO_BASE_FICHA_SALVA = 100
 
 // Paleta categórica p/ distinguir cortes na mesma ficha visualmente — não é
 // cor de status, então usa matizes distintos (inclusive âmbar/amarelo crus) em vez dos tokens semânticos.
@@ -29,7 +33,29 @@ const CORES_CORTE = [
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 const perc  = (v: number)  => `${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`
-const parseP = (s: string) => parseFloat(s.replace(',', '.')) || 0
+const arred2 = (v: number) => Math.round(v * 100) / 100
+const kgDePercentual = (pct: number, pesoPeca: number) => Math.round((pct * pesoPeca) / 100 * 1000) / 1000
+
+/**
+ * % de cada corte a partir do kg e do peso da peça, arredondado a 2 casas (como o banco guarda,
+ * NUMERIC(5,2)). Se o arredondamento empurrar o total acima de 100% sem que os kg excedam o peso
+ * (ex.: 6 cortes iguais), tira centavos dos maiores para a soma nunca passar de 100.
+ */
+function calcularPercentuais(kgs: number[], pesoPeca: number): number[] {
+  if (pesoPeca <= 0) return kgs.map(() => 0)
+  const exatos = kgs.map(k => (k / pesoPeca) * 100)
+  const out = exatos.map(arred2)
+  const somaExata = exatos.reduce((s, v) => s + v, 0)
+  let centavos = Math.round((out.reduce((s, v) => s + v, 0) - PERC_TOTAL_MAX) * 100)
+  if (somaExata <= PERC_TOTAL_MAX + 1e-9 && centavos > 0) {
+    const ordem = out.map((v, i) => [v, i] as const).sort((a, b) => b[0] - a[0]).map(([, i]) => i)
+    for (let n = 0; centavos > 0 && n < ordem.length * 2; n++, centavos--) {
+      const i = ordem[n % ordem.length]
+      out[i] = arred2(out[i] - 0.01)
+    }
+  }
+  return out
+}
 
 function corPerda(perda: number) {
   if (perda < 0)  return 'text-danger-600'
@@ -38,10 +64,10 @@ function corPerda(perda: number) {
 }
 
 // ─── componente de barra de percentual ───────────────────────────────────────
-function BarraPercentual({ itens }: { itens: ItemForm[] }) {
-  const total = itens.reduce((s, it) => s + parseP(it.percentualRendimento), 0)
-  const perda  = PERC_TOTAL_MAX - total
-  const excesso = total > PERC_TOTAL_MAX
+function BarraPercentual({ total, excesso, totalKg, pesoPeca }: { total: number; excesso: boolean; totalKg: number; pesoPeca: number }) {
+  const perda = Math.max(PERC_TOTAL_MAX - total, 0)
+  const perdaKg = Math.max(pesoPeca - totalKg, 0)
+  const comPeso = pesoPeca > 0
 
   return (
     <div className="space-y-1.5">
@@ -49,6 +75,7 @@ function BarraPercentual({ itens }: { itens: ItemForm[] }) {
         <span className="text-gray-500">Rendimento total</span>
         <span className={excesso ? 'text-danger-600 font-bold' : 'text-gray-700 font-medium'}>
           {perc(Math.min(total, 100))}
+          {comPeso && <span className="font-normal text-gray-500"> · {formatWeight(totalKg)} de {formatWeight(pesoPeca)}</span>}
         </span>
       </div>
       <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
@@ -60,10 +87,12 @@ function BarraPercentual({ itens }: { itens: ItemForm[] }) {
       <div className="flex justify-between text-xs">
         {excesso ? (
           <span className="text-danger-600 flex items-center gap-1">
-            <AlertTriangle size={11} /> Excede 100% — reduza os percentuais
+            <AlertTriangle size={11} /> Os cortes somam mais que o peso da peça — reduza os kg
           </span>
         ) : perda > 0 ? (
-          <span className="text-warning-600">Perda/sebo/osso: {perc(perda)}</span>
+          <span className="text-warning-600">
+            Perda/sebo/osso: {perc(perda)}{comPeso && ` (${formatWeight(perdaKg)})`}
+          </span>
         ) : (
           <span className="text-success-600 flex items-center gap-1">
             <CheckCircle2 size={11} /> Rendimento completo (sem perda)
@@ -93,14 +122,19 @@ function FormFicha({ ficha, produtos, onClose, onSaved }: FormFichaProps) {
   const [itens, setItens] = useState<ItemForm[]>(
     ficha?.itens?.map((it, i) => ({
       produtoFilhoId:      it.produtoFilho.id.toString(),
-      percentualRendimento: it.percentualRendimento.toString().replace('.', ','),
+      kg:                   kgDePercentual(it.percentualRendimento, PESO_BASE_FICHA_SALVA),
       sequencia:            i,
-    })) ?? [{ produtoFilhoId: '', percentualRendimento: '', sequencia: 0 }]
+    })) ?? [{ produtoFilhoId: '', kg: 0, sequencia: 0 }]
   )
+  // Peso da peça de entrada: base para converter kg em %. Não é gravado (a ficha guarda os %).
+  const [pesoPeca, setPesoPeca] = useState(editando ? PESO_BASE_FICHA_SALVA : 0)
 
-  const totalPerc  = itens.reduce((s, it) => s + parseP(it.percentualRendimento), 0)
-  const invalido   = totalPerc > PERC_TOTAL_MAX || !nome.trim() || !prodPaiId
-    || itens.some(it => !it.produtoFilhoId || !it.percentualRendimento)
+  const totalKg      = itens.reduce((s, it) => s + it.kg, 0)
+  const percentuais  = calcularPercentuais(itens.map(it => it.kg), pesoPeca)
+  const totalPerc    = percentuais.reduce((s, v) => s + v, 0)
+  const excedePeso   = pesoPeca > 0 && totalKg > pesoPeca + 1e-9
+  const invalido     = !nome.trim() || !prodPaiId || pesoPeca <= 0 || excedePeso
+    || itens.some((it, i) => !it.produtoFilhoId || !(it.kg > 0) || percentuais[i] <= 0)
 
   // Produtos disponíveis para produto pai (KG ou CORTE)
   const produtosPai   = produtos.filter(p => p.unidadeMedida === 'KG')
@@ -118,7 +152,7 @@ function FormFicha({ ficha, produtos, onClose, onSaved }: FormFichaProps) {
         produtoPaiId: parseInt(prodPaiId),
         itens: itens.map((it, i) => ({
           produtoFilhoId:       parseInt(it.produtoFilhoId),
-          percentualRendimento: parseP(it.percentualRendimento),
+          percentualRendimento: percentuais[i],
           sequencia:            i,
         })),
       }
@@ -138,22 +172,22 @@ function FormFicha({ ficha, produtos, onClose, onSaved }: FormFichaProps) {
   })
 
   function addItem() {
-    setItens(prev => [...prev, { produtoFilhoId: '', percentualRendimento: '', sequencia: prev.length }])
+    setItens(prev => [...prev, { produtoFilhoId: '', kg: 0, sequencia: prev.length }])
   }
 
   function removeItem(idx: number) {
     setItens(prev => prev.filter((_, i) => i !== idx))
   }
 
-  function updateItem(idx: number, field: keyof ItemForm, val: string) {
-    setItens(prev => prev.map((it, i) => i === idx ? { ...it, [field]: val } : it))
+  function updateItem(idx: number, patch: Partial<ItemForm>) {
+    setItens(prev => prev.map((it, i) => i === idx ? { ...it, ...patch } : it))
   }
 
-  // Distribuir percentual igualmente entre os itens
+  // Divide o peso da peça igualmente entre os cortes (trunca em 3 casas: a soma nunca passa do peso)
   function distribuirIgual() {
-    if (itens.length === 0) return
-    const val = (PERC_TOTAL_MAX / itens.length).toFixed(2).replace('.', ',')
-    setItens(prev => prev.map(it => ({ ...it, percentualRendimento: val })))
+    if (itens.length === 0 || pesoPeca <= 0) return
+    const kg = Math.floor((pesoPeca / itens.length) * 1000) / 1000
+    setItens(prev => prev.map(it => ({ ...it, kg })))
   }
 
   return (
@@ -186,15 +220,29 @@ function FormFicha({ ficha, produtos, onClose, onSaved }: FormFichaProps) {
         />
       </Field>
 
-      {/* produto pai */}
-      <Field label="Produto de Entrada (Pai) *" hint={paiSel ? `Estoque atual: ${paiSel.estoqueAtual} ${paiSel.unidadeMedida}` : undefined}>
-        <select value={prodPaiId} onChange={e => setProdPaiId(e.target.value)} className={baseInputClass}>
-          <option value="">Selecione o produto que entra...</option>
-          {produtosPai.map(p => (
-            <option key={p.id} value={p.id}>{p.nome} ({p.unidadeMedida})</option>
-          ))}
-        </select>
-      </Field>
+      {/* produto pai + peso da peça */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-12">
+        <div className="sm:col-span-8">
+          <Field label="Produto de Entrada (Pai) *" hint={paiSel ? `Estoque atual: ${paiSel.estoqueAtual} ${paiSel.unidadeMedida}` : undefined}>
+            <select value={prodPaiId} onChange={e => setProdPaiId(e.target.value)} className={baseInputClass}>
+              <option value="">Selecione o produto que entra...</option>
+              {produtosPai.map(p => (
+                <option key={p.id} value={p.id}>{p.nome} ({p.unidadeMedida})</option>
+              ))}
+            </select>
+          </Field>
+        </div>
+        <div className="sm:col-span-4">
+          <Field
+            label="Peso da peça (kg) *"
+            hint={editando
+              ? 'Ficha salva em %: parte de 100 kg (kg = %). Alterar o peso recalcula os %.'
+              : 'Base para converter os kg dos cortes em %. A ficha guarda só os percentuais.'}
+          >
+            <WeightInput value={pesoPeca} onChange={setPesoPeca} />
+          </Field>
+        </div>
+      </div>
 
       {/* itens / cortes */}
       <div>
@@ -203,7 +251,12 @@ function FormFicha({ ficha, produtos, onClose, onSaved }: FormFichaProps) {
             Cortes (saídas) *
           </label>
           <div className="flex gap-3">
-            <button onClick={distribuirIgual} className="text-xs text-info-600 hover:text-info-700 font-medium">
+            <button
+              onClick={distribuirIgual}
+              disabled={pesoPeca <= 0}
+              title={pesoPeca <= 0 ? 'Informe o peso da peça' : 'Divide o peso da peça igualmente entre os cortes'}
+              className="text-xs text-info-600 hover:text-info-700 font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+            >
               Distribuir igualmente
             </button>
             <button onClick={addItem} className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 font-medium">
@@ -218,6 +271,15 @@ function FormFicha({ ficha, produtos, onClose, onSaved }: FormFichaProps) {
           </p>
         )}
 
+        {/* Títulos das colunas (telas médias em diante) */}
+        <div className="hidden sm:grid grid-cols-12 gap-2 px-2.5 mb-1 text-[11px] font-medium text-gray-500">
+          <div className="col-span-1 text-center">#</div>
+          <div className="col-span-5">Corte</div>
+          <div className="col-span-3 text-right pr-3">Peso (kg)</div>
+          <div className="col-span-2 text-right pr-3">% do rendimento</div>
+          <div className="col-span-1" />
+        </div>
+
         <div className="space-y-2">
           {itens.map((item, idx) => {
             // Ficha antiga pode ter um corte que não é "Corte de Carne" (ex.: sebo/osso): continua
@@ -229,11 +291,11 @@ function FormFicha({ ficha, produtos, onClose, onSaved }: FormFichaProps) {
             return (
             <div key={idx} className="grid grid-cols-12 gap-2 items-start bg-gray-50 border border-gray-100 rounded-lg p-2.5">
               <div className="col-span-1 pt-2 text-center text-xs text-gray-400 font-mono">{idx + 1}</div>
-              <div className="col-span-7">
+              <div className="col-span-11 sm:col-span-5">
                 <BuscaProduto
                   produtos={opcoes}
                   value={idSel}
-                  onSelect={p => updateItem(idx, 'produtoFilhoId', String(p.id))}
+                  onSelect={p => updateItem(idx, { produtoFilhoId: String(p.id) })}
                   placeholder="Buscar corte por nome ou código..."
                 />
                 {foraDoTipo && (
@@ -242,19 +304,13 @@ function FormFicha({ ficha, produtos, onClose, onSaved }: FormFichaProps) {
                   </p>
                 )}
               </div>
-              <div className="col-span-3 relative">
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={item.percentualRendimento}
-                  onChange={e => updateItem(idx, 'percentualRendimento', e.target.value)}
-                  placeholder="0,00"
-                  className="w-full border border-gray-300 rounded px-2 py-1.5 pr-6 bg-white
-                             text-sm text-right focus:outline-none focus:ring-2 focus:ring-primary-500"
-                />
-                <span className="absolute right-2 top-[1.05rem] -translate-y-1/2 text-gray-400 text-xs">%</span>
+              <div className="col-span-5 col-start-2 sm:col-span-3 sm:col-start-auto">
+                <WeightInput value={item.kg} onChange={kg => updateItem(idx, { kg })} size="sm" aria-label={`Peso do corte ${idx + 1} em kg`} />
               </div>
-              <div className="col-span-1 flex justify-center pt-2">
+              <div className="col-span-4 pt-1.5 pr-3 text-right text-sm tabular-nums text-gray-700 sm:col-span-2" title="Calculado a partir do kg e do peso da peça">
+                {pesoPeca > 0 ? perc(percentuais[idx]) : '—'}
+              </div>
+              <div className="col-span-2 flex justify-center pt-2 sm:col-span-1">
                 <button
                   onClick={() => removeItem(idx)}
                   disabled={itens.length === 1}
@@ -269,7 +325,7 @@ function FormFicha({ ficha, produtos, onClose, onSaved }: FormFichaProps) {
         </div>
 
         <div className="mt-3">
-          <BarraPercentual itens={itens} />
+          <BarraPercentual total={totalPerc} excesso={excedePeso} totalKg={totalKg} pesoPeca={pesoPeca} />
         </div>
       </div>
     </FormularioPagina>
@@ -387,6 +443,7 @@ export default function FichasDesossaPage() {
         {pag.itens.map(ficha => {
           const totalPerc = ficha.itens.reduce((s, it) => s + it.percentualRendimento, 0)
           const perda     = 100 - totalPerc
+          const mediaPerc = ficha.itens.length ? totalPerc / ficha.itens.length : 0
           const expanded  = expandId === ficha.id
 
           return (
@@ -424,11 +481,11 @@ export default function FichasDesossaPage() {
                 </div>
 
                 <div className="flex items-center gap-1 shrink-0">
-                  <Button variant="ghost" size="sm" onClick={e => { e.stopPropagation(); abrirEditar(ficha) }} title="Editar">
-                    <Pencil size={15} />
+                  <Button variant="secondary" size="sm" onClick={e => { e.stopPropagation(); abrirEditar(ficha) }} title="Editar">
+                    Editar
                   </Button>
                   <Button
-                    variant="ghost" size="sm"
+                    variant="outline-danger" size="sm"
                     className={ficha.ativo ? 'hover:!text-danger-600' : 'hover:!text-success-600'}
                     onClick={e => {
                       e.stopPropagation()
@@ -436,7 +493,7 @@ export default function FichasDesossaPage() {
                     }}
                     title={ficha.ativo ? 'Inativar' : 'Reativar'}
                   >
-                    <Power size={15} />
+                    Inativar
                   </Button>
                   {expanded
                     ? <ChevronUp size={16} className="text-gray-400" />
@@ -512,6 +569,14 @@ export default function FichasDesossaPage() {
                         <td className={`pt-2 text-right font-bold tabular-nums ${corPerda(perda)}`}>
                           {perc(totalPerc)}
                         </td>
+                        <td />
+                      </tr>
+                      <tr>
+                        <td colSpan={2} className="pt-1 text-xs text-gray-500 uppercase font-semibold">
+                          Média por corte
+                          <span className="ml-1 normal-case font-normal text-gray-400">({ficha.itens.length} {ficha.itens.length === 1 ? 'corte' : 'cortes'})</span>
+                        </td>
+                        <td className="pt-1 text-right font-semibold tabular-nums text-gray-700">{perc(mediaPerc)}</td>
                         <td />
                       </tr>
                       {perda > 0 && (
