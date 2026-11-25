@@ -88,7 +88,7 @@ const FORM_VAZIO: FormState = {
   validadePadraoDias: '',
   ncm: '',
   cest: '',
-  cfop: '',
+  cfop: '5102',
   origem: '0',
   csosn: '',
 }
@@ -120,9 +120,13 @@ function validarProduto(f: FormState, exigeEan: boolean, exigeEstoque: boolean):
   if (f.validadePadraoDias && Number(f.validadePadraoDias) <= 0) {
     e.validadePadraoDias = 'Informe um número inteiro maior que zero.'
   }
-  if (f.ncm && f.ncm.length !== 8) e.ncm = 'O NCM deve ter 8 dígitos.'
+  // Sem NCM, CFOP e CSOSN o produto não sai em nota fiscal (o backend recusa igual)
+  if (!f.ncm) e.ncm = 'Informe o NCM.'
+  else if (f.ncm.length !== 8) e.ncm = 'O NCM deve ter 8 dígitos.'
   if (f.cest && f.cest.length !== 7) e.cest = 'O CEST deve ter 7 dígitos.'
-  if (f.cfop && !/^[1-7]\d{3}$/.test(f.cfop)) e.cfop = 'Informe um CFOP válido (4 dígitos).'
+  if (!f.cfop) e.cfop = 'Informe o CFOP.'
+  else if (!/^[1-7]\d{3}$/.test(f.cfop)) e.cfop = 'Informe um CFOP válido (4 dígitos).'
+  if (!f.csosn) e.csosn = 'Selecione o CSOSN.'
   return e
 }
 
@@ -153,7 +157,7 @@ export default function ProdutoCadastroPage() {
       ...FORM_VAZIO,
       codigoInterno: produto.codigoInterno ?? '',
       ean13: produto.ean13 ?? '',
-      nome: produto.nome ?? '',
+      nome: (produto.nome ?? '').toUpperCase(),
       unidadeMedida: produto.unidadeMedida,
       tipoProduto: produto.tipoProduto,
       codigoBalanca: produto.codigoBalanca != null ? String(produto.codigoBalanca) : '',
@@ -228,7 +232,7 @@ export default function ProdutoCadastroPage() {
       const payload = {
         codigoInterno: f.codigoInterno.trim() || null,
         ean13: f.ean13 || null,
-        nome: f.nome.trim().replace(/\s+/g, ' '),
+        nome: f.nome.trim().replace(/\s+/g, ' ').toUpperCase(),
         unidadeMedida: f.unidadeMedida,
         tipoProduto: f.tipoProduto,
         codigoBalanca: balanca && f.codigoBalanca ? Number(f.codigoBalanca) : null,
@@ -386,9 +390,9 @@ export default function ProdutoCadastroPage() {
                   id="produto-nome"
                   name="nome"
                   value={form.nome}
-                  onChange={e => set('nome', e.target.value)}
+                  onChange={e => set('nome', e.target.value.toUpperCase())}
                   maxLength={150}
-                  placeholder="Ex: Picanha bovina maturada"
+                  placeholder="EX: PICANHA BOVINA MATURADA"
                   className={inputClass('nome')}
                 />
               </Field>
@@ -569,7 +573,7 @@ export default function ProdutoCadastroPage() {
           {/* Informações Fiscais */}
           <div role="tabpanel" id="painel-fiscal" aria-labelledby="aba-fiscal" hidden={aba !== 'fiscal'} className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-x-4 gap-y-4">
-              <Field label="NCM" error={erros.ncm} hint="8 dígitos. Ex: 02013000." className="md:col-span-4">
+              <Field label="NCM *" error={erros.ncm} hint="8 dígitos. Ex: 02013000." className="md:col-span-4">
                 <input
                   id="produto-ncm"
                   name="ncm"
@@ -593,7 +597,7 @@ export default function ProdutoCadastroPage() {
                   className={`${inputClass('cest')} font-mono tabular-nums`}
                 />
               </Field>
-              <Field label="CFOP" error={erros.cfop} hint="Venda no estado: 5102." className="md:col-span-4">
+              <Field label="CFOP *" error={erros.cfop} hint="Venda no estado: 5102." className="md:col-span-4">
                 <input
                   id="produto-cfop"
                   name="cfop"
@@ -606,7 +610,7 @@ export default function ProdutoCadastroPage() {
                 />
               </Field>
 
-              <Field label="Origem da Mercadoria" className="md:col-span-6">
+              <Field label="Origem da Mercadoria *" className="md:col-span-6">
                 <select
                   id="produto-origem"
                   name="origem"
@@ -617,13 +621,14 @@ export default function ProdutoCadastroPage() {
                   {ORIGENS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </Field>
-              <Field label="CSOSN" hint="Simples Nacional." className="md:col-span-6">
+              <Field label="CSOSN *" error={erros.csosn} hint="Simples Nacional. Confirme com a contabilidade." className="md:col-span-6">
                 <select
                   id="produto-csosn"
                   name="csosn"
                   value={form.csosn}
                   onChange={e => set('csosn', e.target.value)}
-                  className={baseInputClass}
+                  aria-invalid={Boolean(erros.csosn)}
+                  className={inputClass('csosn')}
                 >
                   <option value="">Selecione</option>
                   {CSOSNS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}

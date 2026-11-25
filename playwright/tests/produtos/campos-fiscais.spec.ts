@@ -1,12 +1,13 @@
 import { test, expect } from '../../fixtures'
 import { faker } from '@faker-js/faker'
 import type { APIRequestContext } from '@playwright/test'
+import { FISCAL_PRODUTO } from '../../support/produtoFiscal'
 
 const headers = { Authorization: `Bearer ${process.env.E2E_TOKEN}` }
 
 async function buscarPorNome(request: APIRequestContext, nome: string) {
     const lista = await (await request.get('/api/estoque/produtos', { headers })).json()
-    return lista.find((p: { nome: string }) => p.nome === nome)
+    return lista.find((p: { nome: string }) => p.nome === nome.toUpperCase())
 }
 
 test.describe('Cadastro de produto: estoque máximo e informações fiscais', () => {
@@ -51,7 +52,7 @@ test.describe('Cadastro de produto: estoque máximo e informações fiscais', ()
     })
 
     test('Deve gravar e devolver o estoque máximo, e recusar máximo menor que o mínimo', async ({ request }) => {
-        const base = { unidadeMedida: 'KG', tipoProduto: 'CORTE', precoVenda: 50, estoqueMinimo: 5 }
+        const base = { ...FISCAL_PRODUTO, unidadeMedida: 'KG', tipoProduto: 'CORTE', precoVenda: 50, estoqueMinimo: 5 }
 
         const ok = await request.post('/api/estoque/produtos', {
             headers, data: { ...base, nome: `Máximo ${faker.string.uuid()}`, estoqueMaximo: 40 },

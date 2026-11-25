@@ -1,5 +1,6 @@
 import { test, expect } from '../../fixtures'
 import type { APIRequestContext, Page } from '@playwright/test'
+import { FISCAL_PRODUTO } from '../../support/produtoFiscal'
 
 /*
  Engenharia e PCP (sprint 2): estrutura pela tela, ativação, OP criada e liberada pela tela, e carga do centro.
@@ -45,10 +46,10 @@ test.describe('Engenharia e ordens de produção', () => {
     await post(request, '/api/industrial/maquinas', { codigo: `M${sufixo}`, descricao: 'Prensa', tipoMaquinaId: tipo.id, centroTrabalhoId: c.id, turnoIds: [turno.id], parametros: [] })
     ids.centro = c.id
     for (const [chave, nome, un, tp] of [
-      ['perfil', `Perfil E2E ${sufixo}`, 'KG', 'INDUSTRIALIZADO'],
-      ['tarugo', `Tarugo E2E ${sufixo}`, 'KG', 'INSUMO'],
+      ['perfil', `PERFIL E2E ${sufixo}`, 'KG', 'INDUSTRIALIZADO'],
+      ['tarugo', `TARUGO E2E ${sufixo}`, 'KG', 'INSUMO'],
     ] as const) {
-      ids[chave] = (await post(request, '/api/estoque/produtos', { nome, unidadeMedida: un, tipoProduto: tp, precoVenda: 10 })).id
+      ids[chave] = (await post(request, '/api/estoque/produtos', { ...FISCAL_PRODUTO, nome, unidadeMedida: un, tipoProduto: tp, precoVenda: 10 })).id
     }
     const roteiro = await post(request, '/api/industrial/engenharia/roteiros', {
       produtoId: ids.perfil, operacoes: [{ sequencia: 10, descricao: 'Extrudar', centroTrabalhoId: c.id, tempoSetupMin: 30, tempoPorUnidadeMin: 0.5 }],
@@ -66,14 +67,14 @@ test.describe('Engenharia e ordens de produção', () => {
     await expect(page.getByRole('heading', { name: 'Engenharia de produto' })).toBeVisible()
 
     await page.getByRole('button', { name: 'Nova estrutura' }).click()
-    await escolherProduto(page, 'Buscar o produto fabricado...', `Perfil E2E ${sufixo}`)
-    await escolherProduto(page, 'Componente 1...', `Tarugo E2E ${sufixo}`)
+    await escolherProduto(page, 'Buscar o produto fabricado...', `PERFIL E2E ${sufixo}`)
+    await escolherProduto(page, 'Componente 1...', `TARUGO E2E ${sufixo}`)
     await page.getByLabel('Quantidade do componente 1').fill('1.1')
     await page.getByLabel('Perda do componente 1').fill('10')
     page.once('dialog', d => d.accept())
     await page.getByRole('button', { name: 'Salvar e ativar' }).click()
 
-    await expect(page.getByText(`Estrutura de Perfil E2E ${sufixo} · v1`)).toBeVisible()
+    await expect(page.getByText(`Estrutura de PERFIL E2E ${sufixo} · v1`)).toBeVisible()
     // ativada, a versão não é mais editável: só tornar obsoleta ou criar nova versão
     await expect(page.getByRole('button', { name: 'Tornar obsoleta' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Nova versão a partir desta' })).toBeVisible()
@@ -86,7 +87,7 @@ test.describe('Engenharia e ordens de produção', () => {
   test('Cria a OP, vê a falta de material e libera congelando a engenharia', async ({ page }) => {
     await page.goto('/industrial/ordens')
     await page.getByRole('button', { name: 'Nova OP' }).click()
-    await escolherProduto(page, 'Buscar o produto a fabricar...', `Perfil E2E ${sufixo}`)
+    await escolherProduto(page, 'Buscar o produto a fabricar...', `PERFIL E2E ${sufixo}`)
     await page.getByLabel(/Quantidade \*/).fill('200')
     await page.getByLabel('Início previsto *').fill(hoje)
     await page.getByLabel('Fim previsto *').fill(hoje)
@@ -95,7 +96,7 @@ test.describe('Engenharia e ordens de produção', () => {
 
     await expect(page.getByText(/prévia da estrutura ativa/)).toBeVisible()
     // 200 × 1,1 / 0,9 = 244,4444 kg de tarugo, sem estoque: falta tudo
-    await expect(page.getByRole('row', { name: new RegExp(`Tarugo E2E ${sufixo}`) })).toContainText('244,4444')
+    await expect(page.getByRole('row', { name: new RegExp(`TARUGO E2E ${sufixo}`) })).toContainText('244,4444')
 
     await page.getByRole('button', { name: 'Liberar para produção' }).click()
     await page.getByRole('button', { name: 'Confirmar' }).click()
@@ -118,6 +119,6 @@ test.describe('Engenharia e ordens de produção', () => {
     await expect(linha).toContainText('2h10')
     await expect(linha).toContainText('112h')
     await linha.getByRole('button', { name: /Ver OPs/ }).click()
-    await expect(page.getByRole('row', { name: new RegExp(`Perfil E2E ${sufixo}`) })).toBeVisible()
+    await expect(page.getByRole('row', { name: new RegExp(`PERFIL E2E ${sufixo}`) })).toBeVisible()
   })
 })

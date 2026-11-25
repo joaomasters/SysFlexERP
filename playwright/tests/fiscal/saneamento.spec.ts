@@ -9,19 +9,20 @@ const sufixo = Date.now().toString(36).slice(-5).toUpperCase()
 
 test.describe('Saneamento cadastral fiscal', () => {
     test('Produto sem NCM e fornecedor sem CNPJ aparecem com o motivo', async ({ page, request }) => {
+        // Produto novo sem NCM é recusado; os sem dados fiscais contados aqui são os antigos
         const p = await request.post('/api/estoque/produtos', { headers, data: { nome: `Sem NCM ${sufixo}`, unidadeMedida: 'KG', tipoProduto: 'INDUSTRIALIZADO', precoVenda: 10 } })
-        expect(p.ok(), await p.text()).toBeTruthy()
+        expect(p.status()).toBe(422)
+        expect((await p.json()).message).toContain('NCM')
         const f = await request.post('/api/estoque/fornecedores', { headers, data: { nome: `Fornecedor sem doc ${sufixo}`, tipoPessoa: 'PJ' } })
         expect(f.ok(), await f.text()).toBeTruthy()
 
         await page.goto('/fiscal/emissao')
         await page.getByRole('button', { name: 'Saneamento cadastral' }).click()
-        const produtos = page.getByLabel('Produtos ativos sem dados fiscais')
-        await expect(produtos.getByText('Bloqueia emissão')).toBeVisible()
-        // a lista mostra até 20 exemplos: confere pela API que o produto novo foi contado
         const s = await (await request.get('/api/fiscal/saneamento', { headers })).json()
         const grupo = s.grupos.find((g: { codigo: string }) => g.codigo === 'PRODUTO_FISCAL')
-        expect(grupo.quantidade).toBeGreaterThan(0)
+        if (grupo.quantidade > 0) {
+            await expect(page.getByLabel('Produtos ativos sem dados fiscais').getByText('Bloqueia emissão')).toBeVisible()
+        }
         const forn = s.grupos.find((g: { codigo: string }) => g.codigo === 'FORNECEDOR_SEM_DOCUMENTO')
         expect(forn.quantidade).toBeGreaterThan(0)
         await expect(page.getByLabel('Fornecedores sem CPF/CNPJ')).toContainText('Atenção')

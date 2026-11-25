@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 
 @Service
@@ -60,8 +61,9 @@ public class ProdutoService {
     }
 
     /**
-     * Limpa o nome digitado: tira espaços do começo/fim e junta os repetidos no meio
-     * ("  Picanha   Maturada " vira "Picanha Maturada"). Nome só com espaços não é nome.
+     * Limpa o nome digitado: tira espaços do começo/fim, junta os repetidos no meio e passa para
+     * MAIÚSCULAS ("  Picanha   maturada " vira "PICANHA MATURADA") — o padrão do cadastro, igual ao
+     * que sai no cupom e na nota. Nome só com espaços não é nome.
      */
     static final int NOME_MAX = 150;
 
@@ -74,7 +76,28 @@ public class ProdutoService {
             throw new BusinessException("A descrição do produto deve ter no máximo " + NOME_MAX
                     + " caracteres (informado: " + limpo.length() + ").");
         }
-        return limpo;
+        return limpo.toUpperCase(PT_BR);
+    }
+
+    private static final Locale PT_BR = Locale.forLanguageTag("pt-BR");
+
+    /**
+     * Sem NCM, CFOP, origem e CSOSN o produto não sai em nota fiscal (NFC-e/NF-e). Exigido em todo
+     * cadastro e edição; o formato de cada campo já é conferido pelas anotações da entidade.
+     */
+    static void exigirFiscal(Produto p) {
+        if (p.getNcm() == null) {
+            throw new BusinessException("Informe o NCM do produto (aba Informações Fiscais).");
+        }
+        if (p.getCfop() == null) {
+            throw new BusinessException("Informe o CFOP do produto (aba Informações Fiscais).");
+        }
+        if (p.getOrigem() == null) {
+            throw new BusinessException("Informe a origem da mercadoria (aba Informações Fiscais).");
+        }
+        if (p.getCsosn() == null) {
+            throw new BusinessException("Informe o CSOSN do produto (aba Informações Fiscais).");
+        }
     }
 
     private static String normalizarEan(String ean13) {
@@ -175,6 +198,7 @@ public class ProdutoService {
         aplicarFornecedor(produto, null);
         validarEstoqueMaximo(produto.getEstoqueMinimo(), produto.getEstoqueMaximo());
         copiarFiscal(produto, produto);
+        exigirFiscal(produto);
         String codigoInterno = vazioParaNulo(produto.getCodigoInterno());
         if (codigoInterno == null) {
             produto.setCodigoInterno(gerarCodigoInterno());
@@ -224,6 +248,7 @@ public class ProdutoService {
         existente.setEstoqueMinimo(dados.getEstoqueMinimo());
         validarEstoqueMaximo(dados.getEstoqueMinimo(), dados.getEstoqueMaximo());
         copiarFiscal(dados, existente);
+        exigirFiscal(existente);
         validarValidadePadrao(dados.getValidadePadraoDias());
         existente.setValidadePadraoDias(dados.getValidadePadraoDias());
         existente.setCategoria(dados.getCategoria());

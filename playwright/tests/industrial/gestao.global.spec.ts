@@ -1,5 +1,6 @@
 import { test, expect } from '../../fixtures'
 import type { APIRequestContext } from '@playwright/test'
+import { FISCAL_PRODUTO } from '../../support/produtoFiscal'
 
 /*
  Gestão industrial (sprint 7): o MRP sugere produzir o semiacabado de uma OP planejada e o usuário aprova
@@ -33,10 +34,10 @@ test.describe('Gestão industrial', () => {
     const u = await post(request, '/api/industrial/unidades', { codigo: `U${sufixo}`, nome: 'Fábrica' })
     const s = await post(request, '/api/industrial/setores', { unidadeId: u.id, codigo: 'EXT', nome: 'Extrusão' })
     const c = await post(request, '/api/industrial/centros', { setorId: s.id, codigo: `C${sufixo}`, nome: `Centro ${sufixo}`, custoHora: 100 })
-    const prod = async (nome: string) => post(request, '/api/estoque/produtos', { nome: `${nome} ${sufixo}`, unidadeMedida: 'KG', tipoProduto: 'INDUSTRIALIZADO', precoVenda: 10 })
-    const perfil = await prod('Perfil MRP')
-    const semi = await prod('Semi MRP')
-    const tarugo = await prod('Tarugo MRP')
+    const prod = async (nome: string) => post(request, '/api/estoque/produtos', { ...FISCAL_PRODUTO, nome: `${nome} ${sufixo}`, unidadeMedida: 'KG', tipoProduto: 'INDUSTRIALIZADO', precoVenda: 10 })
+    const perfil = await prod('PERFIL MRP')
+    const semi = await prod('SEMI MRP')
+    const tarugo = await prod('TARUGO MRP')
     for (const [p, itens] of [[semi, [[tarugo, 0.5]]], [perfil, [[semi, 1]]]] as const) {
       const b = await post(request, '/api/industrial/engenharia/boms', { produtoId: p.id, quantidadeBase: 1, itens: itens.map(([x, q]) => ({ componenteId: x.id, quantidade: q })) })
       await post(request, `/api/industrial/engenharia/boms/${b.id}/ativar`, {})
@@ -55,9 +56,9 @@ test.describe('Gestão industrial', () => {
     await page.getByRole('link', { name: 'Gestão industrial' }).click()
     await page.getByRole('button', { name: 'MRP' }).click()
     // a linha do tarugo também cita o semiacabado na origem ("sugestão Semi..."): filtra pelo tipo
-    const semi = page.getByRole('row').filter({ hasText: 'Produzir' }).filter({ hasText: `Semi MRP ${sufixo}` })
+    const semi = page.getByRole('row').filter({ hasText: 'Produzir' }).filter({ hasText: `SEMI MRP ${sufixo}` })
     await expect(semi).toHaveCount(1)
-    await expect(page.getByRole('row').filter({ hasText: 'Comprar' }).filter({ hasText: `Tarugo MRP ${sufixo}` })).toHaveCount(1)
+    await expect(page.getByRole('row').filter({ hasText: 'Comprar' }).filter({ hasText: `TARUGO MRP ${sufixo}` })).toHaveCount(1)
     await semi.getByRole('button', { name: 'Criar OP planejada' }).click()
     await expect(page.getByText(/criada como planejada/)).toBeVisible()
     await expect(semi).toContainText('criada')

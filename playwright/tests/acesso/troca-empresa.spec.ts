@@ -1,6 +1,7 @@
 import { test, expect } from '../../fixtures'
 import { faker } from '@faker-js/faker'
 import type { Page } from '@playwright/test'
+import { FISCAL_PRODUTO } from '../../support/produtoFiscal'
 
 const headers = { Authorization: `Bearer ${process.env.E2E_TOKEN}` }
 const senha = 'Senha@123456'
@@ -45,7 +46,7 @@ test.describe('Troca de empresa no mesmo navegador', () => {
         const nome = `Só da principal ${faker.string.uuid()}`
         const criado = await page.request.post('/api/estoque/produtos', {
             headers,
-            data: { nome, unidadeMedida: 'UN', tipoProduto: 'BEBIDA', precoVenda: 10, estoqueMinimo: 0 },
+            data: { ...FISCAL_PRODUTO, nome, unidadeMedida: 'UN', tipoProduto: 'BEBIDA', precoVenda: 10, estoqueMinimo: 0 },
         })
         expect(criado.ok()).toBeTruthy()
 

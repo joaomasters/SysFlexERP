@@ -1,6 +1,7 @@
 import { test, expect } from '../../fixtures'
 import { faker } from '@faker-js/faker'
 import type { Page } from '@playwright/test'
+import { FISCAL_PRODUTO } from '../../support/produtoFiscal'
 
 // Precisa do backend apontando para support/gemini-falso.mjs (GEMINI_URL) e da porta dele aqui
 const falso = process.env.E2E_GEMINI_FALSO
@@ -49,7 +50,7 @@ test.describe('Assistente', () => {
         const nome = `Costela ${faker.string.alphanumeric(8)}`
         const criado = await request.post('/api/estoque/produtos', {
             headers,
-            data: { nome, unidadeMedida: 'KG', tipoProduto: 'CORTE', precoVenda: 50, precoCusto: 30, estoqueMinimo: 5 },
+            data: { ...FISCAL_PRODUTO, nome, unidadeMedida: 'KG', tipoProduto: 'CORTE', precoVenda: 50, precoCusto: 30, estoqueMinimo: 5 },
         })
         expect(criado.ok()).toBeTruthy()
 

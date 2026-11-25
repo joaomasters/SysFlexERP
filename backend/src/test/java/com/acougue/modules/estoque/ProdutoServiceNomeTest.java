@@ -33,15 +33,17 @@ class ProdutoServiceNomeTest {
     @InjectMocks ProdutoService service;
 
     private Produto produto(String nome) {
-        return Produto.builder().nome(nome).unidadeMedida("KG").tipoProduto("BOVINO")
+        return Produto.builder().ncm("02013000").cfop("5102").origem("0").csosn("102").nome(nome).unidadeMedida("KG").tipoProduto("BOVINO")
                 .precoVenda(new BigDecimal("43.99")).codigoInterno("P000001").ativo(true).build();
     }
 
     @Test
     @DisplayName("normalizarNome: tira espaços das pontas e junta os repetidos")
     void normaliza() {
-        assertThat(ProdutoService.normalizarNome("  Picanha   Maturada ")).isEqualTo("Picanha Maturada");
-        assertThat(ProdutoService.normalizarNome("Posta\tVermelha")).isEqualTo("Posta Vermelha");
+        assertThat(ProdutoService.normalizarNome("  Picanha   Maturada ")).isEqualTo("PICANHA MATURADA");
+        assertThat(ProdutoService.normalizarNome("Posta\tVermelha")).isEqualTo("POSTA VERMELHA");
+        assertThat(ProdutoService.normalizarNome("biju")).isEqualTo("BIJU");
+        assertThat(ProdutoService.normalizarNome("coração de frango")).isEqualTo("CORAÇÃO DE FRANGO");
     }
 
     @Test
@@ -72,7 +74,7 @@ class ProdutoServiceNomeTest {
 
         ArgumentCaptor<Produto> captor = ArgumentCaptor.forClass(Produto.class);
         verify(produtoRepo).save(captor.capture());
-        assertThat(captor.getValue().getNome()).isEqualTo("Posta Vermelha");
+        assertThat(captor.getValue().getNome()).isEqualTo("POSTA VERMELHA");
     }
 
     @Test
