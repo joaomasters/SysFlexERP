@@ -33,7 +33,7 @@ class ProdutoServiceFornecedorTest {
     @InjectMocks ProdutoService service;
 
     private Produto novoProduto(Long fornecedorId, String fornecedorTexto) {
-        return Produto.builder()
+        return Produto.builder().ncm("02013000").cfop("5102").origem("0").csosn("102")
                 .nome("Linguiça").unidadeMedida("UN").tipoProduto("INDUSTRIALIZADO")
                 .precoVenda(new BigDecimal("12.50"))
                 .codigoInterno("P000001")

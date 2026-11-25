@@ -35,7 +35,7 @@ class ProdutoServicePluTest {
     @InjectMocks ProdutoService service;
 
     private Produto produto(Long id, String nome, Integer plu, boolean ativo) {
-        return Produto.builder().id(id).nome(nome).unidadeMedida("KG").tipoProduto("CORTE")
+        return Produto.builder().ncm("02013000").cfop("5102").origem("0").csosn("102").id(id).nome(nome).unidadeMedida("KG").tipoProduto("CORTE")
                 .precoVenda(new BigDecimal("43.99")).codigoInterno("P00000" + (id == null ? 9 : id))
                 .codigoBalanca(plu).ativo(ativo).build();
     }

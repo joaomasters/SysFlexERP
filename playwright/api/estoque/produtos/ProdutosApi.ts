@@ -1,5 +1,6 @@
 import { faker } from '@faker-js/faker'
 import { ApiBase } from '../../ApiBase'
+import { FISCAL_PRODUTO } from '../../../support/produtoFiscal'
 
 // Valores aceitos pelo banco (migration V29 / TIPOS_PRODUTO do frontend)
 export type TipoProdutoApi =
@@ -44,6 +45,7 @@ export class ProdutosApi extends ApiBase {
                 // O código automático do backend (count + 1) colide quando testes criam produtos em paralelo
                 codigoInterno: `E2E${faker.string.alphanumeric({ length: 12, casing: 'upper' })}`,
                 ean13: eanAleatorio(),
+                ...FISCAL_PRODUTO,
                 ...dados,
             },
         })
@@ -51,11 +53,11 @@ export class ProdutosApi extends ApiBase {
         return resposta.json()
     }
 
-    // Produto ativo com exatamente esse nome (o backend busca por trecho do nome)
+    // Produto ativo com exatamente esse nome (o backend busca por trecho e grava a descrição em MAIÚSCULAS)
     async buscarPorNome(nome: string): Promise<ProdutoApi> {
         const resposta = await this.request.get(url, { headers: this.headers, params: { nome } })
         await this.verificar(resposta, 'buscar produto')
-        const produto = (await resposta.json() as ProdutoApi[]).find(p => p.nome === nome)
+        const produto = (await resposta.json() as ProdutoApi[]).find(p => p.nome === nome.toUpperCase())
         if (!produto) throw new Error(`Produto "${nome}" não encontrado via API`)
         return produto
     }

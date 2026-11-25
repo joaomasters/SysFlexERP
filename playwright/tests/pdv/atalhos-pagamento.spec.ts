@@ -10,7 +10,7 @@ async function abrirVenda(request: APIRequestContext) {
     let caixa = await request.get(`/api/pdv/caixa/aberto?operadorId=${usuarioId}`, { headers })
     if (!caixa.ok()) caixa = await request.post('/api/pdv/caixa/abrir?valorAbertura=100', { headers })
     const produtos = await (await request.get('/api/estoque/produtos', { headers })).json()
-    const produto = produtos.find((p: { nome: string }) => p.nome === 'Picanha')
+    const produto = produtos.find((p: { nome: string }) => p.nome.toUpperCase() === 'PICANHA')
     const venda = await (await request.post('/api/pdv/vendas/abrir', { headers, data: { caixaId: (await caixa.json()).id } })).json()
     await request.post(`/api/pdv/vendas/${venda.id}/itens`, {
         headers, data: { produtoId: produto.id, quantidade: 1, tipoEntrada: 'MANUAL' },

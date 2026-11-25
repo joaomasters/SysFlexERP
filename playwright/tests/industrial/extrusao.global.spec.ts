@@ -1,5 +1,6 @@
 import { test, expect } from '../../fixtures'
 import type { APIRequestContext } from '@playwright/test'
+import { FISCAL_PRODUTO } from '../../support/produtoFiscal'
 
 /*
  Extrusão (sprint 4): liga e lote de matéria-prima pela tela (lote fora da liga não libera), e no chão
@@ -36,7 +37,7 @@ test.describe('Extrusão', () => {
       const a = await meu.json()
       await post(request, `/api/industrial/apontamentos/${a.id}/finalizar`, { chave: `limpa-${sufixo}`, quantidadeBoa: 0, quantidadeRefugo: 0, concluirOperacao: false })
     }
-    ids.tarugo = (await post(request, '/api/estoque/produtos', { nome: `Tarugo Ext ${sufixo}`, unidadeMedida: 'KG', tipoProduto: 'INSUMO', precoVenda: 10 })).id
+    ids.tarugo = (await post(request, '/api/estoque/produtos', { ...FISCAL_PRODUTO, nome: `TARUGO EXT ${sufixo}`, unidadeMedida: 'KG', tipoProduto: 'INSUMO', precoVenda: 10 })).id
   })
 
   test.afterAll(async ({ request }) => {
@@ -61,8 +62,8 @@ test.describe('Extrusão', () => {
       await page.getByRole('button', { name: 'Receber lote' }).click()
       const material = page.getByPlaceholder('Tarugo, lingote...')
       await material.click()
-      await material.fill(`Tarugo Ext ${sufixo}`)
-      await page.getByRole('option', { name: new RegExp(`Tarugo Ext ${sufixo}`) }).click()
+      await material.fill(`TARUGO EXT ${sufixo}`)
+      await page.getByRole('option', { name: new RegExp(`TARUGO EXT ${sufixo}`) }).click()
       await page.getByLabel('Número do lote / corrida *').fill(numero)
       await page.getByLabel('Liga *').selectOption({ label: `L${sufixo} · Liga teste ${sufixo}` })
       await page.getByLabel('Quantidade *').fill('500')
@@ -90,7 +91,7 @@ test.describe('Extrusão', () => {
     const c = await post(request, '/api/industrial/centros', { setorId: s.id, codigo: `C${sufixo}`, nome: `Fornos ${sufixo}` })
     const tipo = await post(request, '/api/industrial/tipos-maquina', { codigo: `FN${sufixo}`, nome: `Forno ${sufixo}`, categoria: 'FORNO', parametros: [] })
     await post(request, '/api/industrial/maquinas', { codigo: `M${sufixo}`, descricao: 'Forno de tarugos', tipoMaquinaId: tipo.id, centroTrabalhoId: c.id, parametros: [] })
-    const perfil = await post(request, '/api/estoque/produtos', { nome: `Perfil Ext ${sufixo}`, unidadeMedida: 'KG', tipoProduto: 'INDUSTRIALIZADO', precoVenda: 10 })
+    const perfil = await post(request, '/api/estoque/produtos', { ...FISCAL_PRODUTO, nome: `PERFIL EXT ${sufixo}`, unidadeMedida: 'KG', tipoProduto: 'INDUSTRIALIZADO', precoVenda: 10 })
     await request.put(`/api/industrial/engenharia/fichas/${perfil.id}`, { headers, data: { tipoItem: 'ACABADO', ligaId: liga.id } })
     await post(request, '/api/industrial/extrusao/receitas', {
       codigo: `AQ${sufixo}`, descricao: 'Aquecimento', etapa: 'AQUECIMENTO', ligaId: liga.id, tipoMaquinaId: tipo.id,
@@ -123,7 +124,7 @@ test.describe('Extrusão', () => {
 
     // o tarugo tem lote liberado: o consumo mostra os lotes e o servidor recusa se não tiver saldo no estoque
     await page.getByRole('button', { name: 'Material' }).click()
-    await page.getByRole('button', { name: new RegExp(`Tarugo Ext ${sufixo}`) }).click()
+    await page.getByRole('button', { name: new RegExp(`TARUGO EXT ${sufixo}`) }).click()
     await expect(page.getByRole('button', { name: new RegExp(`B${sufixo}`) })).toBeVisible()
     await expect(page.getByRole('button', { name: new RegExp(`F${sufixo}`) })).toHaveCount(0)
     await page.getByLabel(/Quantidade \(KG\)/).fill('5')

@@ -2,6 +2,7 @@ import { test, expect } from '../../fixtures'
 import { faker } from '@faker-js/faker'
 import { createHmac } from 'node:crypto'
 import type { APIRequestContext, Page } from '@playwright/test'
+import { FISCAL_PRODUTO } from '../../support/produtoFiscal'
 
 const login = process.env.E2E_JARVIS_LOGIN ?? ''
 const senha = process.env.E2E_JARVIS_SENHA ?? ''
@@ -38,7 +39,7 @@ async function entrarNoJarvis(page: Page, senhaUsada = senha) {
 async function criarProduto(request: APIRequestContext, nome: string) {
     return request.post('/api/estoque/produtos', {
         headers,
-        data: { nome, unidadeMedida: 'UN', tipoProduto: 'BEBIDA', precoVenda: 10, estoqueMinimo: 0 },
+        data: { ...FISCAL_PRODUTO, nome, unidadeMedida: 'UN', tipoProduto: 'BEBIDA', precoVenda: 10, estoqueMinimo: 0 },
     })
 }
 

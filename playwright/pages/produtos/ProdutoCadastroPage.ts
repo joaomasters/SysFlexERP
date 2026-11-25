@@ -34,6 +34,10 @@ export interface DadosProduto {
     estoqueAtual?: string
     marca?: string
     validadeDias?: string
+    // Aba fiscal (obrigatória para salvar). Padrão: NCM 02013000 e CSOSN 102; semFiscal deixa em branco.
+    ncm?: string
+    csosn?: string
+    semFiscal?: boolean
 }
 
 // Tela "Novo Produto" / "Editar Produto" (ProdutoCadastroPage do frontend, rotas /produtos/novo e /produtos/:id/editar)
@@ -100,9 +104,17 @@ export class ProdutoCadastroPage {
         if (dados.pluBalanca) await this.pluBalanca.fill(dados.pluBalanca)
         if (dados.precoCusto) await this.precoCusto.fill(dados.precoCusto)
         if (dados.estoqueMinimo) await this.estoqueMinimo.fill(dados.estoqueMinimo)
+        // Estoque inicial é obrigatório no cadastro novo (só editável lá): padrão 0
         if (dados.estoqueAtual) await this.estoqueAtual.fill(dados.estoqueAtual)
+        else if (await this.estoqueAtual.isEditable()) await this.estoqueAtual.fill('0')
         if (dados.marca) await this.marca.fill(dados.marca)
         if (dados.validadeDias) await this.validadeDias.fill(dados.validadeDias)
+        if (!dados.semFiscal) {
+            await this.abaFiscal.click()
+            await this.page.locator('input[name="ncm"]').fill(dados.ncm ?? '02013000')
+            await this.page.locator('select[name="csosn"]').selectOption(dados.csosn ?? '102')
+            await this.abaBasico.click()
+        }
     }
 
     async salvar() {

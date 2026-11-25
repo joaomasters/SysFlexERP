@@ -74,7 +74,7 @@ test.describe('NFC-e no PDV: CPF na nota', () => {
         expect(cert.ok(), await cert.text()).toBeTruthy()
         await configurar(request, true)
         const produtos = await (await request.get('/api/estoque/produtos', { headers })).json()
-        picanhaOriginal = produtos.find((p: { nome: string }) => p.nome === 'Picanha')
+        picanhaOriginal = produtos.find((p: { nome: string }) => p.nome.toUpperCase() === 'PICANHA')
         await dadosFiscaisDaPicanha(request, fiscais)
     })
 
@@ -178,14 +178,9 @@ test.describe('NFC-e no PDV: CPF na nota', () => {
         await expect(page.getByRole('row').filter({ hasText: `${pulado} a ${pulado + 1}` })).toHaveCount(0)
     })
 
-    test('Produto sem NCM: a venda é registrada e avisa o que completar', async ({ page, request }) => {
-        await dadosFiscaisDaPicanha(request, { ncm: null })
-        const vendaId = await abrirVenda(request)
-        await pagarEmDinheiro(page, vendaId)
-        await page.getByLabel('CPF ou CNPJ do cliente').fill(CPF)
-        await page.keyboard.press('Enter')
-
-        await expect(page.getByText(/NFC-e não emitida: Complete os dados fiscais/)).toBeVisible()
-        await expect(page.getByText('Imprimir o comprovante para o cliente?')).toBeVisible()
+    test('Produto sem NCM não pode mais ser gravado (a venda com produto antigo sem NCM é coberta no NfceServiceTest)', async ({ request }) => {
+        const r = await request.put(`/api/estoque/produtos/${picanhaOriginal.id}`, { headers, data: { ...picanhaOriginal, ncm: null } })
+        expect(r.status()).toBe(422)
+        expect((await r.json()).message).toContain('NCM')
     })
 })

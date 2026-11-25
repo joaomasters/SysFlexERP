@@ -1,5 +1,6 @@
 import { test, expect } from '../../fixtures'
 import type { APIRequestContext } from '@playwright/test'
+import { FISCAL_PRODUTO } from '../../support/produtoFiscal'
 
 /*
  Qualidade e expedição (sprints 5 e 6): lote em quarentena inspecionado pela tela, rastreabilidade e o fluxo
@@ -40,8 +41,8 @@ test.describe('Qualidade e expedição', () => {
     const u = await post(request, '/api/industrial/unidades', { codigo: `U${sufixo}`, nome: 'Fábrica' })
     const s = await post(request, '/api/industrial/setores', { unidadeId: u.id, codigo: 'ACB', nome: 'Acabamento' })
     const c = await post(request, '/api/industrial/centros', { setorId: s.id, codigo: `C${sufixo}`, nome: `Embalagem ${sufixo}` })
-    const perfil = await post(request, '/api/estoque/produtos', { nome: `Perfil QE ${sufixo}`, unidadeMedida: 'KG', tipoProduto: 'INDUSTRIALIZADO', precoVenda: 30 })
-    const insumo = await post(request, '/api/estoque/produtos', { nome: `Filme QE ${sufixo}`, unidadeMedida: 'UN', tipoProduto: 'INSUMO', precoVenda: 1 })
+    const perfil = await post(request, '/api/estoque/produtos', { ...FISCAL_PRODUTO, nome: `PERFIL QE ${sufixo}`, unidadeMedida: 'KG', tipoProduto: 'INDUSTRIALIZADO', precoVenda: 30 })
+    const insumo = await post(request, '/api/estoque/produtos', { ...FISCAL_PRODUTO, nome: `FILME QE ${sufixo}`, unidadeMedida: 'UN', tipoProduto: 'INSUMO', precoVenda: 1 })
     await post(request, '/api/industrial/qualidade/planos', {
       codigo: `PI${sufixo}`, descricao: 'Inspeção final', produtoId: perfil.id,
       caracteristicas: [{ codigo: 'ESPESSURA', nome: 'Espessura', tipo: 'MEDIDA', unidade: 'mm', minimo: 1.9, maximo: 2.1 },
@@ -90,8 +91,8 @@ test.describe('Qualidade e expedição', () => {
     await page.getByLabel('Cliente *').selectOption({ label: `${cliente} · 11222333000181` })
     const produto = page.getByPlaceholder('Produto 1...')
     await produto.click()
-    await produto.fill(`Perfil QE ${sufixo}`)
-    await page.getByRole('option', { name: new RegExp(`Perfil QE ${sufixo}`) }).click()
+    await produto.fill(`PERFIL QE ${sufixo}`)
+    await page.getByRole('option', { name: new RegExp(`PERFIL QE ${sufixo}`) }).click()
     await page.getByLabel('Quantidade do item 1').fill('20')
     await page.getByRole('button', { name: 'Salvar' }).click()
 

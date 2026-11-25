@@ -40,6 +40,7 @@ class ProdutoServiceCamposFiscaisTest {
         return Produto.builder()
                 .nome("Picanha").unidadeMedida("KG").tipoProduto("CORTE")
                 .precoVenda(new BigDecimal("89.90")).estoqueMinimo(new BigDecimal("5"))
+                .ncm("02013000").cfop("5102").origem("0").csosn("102")
                 .ativo(true)
                 .build();
     }
@@ -172,5 +173,31 @@ class ProdutoServiceCamposFiscaisTest {
         assertThat(mensagens(p)).contains(
                 "O NCM deve ter 8 dígitos.", "O CEST deve ter 7 dígitos.", "Informe um CFOP válido (4 dígitos).",
                 "Origem da mercadoria inválida.", "CSOSN inválido.", "O estoque máximo não pode ser negativo.");
+    }
+
+    @Test
+    @DisplayName("salvar e atualizar: sem NCM, CFOP ou CSOSN o produto não é gravado (não sairia em nota)")
+    void fiscalObrigatorio() {
+        String[][] casos = {{"ncm", "NCM"}, {"cfop", "CFOP"}, {"csosn", "CSOSN"}};
+        for (String[] caso : casos) {
+            Produto p = produto();
+            switch (caso[0]) {
+                case "ncm" -> p.setNcm(" ");
+                case "cfop" -> p.setCfop(null);
+                default -> p.setCsosn("");
+            }
+            assertThatThrownBy(() -> service.salvar(p, 1L))
+                    .isInstanceOf(BusinessException.class).hasMessageContaining(caso[1]).hasMessageContaining("Informações Fiscais");
+        }
+
+        Produto existente = produto();
+        existente.setId(10L);
+        existente.setNcm(null);   // produto antigo, cadastrado antes da regra
+        when(produtoRepo.findById(10L)).thenReturn(Optional.of(existente));
+        Produto dados = produto();
+        dados.setNcm(null);
+        assertThatThrownBy(() -> service.atualizar(10L, dados))
+                .isInstanceOf(BusinessException.class).hasMessageContaining("NCM");
+        verify(produtoRepo, never()).save(any());
     }
 }

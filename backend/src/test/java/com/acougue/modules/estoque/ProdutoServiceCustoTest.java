@@ -32,7 +32,7 @@ class ProdutoServiceCustoTest {
     @InjectMocks ProdutoService service;
 
     private Produto produto(String custo) {
-        return Produto.builder().id(1L).nome("Picanha").unidadeMedida("KG").tipoProduto("BOVINO")
+        return Produto.builder().ncm("02013000").cfop("5102").origem("0").csosn("102").id(1L).nome("Picanha").unidadeMedida("KG").tipoProduto("BOVINO")
                 .precoVenda(new BigDecimal("79.90")).precoCusto(custo == null ? null : new BigDecimal(custo))
                 .codigoInterno("P000001").ativo(true).build();
     }

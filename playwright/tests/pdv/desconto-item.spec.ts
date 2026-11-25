@@ -13,14 +13,14 @@ async function abrirComanda(request: APIRequestContext, token: string, quantidad
     const caixaId = (await caixa.json()).id
 
     const produtos = await (await request.get('/api/estoque/produtos', { headers })).json()
-    const produto = produtos.find((p: { nome: string }) => p.nome === 'Picanha')
+    const produto = produtos.find((p: { nome: string }) => p.nome.toUpperCase() === 'PICANHA')
 
     const venda = await (await request.post('/api/pdv/vendas/abrir', { headers, data: { caixaId } })).json()
     const comItem = await (await request.post(`/api/pdv/vendas/${venda.id}/itens`, {
         headers, data: { produtoId: produto.id, quantidade, tipoEntrada: 'MANUAL' },
     })).json()
     if (segundoItem) {
-        const outro = produtos.find((p: { nome: string }) => p.nome !== 'Picanha')
+        const outro = produtos.find((p: { nome: string }) => p.nome.toUpperCase() !== 'PICANHA')
         await request.post(`/api/pdv/vendas/${venda.id}/itens`, {
             headers, data: { produtoId: outro.id, quantidade: 1, tipoEntrada: 'MANUAL' },
         })
@@ -103,18 +103,18 @@ test.describe('Atalhos do item no PDV', () => {
         await page.keyboard.press('Escape')
 
         await page.keyboard.press('ArrowUp')
-        await expect(linhaSelecionada(page)).toContainText('Picanha')
+        await expect(linhaSelecionada(page)).toContainText(/picanha/i)
         await page.keyboard.press('F6')
-        await expect(modal(page)).toContainText('Picanha')
+        await expect(modal(page)).toContainText(/picanha/i)
         await modal(page).locator('input').fill('100')
         await page.keyboard.press('Enter')
         await expect(modal(page)).toHaveCount(0)
 
         // Item com desconto continua na mesma posição, e selecionado
         const linhas = page.locator('tbody tr')
-        await expect(linhas.nth(0)).toContainText('Picanha')
+        await expect(linhas.nth(0)).toContainText(/picanha/i)
         await expect(linhas.nth(1)).toContainText(nomeSegundo)
-        await expect(linhaSelecionada(page)).toContainText('Picanha')
+        await expect(linhaSelecionada(page)).toContainText(/picanha/i)
 
         // PageDown funciona mesmo com o foco no campo de busca
         await page.keyboard.press('F2')
@@ -124,7 +124,7 @@ test.describe('Atalhos do item no PDV', () => {
 
         // Clique também escolhe o item
         await linhas.nth(0).locator('td').nth(1).click()
-        await expect(linhaSelecionada(page)).toContainText('Picanha')
+        await expect(linhaSelecionada(page)).toContainText(/picanha/i)
         await page.screenshot({ path: test.info().outputPath('itens.png') })
     })
 
@@ -145,7 +145,7 @@ test.describe('Atalhos do item no PDV', () => {
         await expect(page.getByRole('heading', { name: 'Pagamento' })).toHaveCount(0)
         await page.keyboard.press('Enter')
         await expect(linhas).toHaveCount(1)
-        await expect(linhas.nth(0)).toContainText('Picanha')
+        await expect(linhas.nth(0)).toContainText(/picanha/i)
         await expect(linhas.nth(0)).not.toContainText(nomeSegundo)
     })
 
