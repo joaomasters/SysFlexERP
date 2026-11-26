@@ -53,6 +53,8 @@ export interface ConfiguracaoFiscal {
   pendenciasNfce: string[]
   pendenciasNfe: string[]
   produtosSemNcm: number
+  /** % aproximado de tributos no DANFE (Lei 12.741/2012); null = não informado. */
+  percentualTributos: number | null
 }
 
 export interface DocumentoFiscal {
@@ -114,4 +116,6 @@ export interface Nfce {
     endereco: string
     municipio: string
   } | null
+  /** % aproximado de tributos para a linha da Lei 12.741/2012 (null = não informado). */
+  percentualTributos: number | null
 }

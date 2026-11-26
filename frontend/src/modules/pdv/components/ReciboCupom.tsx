@@ -26,6 +26,10 @@ const dataHora = (iso?: string | null) => {
 
 const num2 = (v: number) => (v ?? 0).toFixed(2).replace('.', ',')
 
+/** Valor aproximado dos tributos (Lei 12.741/2012): total da venda x percentual configurado. */
+export const valorTributos = (total: number, percentual?: number | null) =>
+  Math.round((total ?? 0) * Number(percentual ?? 0)) / 100
+
 /**
  * Largura que a cabeça térmica imprime: numa bobina de 80 mm são ~72 mm
  * (576 pontos a 203 dpi); na de 58 mm, ~48 mm. É a largura da página.
@@ -153,7 +157,7 @@ export default function ReciboCupom({ venda, operador, config, pagamentos, nfce 
         <thead>
           <tr>
             {/* na bobina estreita, o espaço vai para os valores: o nome tem linha própria */}
-            <th style={{ width: estreito ? '22%' : '40%' }}>{estreito ? 'Un.' : 'Descrição'}</th>
+            <th style={{ width: estreito ? '22%' : '40%' }}>{fiscal ? 'Código - Descrição' : estreito ? 'Un.' : 'Descrição'}</th>
             <th className="num">Valor</th>
             <th className="num">Qtde.</th>
             <th className="num">Total</th>
@@ -165,7 +169,9 @@ export default function ReciboCupom({ venda, operador, config, pagamentos, nfce 
             const desconto = item.descontoItem ?? 0
             return [
               <tr key={`${item.id}-n`}>
-                <td colSpan={4}>{idx + 1} {item.produto?.nome}</td>
+                <td colSpan={4}>
+                  {fiscal ? `${item.produto?.codigoInterno ?? idx + 1} - ` : `${idx + 1} `}{item.produto?.nome}
+                </td>
               </tr>,
               <tr key={`${item.id}-v`}>
                 <td>{(item.produto?.unidadeMedida ?? '').toUpperCase()}</td>
@@ -186,6 +192,9 @@ export default function ReciboCupom({ venda, operador, config, pagamentos, nfce 
 
       <div className="separador" />
 
+      {fiscal && (
+        <div className="linha"><span>Qtd. total de itens</span><span>{(venda.itens ?? []).length}</span></div>
+      )}
       {/* venda.subtotal já vem sem os descontos dos itens: o cupom mostra o valor cheio para a conta fechar */}
       <div className="linha"><span>Sub Total:</span><span>{num2(venda.subtotal + descontoItens)}</span></div>
       {descontoItens > 0 && (
@@ -236,6 +245,11 @@ export default function ReciboCupom({ venda, operador, config, pagamentos, nfce 
           {fiscal.ambiente === 'HOMOLOGACAO' && (
             <p className="centro">EMITIDA EM AMBIENTE DE HOMOLOGAÇÃO - SEM VALOR FISCAL</p>
           )}
+          <div className="separador" />
+          <p className="centro pequeno">
+            Tributos Totais Incidentes (Lei Federal 12.741/2012): R$ {num2(valorTributos(venda.total, fiscal.percentualTributos))}
+            {fiscal.percentualTributos ? ` (${String(fiscal.percentualTributos).replace('.', ',')}%)` : ''}
+          </p>
         </>
       )}
 

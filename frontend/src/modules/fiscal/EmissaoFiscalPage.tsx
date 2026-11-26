@@ -35,6 +35,7 @@ type Form = Pick<ConfiguracaoFiscal,
   | 'nfeProximoNumero' | 'nfceModo' | 'cscId'> & {
     cscToken: string; limparCsc: boolean
     tokenHomologacao: string; tokenProducao: string; limparTokens: boolean; pisCofinsCst: string
+    percentualTributos: string
   }
 
 /** Provedores que guardam certificado e CSC do lado deles: aqui só vão o token e o CST de PIS/COFINS. */
@@ -55,6 +56,7 @@ function paraForm(c: ConfiguracaoFiscal): Form {
     nfeSerie: c.nfeSerie, nfeProximoNumero: c.nfeProximoNumero, nfceModo: c.nfceModo ?? 'SOB_DEMANDA',
     cscId: c.cscId, cscToken: '', limparCsc: false,
     tokenHomologacao: '', tokenProducao: '', limparTokens: false, pisCofinsCst: c.pisCofinsCst ?? '',
+    percentualTributos: c.percentualTributos == null ? '' : String(c.percentualTributos).replace('.', ','),
   }
 }
 
@@ -112,7 +114,10 @@ function Configuracao() {
   const atualizar = (c: ConfiguracaoFiscal) => qc.setQueryData(['fiscal-configuracao'], c)
 
   const salvar = useMutation({
-    mutationFn: () => api.put<ConfiguracaoFiscal>('/fiscal/configuracao', form).then(r => r.data),
+    mutationFn: () => api.put<ConfiguracaoFiscal>('/fiscal/configuracao', {
+      ...form,
+      percentualTributos: form?.percentualTributos.trim() ? Number(form.percentualTributos.replace(',', '.')) : null,
+    }).then(r => r.data),
     onSuccess: c => { atualizar(c); toast.success('Configuração fiscal salva.') },
   })
 
@@ -226,6 +231,12 @@ function Configuracao() {
               <option value="SOB_DEMANDA">Só quando o cliente pedir (as outras vendas saem no cupom não fiscal)</option>
               <option value="TODAS">Em todas as vendas (com ou sem CPF)</option>
             </select>
+          </Field>
+          <Field label="Tributos aproximados no DANFE (%)" htmlFor="fiscal-percentualTributos"
+                 hint="Lei 12.741/2012. No Simples Nacional, a alíquota efetiva do DAS informada pelo contador. Vazio sai R$ 0,00.">
+            <input id="fiscal-percentualTributos" inputMode="decimal" value={form.percentualTributos} disabled={!editavel}
+                   placeholder="Ex.: 4,5" maxLength={6}
+                   onChange={e => set('percentualTributos', e.target.value.replace(/[^\d,]/g, ''))} className={baseInputClass} />
           </Field>
         </div>
       </Card>
@@ -429,6 +440,10 @@ function Documentos() {
   const [modelo, setModelo] = useState<'' | '65' | '55'>('')
   const [mes, setMes] = useState(mesAtual)
   const [baixandoZip, setBaixandoZip] = useState(false)
+  const { data: config } = useQuery<ConfiguracaoFiscal>({
+    queryKey: ['fiscal-configuracao'],
+    queryFn: () => api.get('/fiscal/configuracao').then(r => r.data),
+  })
   const { data: docs = [], isLoading } = useQuery<DocumentoFiscal[]>({
     queryKey: ['fiscal-documentos', modelo, mes],
     queryFn: () => api.get('/fiscal/documentos', { params: { modelo: modelo || undefined, mes } }).then(r => r.data),
@@ -487,7 +502,14 @@ function Documentos() {
         </p>
       )}
       {isLoading ? <LoadingState /> : docs.length === 0 ? (
-        <EmptyState>Nenhuma nota neste mês. Com a emissão desligada, o PDV usa o cupom não fiscal.</EmptyState>
+        <EmptyState>
+          Nenhuma nota neste mês.{' '}
+          {!config ? '' : !config.emitirNfce
+            ? 'A emissão de NFC-e está desligada: o PDV usa o cupom não fiscal.'
+            : config.nfceModo === 'TODAS'
+              ? 'A NFC-e está ligada para todas as vendas: a próxima venda finalizada no PDV aparece aqui.'
+              : 'A NFC-e está ligada "só quando o cliente pedir": no PDV, confirme o "CPF na nota?" ao finalizar a venda.'}
+        </EmptyState>
       ) : (
         <Table>
           <THead>

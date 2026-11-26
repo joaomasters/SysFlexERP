@@ -104,4 +104,29 @@ test.describe('Emissão de notas (NFC-e / NF-e)', () => {
         await page.getByRole('button', { name: /Baixar extrato/ }).click()
         expect((await download).suggestedFilename()).toBe(`faturamento-${mes}.csv`)
     })
+
+    test('DANFE: prévia no Comprovante com código, quantidade de itens e tributos da Lei 12.741', async ({ page, request }) => {
+        const atual = await (await request.get('/api/fiscal/configuracao', { headers })).json()
+        const salvar = (percentualTributos: number | null) =>
+            request.put('/api/fiscal/configuracao', { headers, data: { ...atual, cscToken: null, percentualTributos } })
+        expect((await salvar(4.5)).ok()).toBeTruthy()
+        expect((await salvar(101)).status()).toBe(400)
+        try {
+            await page.goto('/fiscal/emissao')
+            await expect(page.getByLabel('Tributos aproximados no DANFE (%)')).toHaveValue('4,5')
+
+            await page.goto('/acesso/comprovante')
+            const previa = page.getByTestId('previa-comprovante')
+            await expect(previa).toContainText('NÃO É DOCUMENTO FISCAL')
+            await page.getByRole('button', { name: 'DANFE NFC-e' }).click()
+            await expect(previa).toContainText('Documento Auxiliar da Nota Fiscal de Consumidor Eletrônica')
+            await expect(previa).toContainText('P000012 - PICANHA')
+            await expect(previa).toContainText(/Qtd\. total de itens\s*2/)
+            // venda de exemplo: R$ 84,40 x 4,5% = R$ 3,80
+            await expect(previa).toContainText('Tributos Totais Incidentes (Lei Federal 12.741/2012): R$ 3,80 (4,5%)')
+            await expect(previa).not.toContainText('NÃO É DOCUMENTO FISCAL')
+        } finally {
+            await salvar(atual.percentualTributos ?? null)
+        }
+    })
 })
