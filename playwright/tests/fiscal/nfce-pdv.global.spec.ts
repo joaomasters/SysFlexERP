@@ -101,6 +101,32 @@ test.describe('NFC-e no PDV: CPF na nota', () => {
         expect(nfce.qrCodeSvg).toContain('<svg')
     })
 
+    test('XML da nota: baixa pela lista do mês; o .zip do contador só leva produção', async ({ page, request }) => {
+        const h = new Date()
+        const mes = `${h.getFullYear()}-${String(h.getMonth() + 1).padStart(2, '0')}`
+        const docs = await (await request.get(`/api/fiscal/documentos?mes=${mes}&modelo=65`, { headers })).json()
+        const nota = docs.find((d: { status: string; temXml: boolean }) => d.status === 'AUTORIZADA' && d.temXml)
+        expect(nota, 'NFC-e autorizada com XML no mês').toBeTruthy()
+        expect(nota.xml).toBeUndefined()   // a lista não carrega o XML
+
+        const xml = await request.get(`/api/fiscal/documentos/${nota.id}/xml`, { headers })
+        expect(xml.ok()).toBeTruthy()
+        expect(await xml.text()).toContain(`<chNFe>${nota.chave}</chNFe>`)
+
+        // tudo aqui é homologação: o .zip do mês avisa em vez de vir vazio
+        const zip = await request.get(`/api/fiscal/documentos/xml-do-mes?mes=${mes}`, { headers })
+        expect(zip.status()).toBe(422)
+        expect((await zip.json()).message).toContain('Nenhuma nota de produção')
+
+        await page.goto('/fiscal/emissao')
+        await page.getByRole('button', { name: 'Documentos emitidos' }).click()
+        await expect(page.getByLabel('Mês')).toHaveValue(mes)
+        await expect(page.getByRole('button', { name: /Baixar XMLs do mês/ })).toBeDisabled()
+        const download = page.waitForEvent('download')
+        await page.getByRole('button', { name: `Baixar XML da nota ${nota.serie}/${nota.numero}` }).click()
+        expect((await download).suggestedFilename()).toBe(`${nota.chave}-nfce.xml`)
+    })
+
     test('Sem CPF, a venda sai no cupom não fiscal', async ({ page, request }) => {
         const vendaId = await abrirVenda(request)
         await pagarEmDinheiro(page, vendaId)

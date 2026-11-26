@@ -24,6 +24,27 @@ public interface DocumentoFiscalRepository extends JpaRepository<DocumentoFiscal
     List<DocumentoFiscal> buscar(@Param("modelo") Short modelo, @Param("status") String status,
                                  @Param("desde") LocalDateTime desde);
 
+    /** Documentos de um período pela data de emissão (ou de criação, se não chegou a ser emitido). */
+    @Query("""
+            SELECT d FROM DocumentoFiscal d
+            WHERE (:modelo IS NULL OR d.modelo = :modelo)
+              AND (:status IS NULL OR d.status = :status)
+              AND COALESCE(d.emitidaEm, d.createdAt) >= :de
+              AND COALESCE(d.emitidaEm, d.createdAt) < :ate
+            ORDER BY COALESCE(d.emitidaEm, d.createdAt) DESC
+            """)
+    List<DocumentoFiscal> buscarPeriodo(@Param("modelo") Short modelo, @Param("status") String status,
+                                        @Param("de") LocalDateTime de, @Param("ate") LocalDateTime ate);
+
+    /** Notas de produção com XML (autorizadas, inclusive as canceladas depois), em ordem de série e número. */
+    @Query("""
+            SELECT d FROM DocumentoFiscal d
+            WHERE d.ambiente = 'PRODUCAO' AND d.xml IS NOT NULL
+              AND d.emitidaEm >= :de AND d.emitidaEm < :ate
+            ORDER BY d.modelo, d.serie, d.numero
+            """)
+    List<DocumentoFiscal> comXmlNoPeriodo(@Param("de") LocalDateTime de, @Param("ate") LocalDateTime ate);
+
     /** A NFC-e mais recente da venda (a última tentativa, autorizada ou não). */
     Optional<DocumentoFiscal> findFirstByVendaIdAndModeloOrderByIdDesc(Long vendaId, Short modelo);
 
