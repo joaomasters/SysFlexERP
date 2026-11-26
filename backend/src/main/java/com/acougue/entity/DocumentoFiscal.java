@@ -1,6 +1,7 @@
 package com.acougue.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -64,6 +65,12 @@ public class DocumentoFiscal {
     @JsonIgnore // grande; baixado à parte quando for preciso
     @Column(columnDefinition = "TEXT")
     private String xml;
+
+    /** Para a tela saber se dá para baixar o XML, sem mandar o XML na lista. */
+    @JsonProperty("temXml")
+    public boolean temXml() {
+        return xml != null;
+    }
 
     /** Conteúdo do QR Code do DANFE NFC-e e o site de consulta pela chave (vêm da autorização). */
     @Column(name = "url_qrcode", columnDefinition = "TEXT")

@@ -256,7 +256,7 @@ public class NfceService {
         doc.setMensagem(r.mensagem());
         doc.setUrlQrcode(r.urlQrcode());
         doc.setUrlConsulta(r.urlConsulta());
-        doc.setXml(r.xml());
+        if (r.xml() != null) doc.setXml(r.xml());   // uma consulta sem XML não apaga o autorizado (é o que vai ao contador)
         doc.setIdExterno(r.idExterno());
         if (r.autorizada()) {
             doc.setEmitidaEm(r.autorizadaEm() != null ? r.autorizadaEm() : LocalDateTime.now());

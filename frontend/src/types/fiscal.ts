@@ -73,6 +73,8 @@ export interface DocumentoFiscal {
   emitidaEm: string | null
   canceladaEm: string | null
   createdAt: string
+  /** Tem XML autorizado para baixar. */
+  temXml: boolean
 }
 
 export const REGIMES_TRIBUTARIOS: { value: number; label: string }[] = [

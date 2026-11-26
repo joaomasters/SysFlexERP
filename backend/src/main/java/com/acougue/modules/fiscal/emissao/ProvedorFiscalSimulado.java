@@ -53,8 +53,16 @@ public class ProvedorFiscalSimulado implements ProvedorFiscal {
         String chave = nota.chave();
         String protocolo = "9" + String.format("%014d", Math.abs(aleatorio.nextLong()) % 100_000_000_000_000L);
         return new RetornoEmissao("AUTORIZADA", chave, protocolo, "Autorizado o uso da NFC-e (simulado)",
-                urlQrCode(chave, 2, credencial.cscId(), credencial.cscToken()), URL_CONSULTA_PR, null,
+                urlQrCode(chave, 2, credencial.cscId(), credencial.cscToken()), URL_CONSULTA_PR, xmlSimulado(chave, protocolo),
                 "SIM-" + chave, LocalDateTime.now());
+    }
+
+    /** Só a "casca" do nfeProc (homologação de teste), para exercitar o download do XML. */
+    private static String xmlSimulado(String chave, String protocolo) {
+        return "<?xml version=\"1.0\" encoding=\"UTF-8\"?><nfeProc xmlns=\"http://www.portalfiscal.inf.br/nfe\" versao=\"4.00\">"
+                + "<NFe><infNFe Id=\"NFe" + chave + "\" versao=\"4.00\"/></NFe>"
+                + "<protNFe versao=\"4.00\"><infProt><tpAmb>2</tpAmb><chNFe>" + chave + "</chNFe><nProt>" + protocolo
+                + "</nProt><cStat>100</cStat><xMotivo>Autorizado o uso da NF-e (simulado)</xMotivo></infProt></protNFe></nfeProc>";
     }
 
     /**
