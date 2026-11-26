@@ -361,7 +361,7 @@ public class NfceService {
                 d.getSerie(), d.getNumero(), d.getChave(), d.getProtocolo(), d.getEmitidaEm(),
                 d.getDestinatarioDocumento(), d.getUrlConsulta(),
                 d.getUrlQrcode() == null ? null : QrCodeSvg.gerar(d.getUrlQrcode()),
-                emitente);
+                emitente, c == null ? null : c.getPercentualTributos());
     }
 
     private static List<String> naoVazios(String... partes) {

@@ -9,6 +9,7 @@ import ReciboCupom, { areaImpressaoMm } from '@/modules/pdv/components/ReciboCup
 import { imprimirComprovante } from '@/modules/pdv/imprimirComprovante'
 import type { ConfiguracaoComprovante } from '@/types/comprovante'
 import type { Venda } from '@/types/venda'
+import type { ConfiguracaoFiscal, Nfce } from '@/types/fiscal'
 
 /** Venda de exemplo só para a prévia e o "Imprimir teste" (não existe no banco). */
 const VENDA_EXEMPLO = {
@@ -23,11 +24,35 @@ const VENDA_EXEMPLO = {
   troco: 15.6,
   cliente: undefined,
   itens: [
-    { id: 1, produto: { nome: 'Picanha', unidadeMedida: 'KG' }, quantidade: 0.85, precoUnitario: 69.9, descontoItem: 0, totalItem: 59.42, tipoEntrada: 'BARCODE' },
-    { id: 2, produto: { nome: 'Kurupi Menta e Limão 500g', unidadeMedida: 'UN' }, quantidade: 1, precoUnitario: 24.98, descontoItem: 0, totalItem: 24.98, tipoEntrada: 'MANUAL' },
+    { id: 1, produto: { codigoInterno: 'P000012', nome: 'PICANHA', unidadeMedida: 'KG' }, quantidade: 0.85, precoUnitario: 69.9, descontoItem: 0, totalItem: 59.42, tipoEntrada: 'BARCODE' },
+    { id: 2, produto: { codigoInterno: 'P000345', nome: 'KURUPI MENTA E LIMÃO 500G', unidadeMedida: 'UN' }, quantidade: 1, precoUnitario: 24.98, descontoItem: 0, totalItem: 24.98, tipoEntrada: 'MANUAL' },
   ],
   pagamentos: [{ id: 1, formaPagamento: 'DINHEIRO', valor: 100 }],
 } as unknown as Venda
+
+/** Só desenha o lugar do QR Code na prévia: o de verdade vem da autorização da SEFAZ. */
+const QR_EXEMPLO = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 29 29"><rect width="29" height="29" fill="#fff"/>'
+  + '<path d="M1 1h7v7H1zM21 1h7v7h-7zM1 21h7v7H1z" fill="none" stroke="#000" stroke-width="1.6"/>'
+  + '<path d="M3 3h3v3H3zM23 3h3v3h-3zM3 23h3v3H3zM11 2h2v2h-2zM14 5h2v2h-2zM10 10h3v2h-3zM15 11h3v3h-3zM20 12h2v2h-2zM11 15h2v4h-2zM17 17h4v2h-4zM23 15h3v3h-3zM12 22h3v2h-3zM18 22h2v4h-2zM23 21h4v2h-4zM22 25h3v2h-3z"/>'
+  + '<text x="14.5" y="16" font-size="3" text-anchor="middle" font-family="Arial" fill="#000">EXEMPLO</text></svg>'
+
+/** NFC-e de exemplo para a prévia do DANFE: usa o emitente da configuração fiscal, em "homologação" (sem valor). */
+function nfceExemplo(fiscal?: ConfiguracaoFiscal): Nfce {
+  return {
+    id: 0, vendaId: VENDA_EXEMPLO.id, status: 'AUTORIZADA', mensagem: null, ambiente: 'HOMOLOGACAO',
+    serie: fiscal?.nfceSerie ?? 1, numero: fiscal?.nfceProximoNumero ?? 1,
+    chave: '41000000000000000000650000000000011000000000', protocolo: '000000000000000',
+    emitidaEm: new Date().toISOString(), destinatarioDocumento: null,
+    urlConsulta: 'http://www.fazenda.pr.gov.br/nfce/consulta', qrCodeSvg: QR_EXEMPLO,
+    emitente: {
+      razaoSocial: fiscal?.razaoSocial || 'RAZÃO SOCIAL DA EMPRESA', nomeFantasia: fiscal?.nomeFantasia ?? null,
+      cnpj: fiscal?.cnpj ?? null, inscricaoEstadual: fiscal?.inscricaoEstadual ?? null,
+      endereco: [fiscal?.logradouro, fiscal?.numeroEndereco, fiscal?.complemento, fiscal?.bairro].filter(Boolean).join(', '),
+      municipio: [fiscal?.municipio, fiscal?.uf].filter(Boolean).join(' - '),
+    },
+    percentualTributos: fiscal?.percentualTributos ?? null,
+  }
+}
 
 const PADRAO: ConfiguracaoComprovante = {
   nomeFantasia: '', cnpj: '', endereco: '', bairro: '', cidade: '', telefone: '', mensagemRodape: '',
@@ -39,6 +64,13 @@ export default function ComprovantePage() {
   const qc = useQueryClient()
   const { podeVer, podeEditar, nome } = usePermissao()
   const [form, setForm] = useState<ConfiguracaoComprovante>(PADRAO)
+  const [modelo, setModelo] = useState<'cupom' | 'danfe'>('cupom')
+  const { data: fiscal } = useQuery<ConfiguracaoFiscal>({
+    queryKey: ['fiscal-configuracao'],
+    queryFn: () => api.get('/fiscal/configuracao').then(r => r.data),
+    enabled: podeVer('FISCAL'),
+  })
+  const nfce = modelo === 'danfe' ? nfceExemplo(fiscal) : null
 
   const { data } = useQuery<ConfiguracaoComprovante>({
     queryKey: ['comprovante-config'],
@@ -85,7 +117,7 @@ export default function ComprovantePage() {
 
   function imprimirTeste() {
     try {
-      imprimirComprovante(VENDA_EXEMPLO, nome ?? 'Operador', form, undefined, 1)
+      imprimirComprovante(VENDA_EXEMPLO, nome ?? 'Operador', form, undefined, 1, nfce)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Não foi possível imprimir.')
     }
@@ -95,7 +127,7 @@ export default function ComprovantePage() {
     <div className="p-4 sm:p-6">
       <PageHeader
         title="Comprovante de Venda"
-        subtitle="O que sai no cupom impresso no PDV (cupom não fiscal)"
+        subtitle="O que sai impresso no PDV: o cupom não fiscal e o DANFE da NFC-e"
         actions={
           <>
             <Button variant="secondary" onClick={imprimirTeste} disabled={!form.nomeFantasia.trim()}>
@@ -181,11 +213,25 @@ export default function ComprovantePage() {
         </div>
 
         <div className="lg:sticky lg:top-4">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Prévia (bobina {form.larguraPapelMm} mm, conteúdo {areaImpressaoMm(form)} mm)</p>
-          <div className="bg-white border border-gray-200 shadow-md rounded-sm overflow-x-auto max-w-full">
-            <ReciboCupom venda={VENDA_EXEMPLO} operador={nome ?? 'Operador'} config={{ ...form, nomeFantasia: form.nomeFantasia || 'NOME DA LOJA' }} />
+          <div className="flex gap-1 mb-2" role="group" aria-label="Modelo da prévia">
+            {([['cupom', 'Cupom não fiscal'], ['danfe', 'DANFE NFC-e']] as const).map(([v, rot]) => (
+              <button key={v} type="button" aria-pressed={modelo === v} onClick={() => setModelo(v)}
+                      className={`text-xs px-2.5 py-1 rounded-full border ${modelo === v
+                        ? 'bg-primary-600 border-primary-600 text-white' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}>
+                {rot}
+              </button>
+            ))}
           </div>
-          <p className="text-xs text-gray-400 mt-2 max-w-[80mm]">Venda de exemplo. O cupom real usa os itens e pagamentos da venda.</p>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Prévia (bobina {form.larguraPapelMm} mm, conteúdo {areaImpressaoMm(form)} mm)</p>
+          <div className="bg-white border border-gray-200 shadow-md rounded-sm overflow-x-auto max-w-full" data-testid="previa-comprovante">
+            <ReciboCupom venda={VENDA_EXEMPLO} operador={nome ?? 'Operador'} nfce={nfce}
+                         config={{ ...form, nomeFantasia: form.nomeFantasia || 'NOME DA LOJA' }} />
+          </div>
+          <p className="text-xs text-gray-400 mt-2 max-w-[80mm]">
+            {modelo === 'danfe'
+              ? 'Exemplo com o emitente de Emissão de Notas. Chave, protocolo e QR Code de verdade vêm da autorização da SEFAZ. O cabeçalho do DANFE não usa os campos desta tela.'
+              : 'Venda de exemplo. O cupom real usa os itens e pagamentos da venda.'}
+          </p>
         </div>
       </div>
     </div>

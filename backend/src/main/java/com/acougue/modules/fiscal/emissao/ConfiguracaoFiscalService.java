@@ -90,6 +90,7 @@ public class ConfiguracaoFiscalService {
         }
 
         c.setPisCofinsCst(texto(dto.getPisCofinsCst()));
+        c.setPercentualTributos(dto.getPercentualTributos());
         if (dto.isLimparTokens()) {
             c.setProvedorTokenHomologacaoCripto(null);
             c.setProvedorTokenProducaoCripto(null);
@@ -198,7 +199,7 @@ public class ConfiguracaoFiscalService {
                 cripto.configurada(),
                 provedores.stream().map(x -> new ConfiguracaoFiscalDTO.Provedor(x.codigo(), x.rotulo())).toList(),
                 p.nfce(), p.nfe(),
-                produtoRepo.contarAtivosSemNcm());
+                produtoRepo.contarAtivosSemNcm(), c.getPercentualTributos());
     }
 
     private void exigirCripto() {

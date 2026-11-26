@@ -118,6 +118,10 @@ public class ConfiguracaoFiscal {
     @Column(name = "pis_cofins_cst", length = 2)
     private String pisCofinsCst;
 
+    /** % aproximado de tributos no DANFE (Lei 12.741/2012); no Simples, a alíquota efetiva do DAS. Nulo = não informado. */
+    @Column(name = "percentual_tributos", precision = 5, scale = 2)
+    private java.math.BigDecimal percentualTributos;
+
     @Column(name = "certificado_cripto", columnDefinition = "TEXT")
     private String certificadoCripto;
 

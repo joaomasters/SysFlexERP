@@ -55,4 +55,9 @@ public class SalvarConfiguracaoFiscalDTO {
 
     @Pattern(regexp = "^$|[0-9]{2}", message = "CST de PIS/COFINS deve ter 2 dígitos")
     private String pisCofinsCst;
+
+    /** % aproximado de tributos impresso no DANFE (Lei 12.741/2012). Vazio = não informado. */
+    @jakarta.validation.constraints.DecimalMin(value = "0", message = "Percentual de tributos não pode ser negativo")
+    @jakarta.validation.constraints.DecimalMax(value = "100", message = "Percentual de tributos vai até 100")
+    private java.math.BigDecimal percentualTributos;
 }
