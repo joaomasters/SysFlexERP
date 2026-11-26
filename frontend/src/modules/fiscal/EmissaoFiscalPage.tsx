@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, CheckCircle2, FileKey, Lock, Save, Trash2 } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Download, FileKey, Lock, Save, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { api } from '@/shared/api/axios'
 import { usePermissao } from '@/shared/hooks/usePermissao'
@@ -396,15 +396,53 @@ function Configuracao() {
   )
 }
 
+/** "2026-11" do mês atual, no horário local. */
+function mesAtual() {
+  const h = new Date()
+  return `${h.getFullYear()}-${String(h.getMonth() + 1).padStart(2, '0')}`
+}
+
+/** Baixa um arquivo da API (XML ou .zip) com o nome que o backend mandou. */
+async function baixarArquivo(url: string, params: Record<string, string>, nomePadrao: string) {
+  try {
+    const r = await api.get(url, { params, responseType: 'blob', silent: true } as never) as { data: Blob; headers: Record<string, string> }
+    const nome = /filename="?([^";]+)"?/.exec(r.headers['content-disposition'] ?? '')?.[1] ?? nomePadrao
+    const href = URL.createObjectURL(r.data)
+    const a = document.createElement('a')
+    a.href = href
+    a.download = nome
+    a.click()
+    URL.revokeObjectURL(href)
+  } catch (e) {
+    const corpo = (e as { response?: { data?: Blob } }).response?.data
+    let msg = 'Não foi possível baixar o arquivo.'
+    try { if (corpo) msg = JSON.parse(await corpo.text()).message ?? msg } catch { /* mantém a genérica */ }
+    toast.error(msg)
+  }
+}
+
 function Documentos() {
   const qc = useQueryClient()
   const [modelo, setModelo] = useState<'' | '65' | '55'>('')
+  const [mes, setMes] = useState(mesAtual)
+  const [baixandoZip, setBaixandoZip] = useState(false)
   const { data: docs = [], isLoading } = useQuery<DocumentoFiscal[]>({
-    queryKey: ['fiscal-documentos', modelo],
-    queryFn: () => api.get('/fiscal/documentos', { params: { modelo: modelo || undefined } }).then(r => r.data),
+    queryKey: ['fiscal-documentos', modelo, mes],
+    queryFn: () => api.get('/fiscal/documentos', { params: { modelo: modelo || undefined, mes } }).then(r => r.data),
+    enabled: /^\d{4}-\d{2}$/.test(mes),
   })
-  const pag = usePaginacao(docs, modelo)
+  const pag = usePaginacao(docs, `${modelo}|${mes}`)
   const emAberto = docs.filter(d => d.status === 'DESCONHECIDO' || d.status === 'PENDENTE').length
+  const producao = docs.filter(d => d.ambiente === 'PRODUCAO')
+  const autorizadas = producao.filter(d => d.status === 'AUTORIZADA')
+  const comXml = producao.filter(d => d.temXml).length
+  const totalAutorizado = autorizadas.reduce((s, d) => s + Number(d.valorTotal), 0)
+
+  async function baixarZip() {
+    setBaixandoZip(true)
+    await baixarArquivo('/fiscal/documentos/xml-do-mes', { mes }, `XML-notas-${mes}.zip`)
+    setBaixandoZip(false)
+  }
   const consultar = useMutation({
     mutationFn: (id: number) => api.post<{ status: StatusDocumentoFiscal }>(`/fiscal/nfce/documentos/${id}/consultar`).then(r => r.data),
     onSuccess: r => {
@@ -416,14 +454,27 @@ function Documentos() {
 
   return (
     <Card padding="none">
-      <div className="p-4 flex items-center gap-3 border-b border-gray-100">
-        <select value={modelo} onChange={e => setModelo(e.target.value as typeof modelo)} className={`${baseInputClass} max-w-xs`}
-                aria-label="Modelo">
-          <option value="">NFC-e e NF-e</option>
-          <option value="65">Só NFC-e (65)</option>
-          <option value="55">Só NF-e (55)</option>
-        </select>
-        <span className="text-xs text-gray-500">Últimos 90 dias</span>
+      <div className="p-4 flex flex-wrap items-end gap-3 border-b border-gray-100">
+        <Field label="Mês" htmlFor="fiscal-docs-mes">
+          <input id="fiscal-docs-mes" type="month" value={mes} max={mesAtual()} onChange={e => setMes(e.target.value)}
+                 className={`${baseInputClass} w-44`} />
+        </Field>
+        <Field label="Modelo" htmlFor="fiscal-docs-modelo">
+          <select id="fiscal-docs-modelo" value={modelo} onChange={e => setModelo(e.target.value as typeof modelo)}
+                  className={`${baseInputClass} w-48`}>
+            <option value="">NFC-e e NF-e</option>
+            <option value="65">Só NFC-e (65)</option>
+            <option value="55">Só NF-e (55)</option>
+          </select>
+        </Field>
+        <div className="ml-auto flex flex-col items-end gap-1">
+          <Button variant="primary" onClick={baixarZip} loading={baixandoZip} disabled={comXml === 0}>
+            <Download size={16} /> Baixar XMLs do mês (.zip)
+          </Button>
+          <span className="text-xs text-gray-500" aria-live="polite">
+            {autorizadas.length} autorizada(s) em produção · {formatBRL(totalAutorizado)} · {comXml} XML(s)
+          </span>
+        </div>
       </div>
       {emAberto > 0 && (
         <p className="mx-4 mt-4 flex items-start gap-2 rounded-lg border border-warning-100 bg-warning-50 p-3 text-sm text-warning-700">
@@ -433,7 +484,7 @@ function Documentos() {
         </p>
       )}
       {isLoading ? <LoadingState /> : docs.length === 0 ? (
-        <EmptyState>Nenhuma nota emitida ainda. Com a emissão desligada, o PDV usa o cupom não fiscal.</EmptyState>
+        <EmptyState>Nenhuma nota neste mês. Com a emissão desligada, o PDV usa o cupom não fiscal.</EmptyState>
       ) : (
         <Table>
           <THead>
@@ -454,6 +505,12 @@ function Documentos() {
                   {d.mensagem && d.status !== 'AUTORIZADA' && <p className="mt-1 max-w-xs text-xs text-gray-500">{d.mensagem}</p>}
                 </TD>
                 <TD align="right">
+                  {d.temXml && (
+                    <Button size="sm" variant="secondary" aria-label={`Baixar XML da nota ${d.serie}/${d.numero}`}
+                            onClick={() => baixarArquivo(`/fiscal/documentos/${d.id}/xml`, {}, `${d.chave ?? `serie${d.serie}-numero${d.numero}`}-${d.modelo === 55 ? 'nfe' : 'nfce'}.xml`)}>
+                      <Download size={14} /> XML
+                    </Button>
+                  )}
                   {d.modelo === 65 && (d.status === 'DESCONHECIDO' || d.status === 'PENDENTE') && (
                     <Button size="sm" variant="secondary" loading={consultar.isPending && consultar.variables === d.id}
                             onClick={() => consultar.mutate(d.id)}>
