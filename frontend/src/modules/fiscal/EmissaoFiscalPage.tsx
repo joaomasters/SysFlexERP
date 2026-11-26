@@ -17,6 +17,7 @@ import {
 import SaneamentoCadastral from './components/SaneamentoCadastral'
 import VigenciasRegime from './components/VigenciasRegime'
 import NumeracaoInutilizar from './components/NumeracaoInutilizar'
+import FaturamentoMes from './components/FaturamentoMes'
 
 /*
  Emissão de NFC-e (modelo 65) e NF-e (modelo 55), Paraná primeiro.
@@ -24,7 +25,7 @@ import NumeracaoInutilizar from './components/NumeracaoInutilizar'
  configuração estiver completa (o backend recusa ligar com pendência — ver PendenciasFiscais).
 */
 
-type Aba = 'configuracao' | 'documentos' | 'saneamento'
+type Aba = 'configuracao' | 'documentos' | 'faturamento' | 'saneamento'
 
 // Campos editáveis: o resto (pendências, certificado...) vem pronto do backend
 type Form = Pick<ConfiguracaoFiscal,
@@ -79,6 +80,7 @@ export default function EmissaoFiscalPage() {
         options={[
           { value: 'configuracao', label: 'Configuração' },
           { value: 'documentos', label: 'Documentos emitidos' },
+          { value: 'faturamento', label: 'Faturamento do mês' },
           { value: 'saneamento', label: 'Saneamento cadastral' },
         ]}
         value={aba}
@@ -86,6 +88,7 @@ export default function EmissaoFiscalPage() {
       />
       {aba === 'configuracao' && <><Configuracao /><VigenciasRegime /></>}
       {aba === 'documentos' && <><Documentos /><NumeracaoInutilizar /></>}
+      {aba === 'faturamento' && <FaturamentoMes />}
       {aba === 'saneamento' && <SaneamentoCadastral />}
     </div>
   )

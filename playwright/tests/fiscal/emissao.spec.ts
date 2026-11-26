@@ -81,4 +81,27 @@ test.describe('Emissão de notas (NFC-e / NF-e)', () => {
         await expect(page.getByLabel('CST de PIS/COFINS')).toBeVisible()
         await expect(page.getByRole('heading', { name: 'CSC da NFC-e' })).toHaveCount(0)
     })
+
+    test('Faturamento do mês: as formas de pagamento fecham com o total e o extrato baixa em CSV', async ({ page, request }) => {
+        const h = new Date()
+        const mes = `${h.getFullYear()}-${String(h.getMonth() + 1).padStart(2, '0')}`
+        const r = await request.get(`/api/fiscal/faturamento-do-mes?mes=${mes}`, { headers })
+        expect(r.ok(), await r.text()).toBeTruthy()
+        const e = await r.json()
+        const somaFormas = Object.values(e.totais.porForma as Record<string, number>).reduce((s, v) => s + Number(v), 0)
+        expect(somaFormas).toBeCloseTo(Number(e.totais.total), 2)
+        expect(Number(e.totais.totalComNfce)).toBeLessThanOrEqual(Number(e.totais.total))
+
+        await page.goto('/fiscal/emissao')
+        await page.getByRole('button', { name: 'Faturamento do mês' }).click()
+        await expect(page.getByLabel('Mês')).toHaveValue(mes)
+        if (e.dias.length === 0) {
+            await expect(page.getByText('Nenhuma venda fechada neste mês.')).toBeVisible()
+            return
+        }
+        await expect(page.getByRole('row').filter({ hasText: 'Total do mês' })).toContainText(String(e.totais.vendas))
+        const download = page.waitForEvent('download')
+        await page.getByRole('button', { name: /Baixar extrato/ }).click()
+        expect((await download).suggestedFilename()).toBe(`faturamento-${mes}.csv`)
+    })
 })

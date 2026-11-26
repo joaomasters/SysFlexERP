@@ -17,6 +17,16 @@ public interface VendaRepository extends JpaRepository<Venda, Long> {
 
     List<Venda> findByCaixaIdAndStatus(Long caixaId, String status);
 
+    /** Extrato de faturamento: [id, dataVenda, total, troco, nfceStatus] das vendas fechadas do período. */
+    @Query("SELECT v.id, v.dataVenda, v.total, v.troco, v.nfceStatus FROM Venda v " +
+            "WHERE v.status = 'FECHADA' AND v.dataVenda >= :de AND v.dataVenda < :ate")
+    List<Object[]> resumoFechadas(@Param("de") LocalDateTime de, @Param("ate") LocalDateTime ate);
+
+    /** Extrato de faturamento: [vendaId, formaPagamento, valor] dos pagamentos das vendas fechadas do período. */
+    @Query("SELECT p.venda.id, p.formaPagamento, p.valor FROM PagamentoVenda p " +
+            "WHERE p.venda.status = 'FECHADA' AND p.venda.dataVenda >= :de AND p.venda.dataVenda < :ate")
+    List<Object[]> pagamentosFechadas(@Param("de") LocalDateTime de, @Param("ate") LocalDateTime ate);
+
     /** Relatório de tickets de saída: todas as vendas do período (qualquer status), já com os itens. */
     @Query("SELECT DISTINCT v FROM Venda v LEFT JOIN FETCH v.itens " +
             "WHERE v.dataVenda BETWEEN :inicio AND :fim ORDER BY v.dataVenda DESC")
