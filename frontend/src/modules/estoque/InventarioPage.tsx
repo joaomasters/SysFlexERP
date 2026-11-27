@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../shared/api/axios'
-import { CheckCircle2, XCircle, Filter, Printer } from 'lucide-react'
+import { CheckCircle2, XCircle, Filter, Printer, Search, X } from 'lucide-react'
 import { formatQuantidade, casasDaUnidade } from '@/shared/utils/mask'
 import { PageHeader, Card, Button, StatusBadge, WeightInput, baseInputClass, Paginacao } from '@/shared/components/ui'
 import { usePaginacao } from '@/shared/hooks/usePaginacao'
@@ -18,13 +18,25 @@ interface Inventario {
 }
 interface InventarioItem {
   id: number
-  produto: { id: number; nome: string; unidadeMedida: string }
+  produto: { id: number; nome: string; unidadeMedida: string; codigoInterno?: string | null; codigoBalanca?: number | null; ean13?: string | null }
   saldoSistema: number; saldoContado: number | null; divergencia: number | null
 }
 
 const hoje = hojeISO()
 const trintaDiasAtras = hojeISO(-30)
 const kg3 = formatQuantidade
+
+/** Minúsculas e sem acento, para "acem" achar "Acém". */
+const semAcento = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+
+/** Todas as palavras digitadas precisam aparecer no nome ou em algum código do produto. */
+function casaBusca(item: InventarioItem, termo: string) {
+  const palavras = semAcento(termo).split(/\s+/).filter(Boolean)
+  if (palavras.length === 0) return true
+  const p = item.produto
+  const texto = semAcento([p.nome, p.codigoInterno, p.codigoBalanca, p.ean13].filter(v => v != null).join(' '))
+  return palavras.every(w => texto.includes(w))
+}
 
 // ABERTO = contagem em andamento (processo, não problema); FINALIZADO = concluído;
 // CANCELADO = neutro.
@@ -41,6 +53,7 @@ export default function InventarioPage() {
   const [observacao, setObservacao] = useState('')
   const [contagens, setContagens] = useState<Record<number, number>>({})
   const [showRelatorio, setShowRelatorio] = useState(false)
+  const [busca, setBusca] = useState('')
 
   // Filtro de período da lista de inventários — padrão de 30 dias, com
   // opção de limpar pra ver o histórico completo.
@@ -89,6 +102,11 @@ export default function InventarioPage() {
     mutationFn: () => api.post(`/estoque/inventario/${selectedId}/cancelar`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['inventarios'] }),
   })
+
+  const itensFiltrados = useMemo(
+    () => (itens.data ?? []).filter(i => casaBusca(i, busca)),
+    [itens.data, busca],
+  )
 
   const inventarioAtivo = lista.data?.find(i => i.id === selectedId)
   const isAberto = inventarioAtivo?.status === 'ABERTO'
@@ -140,7 +158,7 @@ export default function InventarioPage() {
 
           <div className="space-y-2">
             {pag.itens.map(inv => (
-              <button key={inv.id} onClick={() => setSelectedId(inv.id)}
+              <button key={inv.id} onClick={() => { setSelectedId(inv.id); setBusca('') }}
                 className={`w-full text-left p-3 rounded-xl border text-sm transition-colors
                   ${selectedId === inv.id ? 'border-primary-500 bg-primary-50' : 'bg-white hover:bg-gray-50 border-gray-200'}`}>
                 <div className="flex items-center justify-between">
@@ -189,6 +207,31 @@ export default function InventarioPage() {
                   </div>
                 )}
               </div>
+              <div className="px-5 py-2.5 border-b flex items-center gap-3">
+                <div className="relative flex-1">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                  <input
+                    type="search"
+                    value={busca}
+                    onChange={e => setBusca(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Escape') setBusca('') }}
+                    placeholder="Pesquisar por nome, código, PLU ou código de barras"
+                    aria-label="Pesquisar produto no inventário"
+                    className={`${baseInputClass} pl-9 pr-8`}
+                  />
+                  {busca && (
+                    <button type="button" onClick={() => setBusca('')} aria-label="Limpar pesquisa"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+                {itens.data && (
+                  <span className="text-xs text-gray-500 whitespace-nowrap tabular-nums">
+                    {busca ? `${itensFiltrados.length} de ${itens.data.length}` : `${itens.data.length} itens`}
+                  </span>
+                )}
+              </div>
               <div className="overflow-y-auto max-h-[60vh]">
                 <table className="w-full text-sm">
                   <thead>
@@ -200,9 +243,17 @@ export default function InventarioPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {itens.data?.map(item => (
+                    {itensFiltrados.map(item => (
                       <tr key={item.id} className="border-b last:border-0 hover:bg-gray-50">
-                        <td className="px-4 py-2.5 font-medium">{item.produto.nome}</td>
+                        <td className="px-4 py-2.5">
+                          <span className="font-medium">{item.produto.nome}</span>
+                          {(item.produto.codigoInterno || item.produto.codigoBalanca != null) && (
+                            <span className="block text-[11px] text-gray-400">
+                              {[item.produto.codigoInterno, item.produto.codigoBalanca != null ? `PLU ${item.produto.codigoBalanca}` : null]
+                                .filter(Boolean).join(' · ')}
+                            </span>
+                          )}
+                        </td>
                         <td className="px-4 py-2.5 text-right text-gray-500 tabular-nums">
                           {kg3(item.saldoSistema, item.produto.unidadeMedida)} {item.produto.unidadeMedida}
                         </td>
@@ -233,6 +284,13 @@ export default function InventarioPage() {
                         </td>
                       </tr>
                     ))}
+                    {busca && itens.data && itensFiltrados.length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="px-4 py-6 text-center text-xs text-gray-400">
+                          Nenhum produto encontrado para "{busca}".
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
