@@ -29,6 +29,7 @@ public class EmissaoFiscalController {
     private final ConfiguracaoFiscalService configuracao;
     private final DocumentoFiscalRepository documentos;
     private final XmlMensalService xmlMensal;
+    private final FaturamentoMensalService faturamentoMensal;
 
     @ExigirPermissao(modulo = Modulo.FISCAL, acao = Acao.VER)
     @GetMapping("/configuracao")
@@ -81,6 +82,13 @@ public class EmissaoFiscalController {
     @GetMapping("/documentos/xml-do-mes")
     public ResponseEntity<byte[]> xmlDoMes(@RequestParam YearMonth mes) {
         return arquivo(xmlMensal.zipDoMes(mes), MediaType.parseMediaType("application/zip"));
+    }
+
+    /** Extrato de faturamento do mês: vendas fechadas por dia e forma de pagamento, com e sem NFC-e. */
+    @ExigirPermissao(modulo = Modulo.FISCAL, acao = Acao.VER)
+    @GetMapping("/faturamento-do-mes")
+    public ResponseEntity<FaturamentoMensalService.Extrato> faturamentoDoMes(@RequestParam YearMonth mes) {
+        return ResponseEntity.ok(faturamentoMensal.extrato(mes));
     }
 
     private static ResponseEntity<byte[]> arquivo(XmlMensalService.Arquivo a, MediaType tipo) {

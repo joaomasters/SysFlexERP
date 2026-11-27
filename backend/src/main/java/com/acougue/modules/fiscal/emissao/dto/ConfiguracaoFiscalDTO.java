@@ -17,7 +17,8 @@ public record ConfiguracaoFiscalDTO(
         boolean criptoConfigurada,
         List<Provedor> provedores,
         List<String> pendenciasNfce, List<String> pendenciasNfe,
-        long produtosSemNcm) {
+        long produtosSemNcm,
+        java.math.BigDecimal percentualTributos) {
 
     public record Provedor(String codigo, String rotulo) {}
 }

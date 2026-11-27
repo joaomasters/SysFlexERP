@@ -81,4 +81,52 @@ test.describe('Emissão de notas (NFC-e / NF-e)', () => {
         await expect(page.getByLabel('CST de PIS/COFINS')).toBeVisible()
         await expect(page.getByRole('heading', { name: 'CSC da NFC-e' })).toHaveCount(0)
     })
+
+    test('Faturamento do mês: as formas de pagamento fecham com o total e o extrato baixa em CSV', async ({ page, request }) => {
+        const h = new Date()
+        const mes = `${h.getFullYear()}-${String(h.getMonth() + 1).padStart(2, '0')}`
+        const r = await request.get(`/api/fiscal/faturamento-do-mes?mes=${mes}`, { headers })
+        expect(r.ok(), await r.text()).toBeTruthy()
+        const e = await r.json()
+        const somaFormas = Object.values(e.totais.porForma as Record<string, number>).reduce((s, v) => s + Number(v), 0)
+        expect(somaFormas).toBeCloseTo(Number(e.totais.total), 2)
+        expect(Number(e.totais.totalComNfce)).toBeLessThanOrEqual(Number(e.totais.total))
+
+        await page.goto('/fiscal/emissao')
+        await page.getByRole('button', { name: 'Faturamento do mês' }).click()
+        await expect(page.getByLabel('Mês')).toHaveValue(mes)
+        if (e.dias.length === 0) {
+            await expect(page.getByText('Nenhuma venda fechada neste mês.')).toBeVisible()
+            return
+        }
+        await expect(page.getByRole('row').filter({ hasText: 'Total do mês' })).toContainText(String(e.totais.vendas))
+        const download = page.waitForEvent('download')
+        await page.getByRole('button', { name: /Baixar extrato/ }).click()
+        expect((await download).suggestedFilename()).toBe(`faturamento-${mes}.csv`)
+    })
+
+    test('DANFE: prévia no Comprovante com código, quantidade de itens e tributos da Lei 12.741', async ({ page, request }) => {
+        const atual = await (await request.get('/api/fiscal/configuracao', { headers })).json()
+        const salvar = (percentualTributos: number | null) =>
+            request.put('/api/fiscal/configuracao', { headers, data: { ...atual, cscToken: null, percentualTributos } })
+        expect((await salvar(4.5)).ok()).toBeTruthy()
+        expect((await salvar(101)).status()).toBe(400)
+        try {
+            await page.goto('/fiscal/emissao')
+            await expect(page.getByLabel('Tributos aproximados no DANFE (%)')).toHaveValue('4,5')
+
+            await page.goto('/acesso/comprovante')
+            const previa = page.getByTestId('previa-comprovante')
+            await expect(previa).toContainText('NÃO É DOCUMENTO FISCAL')
+            await page.getByRole('button', { name: 'DANFE NFC-e' }).click()
+            await expect(previa).toContainText('Documento Auxiliar da Nota Fiscal de Consumidor Eletrônica')
+            await expect(previa).toContainText('P000012 - PICANHA')
+            await expect(previa).toContainText(/Qtd\. total de itens\s*2/)
+            // venda de exemplo: R$ 84,40 x 4,5% = R$ 3,80
+            await expect(previa).toContainText('Tributos Totais Incidentes (Lei Federal 12.741/2012): R$ 3,80 (4,5%)')
+            await expect(previa).not.toContainText('NÃO É DOCUMENTO FISCAL')
+        } finally {
+            await salvar(atual.percentualTributos ?? null)
+        }
+    })
 })
