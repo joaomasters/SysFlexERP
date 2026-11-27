@@ -162,9 +162,10 @@ class ModuloFiscalTest {
         private final com.acougue.modules.fiscal.parametros.EnquadramentoService enquadramento =
                 mock(com.acougue.modules.fiscal.parametros.EnquadramentoService.class);
         private final com.acougue.repository.DocumentoFiscalRepository documentoRepo = mock(com.acougue.repository.DocumentoFiscalRepository.class);
+        private final com.acougue.security.auditoria.AuditoriaService auditoria = mock(com.acougue.security.auditoria.AuditoriaService.class);
         private final ConfiguracaoFiscalService service = new ConfiguracaoFiscalService(
                 repo, mock(ProdutoRepository.class), new CredencialCripto("chave-de-teste-com-tamanho-suficiente-123"), List.of(),
-                enquadramento, documentoRepo);
+                enquadramento, documentoRepo, auditoria);
 
         Servico() {
             when(repo.findById((short) 1)).thenReturn(Optional.of(ModuloFiscalTest.completa()));
@@ -211,6 +212,44 @@ class ModuloFiscalTest {
             dto.setRegimeTributario((short) 3);
             service.salvar(dto);
             verify(enquadramento).registrar(eq((short) 3), eq(java.time.LocalDate.now()), any());
+        }
+
+        @Test
+        @DisplayName("auditoria: troca de série e de \"quando emitir\" vira uma linha; sem mudança, nada")
+        void auditaTrocas() {
+            SalvarConfiguracaoFiscalDTO dto = new SalvarConfiguracaoFiscalDTO();
+            dto.setAmbiente("HOMOLOGACAO");
+            dto.setProvedor("NENHUM");
+            dto.setNfceSerie((short) 4);
+            dto.setNfceModo("TODAS");
+            service.salvar(dto);
+            verify(auditoria).registrar(eq("FISCAL"), eq("CONFIG_FISCAL"),
+                    argThat(d -> d.contains("série NFC-e 1 → 4") && d.contains("→ em todas as vendas")));
+            verify(auditoria, never()).registrar(eq("FISCAL"), eq("NFCE_LIGADA"), any());
+
+            clearInvocations(auditoria);
+            service.salvar(dto);   // mesma configuração de novo
+            verify(auditoria, never()).registrar(any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("auditoria: desligar a NFC-e (aqui, ao remover o certificado) registra quem, quando e por quê")
+        void auditaDesligar() {
+            ConfiguracaoFiscal ligada = ModuloFiscalTest.completa();
+            ligada.setEmitirNfce(true);
+            when(repo.findById((short) 1)).thenReturn(Optional.of(ligada));
+            service.removerCertificado();
+            verify(auditoria).registrar(eq("FISCAL"), eq("NFCE_DESLIGADA"),
+                    argThat(d -> d.contains("desligada") && d.contains("certificado digital removido")));
+        }
+
+        @Test
+        @DisplayName("trocas(): ambiente, provedor, numeração e modo")
+        void trocas() {
+            var a = new ConfiguracaoFiscalService.Estado(true, false, "HOMOLOGACAO", "FOCUS_NFE", "SOB_DEMANDA", (short) 1, 10, (short) 1, 1);
+            var d = new ConfiguracaoFiscalService.Estado(true, false, "PRODUCAO", "FOCUS_NFE", "SOB_DEMANDA", (short) 1, 12, (short) 1, 1);
+            assertThat(ConfiguracaoFiscalService.trocas(a, d))
+                    .containsExactly("ambiente HOMOLOGACAO → PRODUCAO", "próximo número NFC-e 10 → 12");
         }
 
         @Test

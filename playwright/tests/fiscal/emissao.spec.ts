@@ -129,4 +129,21 @@ test.describe('Emissão de notas (NFC-e / NF-e)', () => {
             await salvar(atual.percentualTributos ?? null)
         }
     })
+
+    test('Auditoria: trocar a série e o "quando emitir" fica registrado com o antes e o depois', async ({ request }) => {
+        const atual = await (await request.get('/api/fiscal/configuracao', { headers })).json()
+        const novaSerie = atual.nfceSerie === 7 ? 8 : 7
+        const novoModo = atual.nfceModo === 'TODAS' ? 'SOB_DEMANDA' : 'TODAS'
+        const r = await request.put('/api/fiscal/configuracao', { headers, data: { ...atual, cscToken: null, nfceSerie: novaSerie, nfceModo: novoModo } })
+        expect(r.ok(), await r.text()).toBeTruthy()
+        try {
+            const logs = await (await request.get('/api/auditoria?modulo=FISCAL&acao=CONFIG_FISCAL', { headers })).json()
+            const ultimo = logs.find((l: { descricao: string }) => l.descricao.includes(`série NFC-e ${atual.nfceSerie} → ${novaSerie}`))
+            expect(ultimo, JSON.stringify(logs.slice(0, 3))).toBeTruthy()
+            expect(ultimo.descricao).toContain('quando emitir NFC-e')
+            expect(ultimo.nomeUsuario).toBeTruthy()
+        } finally {
+            await request.put('/api/fiscal/configuracao', { headers, data: { ...atual, cscToken: null } })
+        }
+    })
 })
