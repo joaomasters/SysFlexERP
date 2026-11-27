@@ -12,12 +12,15 @@ import com.acougue.repository.ConfiguracaoFiscalRepository;
 import com.acougue.repository.DocumentoFiscalRepository;
 import com.acougue.repository.ProdutoRepository;
 import com.acougue.security.ContextoUsuario;
+import com.acougue.security.auditoria.AuditoriaService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.Objects;
 
 /** Configuração de NFC-e / NF-e da empresa logada (só Paraná, por enquanto). */
 @Service
@@ -29,16 +32,19 @@ public class ConfiguracaoFiscalService {
     private final List<ProvedorFiscal> provedores;
     private final EnquadramentoService enquadramento;
     private final DocumentoFiscalRepository documentoRepo;
+    private final AuditoriaService auditoria;
 
     public ConfiguracaoFiscalService(ConfiguracaoFiscalRepository repo, ProdutoRepository produtoRepo,
                                      CredencialCripto cripto, List<ProvedorFiscal> provedores,
-                                     EnquadramentoService enquadramento, DocumentoFiscalRepository documentoRepo) {
+                                     EnquadramentoService enquadramento, DocumentoFiscalRepository documentoRepo,
+                                     AuditoriaService auditoria) {
         this.repo = repo;
         this.produtoRepo = produtoRepo;
         this.cripto = cripto;
         this.provedores = provedores;
         this.enquadramento = enquadramento;
         this.documentoRepo = documentoRepo;
+        this.auditoria = auditoria;
     }
 
     @Transactional
@@ -51,6 +57,7 @@ public class ConfiguracaoFiscalService {
     public ConfiguracaoFiscalDTO salvar(SalvarConfiguracaoFiscalDTO dto) {
         enquadramento.sincronizarConfiguracao();
         ConfiguracaoFiscal c = carregar();
+        Estado antes = Estado.de(c);
         if (!"NENHUM".equals(dto.getProvedor()) && provedores.stream().noneMatch(p -> p.codigo().equals(dto.getProvedor()))) {
             throw new BusinessException("Provedor fiscal desconhecido: " + dto.getProvedor());
         }
@@ -117,6 +124,7 @@ public class ConfiguracaoFiscalService {
         c.setEmitirNfe(dto.isEmitirNfe());
         c.setUpdatedBy(ContextoUsuario.atual().getUsuarioId());
         ConfiguracaoFiscal salva = repo.save(c);
+        auditar(antes, Estado.de(salva), null);
         // Trocar o regime na tela abre uma nova vigência a partir de hoje (a anterior é preservada)
         if (dto.getRegimeTributario() != salva.getRegimeTributario()) {
             enquadramento.registrar(dto.getRegimeTributario(), LocalDate.now(), "Alterado na configuração fiscal");
@@ -159,6 +167,7 @@ public class ConfiguracaoFiscalService {
     @Transactional
     public ConfiguracaoFiscalDTO removerCertificado() {
         ConfiguracaoFiscal c = carregar();
+        Estado antes = Estado.de(c);
         c.setCertificadoCripto(null);
         c.setCertificadoSenhaCripto(null);
         c.setCertificadoTitular(null);
@@ -168,7 +177,64 @@ public class ConfiguracaoFiscalService {
         c.setEmitirNfce(false);
         c.setEmitirNfe(false);
         c.setUpdatedBy(ContextoUsuario.atual().getUsuarioId());
-        return paraDto(repo.save(c));
+        ConfiguracaoFiscal salva = repo.save(c);
+        auditar(antes, Estado.de(salva), "certificado digital removido");
+        return paraDto(salva);
+    }
+
+    // ── auditoria ──────────────────────────────────────────────
+
+    /** O que interessa auditar na configuração: ligar/desligar a emissão, ambiente, provedor, numeração e modo. */
+    record Estado(boolean emitirNfce, boolean emitirNfe, String ambiente, String provedor, String nfceModo,
+                  Short nfceSerie, Integer nfceProximoNumero, Short nfeSerie, Integer nfeProximoNumero) {
+        static Estado de(ConfiguracaoFiscal c) {
+            return new Estado(Boolean.TRUE.equals(c.getEmitirNfce()), Boolean.TRUE.equals(c.getEmitirNfe()), c.getAmbiente(),
+                    c.getProvedor(), c.getNfceModo(), c.getNfceSerie(), c.getNfceProximoNumero(), c.getNfeSerie(),
+                    c.getNfeProximoNumero());
+        }
+    }
+
+    /** Uma linha por emissão ligada/desligada e uma com as demais trocas (quem e quando ficam no próprio log). */
+    private void auditar(Estado antes, Estado depois, String motivo) {
+        String sufixo = motivo == null ? "" : " (" + motivo + ")";
+        if (antes.emitirNfce() != depois.emitirNfce()) {
+            auditoria.registrar("FISCAL", depois.emitirNfce() ? "NFCE_LIGADA" : "NFCE_DESLIGADA",
+                    "Emissão de NFC-e " + (depois.emitirNfce() ? "ligada" : "desligada") + sufixo
+                            + " — ambiente " + depois.ambiente() + ", série " + depois.nfceSerie()
+                            + ", modo " + rotuloModo(depois.nfceModo()));
+        }
+        if (antes.emitirNfe() != depois.emitirNfe()) {
+            auditoria.registrar("FISCAL", depois.emitirNfe() ? "NFE_LIGADA" : "NFE_DESLIGADA",
+                    "Emissão de NF-e " + (depois.emitirNfe() ? "ligada" : "desligada") + sufixo);
+        }
+        List<String> trocas = trocas(antes, depois);
+        if (!trocas.isEmpty()) {
+            auditoria.registrar("FISCAL", "CONFIG_FISCAL", "Configuração fiscal: " + String.join("; ", trocas) + sufixo);
+        }
+    }
+
+    static List<String> trocas(Estado a, Estado d) {
+        List<String> t = new ArrayList<>();
+        if (!Objects.equals(a.ambiente(), d.ambiente())) t.add("ambiente " + a.ambiente() + " → " + d.ambiente());
+        if (!Objects.equals(a.provedor(), d.provedor())) t.add("provedor " + a.provedor() + " → " + d.provedor());
+        if (!Objects.equals(a.nfceModo(), d.nfceModo())) {
+            t.add("quando emitir NFC-e: " + rotuloModo(a.nfceModo()) + " → " + rotuloModo(d.nfceModo()));
+        }
+        if (!Objects.equals(a.nfceSerie(), d.nfceSerie())) t.add("série NFC-e " + a.nfceSerie() + " → " + d.nfceSerie());
+        if (!Objects.equals(a.nfceProximoNumero(), d.nfceProximoNumero())) {
+            t.add("próximo número NFC-e " + a.nfceProximoNumero() + " → " + d.nfceProximoNumero());
+        }
+        if (!Objects.equals(a.nfeSerie(), d.nfeSerie())) t.add("série NF-e " + a.nfeSerie() + " → " + d.nfeSerie());
+        if (!Objects.equals(a.nfeProximoNumero(), d.nfeProximoNumero())) {
+            t.add("próximo número NF-e " + a.nfeProximoNumero() + " → " + d.nfeProximoNumero());
+        }
+        return t;
+    }
+
+    private static String rotuloModo(String modo) {
+        if ("TODAS".equals(modo)) return "em todas as vendas";
+        if ("SOB_DEMANDA".equals(modo)) return "só quando o cliente pedir";
+        return String.valueOf(modo);
     }
 
     // ── internos ───────────────────────────────────────────────
